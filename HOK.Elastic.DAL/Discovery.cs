@@ -537,7 +537,7 @@ namespace HOK.Elastic.DAL
             var resp = client.Indices.ValidateQuery<IFSO>(v => v
                 .Index(AllIndicies)
                 .Query(q => q.Raw(jsonQueryString)));
-            if (resp.Valid)
+            if (resp.IsValid)
             {
                 return true;
             }
