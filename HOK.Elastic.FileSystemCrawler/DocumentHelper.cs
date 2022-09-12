@@ -199,7 +199,10 @@ namespace HOK.Elastic.FileSystemCrawler
                             var recipientsCc = eml.GetEmailRecipients(MsgReader.Outlook.RecipientType.Cc, false, false);
                             var recipientsList = recipientsTo.Split(';').Select(x => x.Trim().ToLowerInvariant()).ToList();
                             fsoEmail.To = recipientsList;
-                            recipientsList.AddRange(recipientsCc.Split(';').Select(x => x.Trim().ToLowerInvariant()));
+                            if (recipientsCc != "")
+                            {
+                                recipientsList.AddRange(recipientsCc.Split(';').Select(x => x.Trim().ToLowerInvariant()));
+                            }
                             fsoEmail.AllRecipients = recipientsList.Distinct().ToList();
                             fsoEmail.SentUTC = eml.SentOn;
                             fsoEmail.ConversationIndex = eml.ConversationIndex;
