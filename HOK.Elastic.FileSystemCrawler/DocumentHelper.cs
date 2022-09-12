@@ -199,7 +199,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             var recipientsCc = eml.GetEmailRecipients(MsgReader.Outlook.RecipientType.Cc, false, false);
                             var recipientsList = recipientsTo.Split(';').Select(x => x.Trim().ToLowerInvariant()).ToList();
                             fsoEmail.To = recipientsList;
-                            if (recipientsCc != "")
+                            if (!string.IsNullOrEmpty(recipientsCc))
                             {
                                 recipientsList.AddRange(recipientsCc.Split(';').Select(x => x.Trim().ToLowerInvariant()));
                             }
