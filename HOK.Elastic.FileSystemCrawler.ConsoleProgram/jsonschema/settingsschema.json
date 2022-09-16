@@ -1,0 +1,126 @@
+{
+  "type": "object",
+  "properties": {
+    "ElasticDiscoveryURI": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uri"
+      }
+    },
+    "ElasticIndexURI": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uri"
+      }
+    },
+    "FileSystemEventsAPI": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri"
+    },
+    "IndexNamePrefix": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ExceptionsPerTenMinuteIntervalLimit": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "ReadContentSizeLimitMB": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "BulkUploadSize": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "PathInclusionRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "FileNameExclusionRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "IgnoreExtensions": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "CPUCoreThreadMultiplier": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "OfficeSiteExtractRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ProjectExtractRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "PipeCategorizationRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "ElasticDiscoveryURI",
+    "ElasticIndexURI",
+    "FileSystemEventsAPI",
+    "IndexNamePrefix",
+    "ExceptionsPerTenMinuteIntervalLimit",
+    "ReadContentSizeLimitMB",
+    "BulkUploadSize",
+    "PathInclusionRegex",
+    "FileNameExclusionRegex",
+    "IgnoreExtensions",
+    "CPUCoreThreadMultiplier",
+    "OfficeSiteExtractRegex",
+    "ProjectExtractRegex",
+    "PipeCategorizationRegex"
+  ]
+}

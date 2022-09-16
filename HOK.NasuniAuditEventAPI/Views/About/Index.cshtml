@@ -1,0 +1,32 @@
+﻿@model HOK.NasuniAuditEventAPI.DAL.NasuniEventReader
+@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+<p>
+    <ul>
+        <li>@Html.LabelFor(m => m.FolderTowatch)=@Html.DisplayFor(m => m.FolderTowatch)</li>
+        <li>@Html.LabelFor(m => m.LogsRead)=@Html.DisplayFor(m => m.LogsRead)</li>
+        <li>@Html.LabelFor(m => m.MinimumAgeOfLogsToRead)=@Html.DisplayFor(m => m.MinimumAgeOfLogsToRead.TotalHours) Hours</li>
+    </ul>
+    <ul>
+        <li>@Html.LabelFor(m => m.MinageInMinutes)=@Html.DisplayFor(m => m.MinageInMinutes)</li>
+        <li>@Html.LabelFor(m => m.EventQueueLength)=@Html.DisplayFor(m => m.EventQueueLength)</li>
+        <li>@Html.LabelFor(m => m.EventsConsumed)=@Html.DisplayFor(m => m.EventsConsumed)</li>
+        <li>@Html.LabelFor(m => m.EventDuplicates)=@Html.DisplayFor(m => m.EventDuplicates)</li>
+        <li>@Html.LabelFor(m => m.PathSkipped)=@Html.DisplayFor(m => m.PathSkipped)</li>
+
+    </ul>
+</p>
+
+@{
+    var link1 = string.Concat(@Url.Action("peek", "api"), "?$top=200");
+    var link2 = string.Concat(@Url.Action("auditevents", "api"), "?$top=2");
+}
+<pre>
+   This will just peek at the top 200 events without consuming them
+    <a href=@link1>@link1</a>
+    this will get and consume 2 events.
+    <a href=@link2>@link2</a>
+</pre>
+
+

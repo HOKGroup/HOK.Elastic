@@ -1,0 +1,214 @@
+{
+  "definitions": {
+    "InputPathBase": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "Path": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "Office": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "PathStatus": {
+          "type": "integer",
+          "enum": [
+            0,
+            1
+          ]
+        }
+      },
+      "required": [
+        "Path",
+        "Office",
+        "PathStatus"
+      ]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "CrawlMode": {
+      "type": "integer",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        10,
+        11
+      ]
+    },
+    "ReadFileContents": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "InputPaths": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/InputPathBase"
+      }
+    },
+    "Count": {
+      "type": "integer"
+    },
+    "PathForCrawling": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "PathForCrawlingContent": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "PublishedPath": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ElasticDiscoveryURI": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uri"
+      }
+    },
+    "ElasticIndexURI": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uri"
+      }
+    },
+    "FileSystemEventsAPI": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri"
+    },
+    "IndexNamePrefix": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ExceptionsPerTenMinuteIntervalLimit": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "ReadContentSizeLimitMB": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "BulkUploadSize": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "PathInclusionRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "FileNameExclusionRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "IgnoreExtensions": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "CPUCoreThreadMultiplier": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "OfficeSiteExtractRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "ProjectExtractRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "PipeCategorizationRegex": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "CrawlMode",
+    "ReadFileContents",
+    "InputPaths",
+    "Count",
+    "PathForCrawling",
+    "PathForCrawlingContent",
+    "PublishedPath",
+    "ElasticDiscoveryURI",
+    "ElasticIndexURI",
+    "FileSystemEventsAPI",
+    "IndexNamePrefix",
+    "ExceptionsPerTenMinuteIntervalLimit",
+    "ReadContentSizeLimitMB",
+    "BulkUploadSize",
+    "PathInclusionRegex",
+    "FileNameExclusionRegex",
+    "IgnoreExtensions",
+    "CPUCoreThreadMultiplier",
+    "OfficeSiteExtractRegex",
+    "ProjectExtractRegex",
+    "PipeCategorizationRegex"
+  ]
+}
