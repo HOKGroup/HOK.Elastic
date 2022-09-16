@@ -1,0 +1,53 @@
+{
+  "GlobalCatalogFallbackServer": {
+    "type": [
+      "string",
+      "null"
+    ]
+  },
+  "GlobalCatalogIncludeSuffix": {
+    "type": [
+      "string",
+      "null"
+    ]
+  },
+  "LDAPIncludeSuffix": {
+    "type": [
+      "string",
+      "null"
+    ]
+  },
+  "LDAPFallbackServer": {
+    "type": [
+      "string",
+      "null"
+    ]
+  },
+  "LDAPDefaultQueryPath": {
+    "type": [
+      "string",
+      "null"
+    ]
+  },
+  "RolesAndRoleMappingNamePrefix": {
+    "type": [
+      "string",
+      "null"
+    ]
+  },
+  "SIDSuffixBase": {
+    "type": [
+      "string",
+      "null"
+    ]
+  },
+  "required": [
+    "GlobalCatalogFallbackServer",
+    "GlobalCatalogIncludeSuffix",
+    "LDAPIncludeSuffix",
+    "LDAPFallbackServer",
+    "LDAPDefaultQueryPath",
+    "RolesAndRoleMappingNamePrefix",
+    "SIDSuffixBase"
+  ]
+}

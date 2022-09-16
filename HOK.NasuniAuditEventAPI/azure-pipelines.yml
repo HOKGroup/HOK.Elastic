@@ -1,0 +1,36 @@
+trigger:
+  branches:
+    include:
+      - main
+      - dev
+  paths:
+    include:
+      - HOK.NasuniAuditEventAPI/*
+      - HOK.NasuniAuditEventAPI.DAL/*
+      - HOK.Elastic.DAL/*
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  runtime: 'win-x64'
+
+steps:
+- task: UseDotNet@2
+  inputs:
+    version: '3.1.x'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'publish'
+    publishWebProjects: true
+    projects: 'HOK.NasuniAuditEventAPI/HOK.NasuniAuditEventAPI.csproj'
+    arguments: '--configuration $(buildConfiguration) -r $(runtime) --version-suffix "ci-build-$(Build.SourceVersion)" --output $(Build.ArtifactStagingDirectory)'
+    zipAfterPublish: false
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: '$(Build.BuildNumber)'
+    publishLocation: 'Container'
