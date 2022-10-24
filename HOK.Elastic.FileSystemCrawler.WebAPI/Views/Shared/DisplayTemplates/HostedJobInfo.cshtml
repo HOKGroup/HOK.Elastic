@@ -1,0 +1,47 @@
+﻿@model HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo
+<h4>HostedJobInfo</h4>
+<hr />
+<dl class="row">
+    <dt class="col-sm-2">
+        @Html.DisplayNameFor(model => model.SettingsJobArgs.JobName)
+    </dt>
+    <dd class="col-sm-10">
+        @Html.DisplayFor(model => model.SettingsJobArgs.JobName)
+    </dd>
+    <dt class="col-sm-2">
+        @Html.DisplayNameFor(model => model.SettingsJobArgs.JobNotes)
+    </dt>
+    <dd class="col-sm-10">
+        @Html.DisplayFor(model => model.SettingsJobArgs.JobNotes)
+    </dd>
+    <dt class="col-sm-2">
+        @Html.DisplayNameFor(model => model.IsCompleted)
+    </dt>
+    <dd class="col-sm-10">
+        @Html.DisplayFor(model => model.IsCompleted)
+    </dd>
+    <dt class="col-sm-2">
+        @Html.DisplayNameFor(model => model.WhenCompleted)
+    </dt>
+    <dd class="col-sm-10">
+        @Html.DisplayFor(model => model.WhenCompleted)
+    </dd>
+    <dt class="col-sm-2">
+        @Html.DisplayNameFor(model => model.Id)
+    </dt>
+    <dd class="col-sm-10">
+        @Html.DisplayFor(model => model.Id)
+    </dd>
+    <dt class="col-sm-2">
+        @Html.DisplayNameFor(model => model.Status)
+    </dt>
+    <dd class="col-sm-10">
+        @Html.DisplayFor(model => model.Status)
+    </dd>
+    <dt class="col-sm-2">
+        @Html.DisplayNameFor(model => model.CompletionInfo.DurationSeconds)
+    </dt>
+    <dd class="col-sm-10">
+        @Html.DisplayFor(model => model.CompletionInfo.DurationSeconds)
+    </dd>
+</dl>

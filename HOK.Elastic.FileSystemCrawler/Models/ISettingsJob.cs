@@ -6,6 +6,6 @@ namespace HOK.Elastic.FileSystemCrawler.Models
     {
         CrawlMode CrawlMode { get; set; }
         bool? ReadFileContents { get; set; }
-        ICollection<InputPathBase> InputPaths { get; set; }
+        InputPathCollectionBase InputPaths { get; set; }
     }
 }

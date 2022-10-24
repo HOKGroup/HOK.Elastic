@@ -321,6 +321,17 @@ namespace HOK.NasuniAuditEventAPI.DAL
             }
             return inputPathAudit;
         }
+        /// <summary>
+        /// Insert the record into the collection but older than the oldest timestamp, so that it is returned to the next caller
+        /// </summary>
+        /// <param name="inputPathEventStream"></param>
+        public void PutPriorityEvent(InputPathEventStream inputPathEventStream)
+        {
+            DateTime oldestRecord = _inputPaths.Query.Min(x => x.TimeStampUtc).Subtract(TimeSpan.FromMinutes(1));
+            if (DateTime.MinValue.AddMinutes(1) < oldestRecord) oldestRecord = oldestRecord.AddMinutes(-1);
+            inputPathEventStream.TimeStampUtc = oldestRecord;
+            _inputPaths.Add(inputPathEventStream);
+        }
 
         public bool TestReadLogs()
         {
@@ -362,5 +373,7 @@ namespace HOK.NasuniAuditEventAPI.DAL
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
+
+       
     }
 }

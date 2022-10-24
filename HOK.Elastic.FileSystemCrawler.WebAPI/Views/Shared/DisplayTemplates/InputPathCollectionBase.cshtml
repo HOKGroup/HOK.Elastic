@@ -1,0 +1,53 @@
+﻿@model HOK.Elastic.FileSystemCrawler.Models.InputPathCollectionBase
+
+@{
+    ViewData["Title"] = "InputPathCollectionBase";
+}
+<div>
+    <hr />
+    <dl class="row">
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Count)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Count)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.PathForCrawling)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.PathForCrawling)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.PathForCrawlingContent)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.PathForCrawlingContent)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.PublishedPath)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.PublishedPath)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayName("Items:")
+        </dt>
+        <dd class="col-sm-10">
+            @if (Model!=null && Model.Count>0)
+            {
+                <div style="height:100px;overflow-y:scroll">
+                    <table>
+                        @foreach(var item in Model)
+                        {
+                            <tr>                       
+                                <td>@item.ToString()</td>
+                            </tr>
+                        }
+                    </table>
+                </div> 
+            }
+        </dd>
+    </dl>
+</div>
+

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.30011.22
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32901.215
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HOK.NasuniAuditEventAPI", "HOK.NasuniAuditEventAPI\HOK.NasuniAuditEventAPI.csproj", "{D29C7809-E2A0-4A3A-8E90-85C57C32CA92}"
 EndProject
@@ -16,6 +16,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HOK.Elastic.RoleMappingGroupSync", "HOK.Elastic.RoleMappingGroupSync\HOK.Elastic.RoleMappingGroupSync.csproj", "{B9A3E067-E1DB-433B-A33C-0030E6273C99}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HOK.NasuniAuditEventAPI.DAL", "HOK.NasuniAuditEventAPI.DAL\HOK.NasuniAuditEventAPI.DAL.csproj", "{BED54D56-9617-4523-9526-CBFED68B3970}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ConsoleTest", "ConsoleTest\ConsoleTest.csproj", "{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HOK.Elastic.FileSystemCrawler.WebAPI", "HOK.Elastic.FileSystemCrawler.WebAPI\HOK.Elastic.FileSystemCrawler.WebAPI.csproj", "{F91E91AF-1028-40E4-9341-AF9252909C1E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -81,6 +85,22 @@ Global
 		{BED54D56-9617-4523-9526-CBFED68B3970}.Release|Any CPU.Build.0 = Release|Any CPU
 		{BED54D56-9617-4523-9526-CBFED68B3970}.Release|x64.ActiveCfg = Release|x64
 		{BED54D56-9617-4523-9526-CBFED68B3970}.Release|x64.Build.0 = Release|x64
+		{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}.Debug|x64.Build.0 = Debug|Any CPU
+		{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}.Release|x64.ActiveCfg = Release|Any CPU
+		{1318D325-E0C5-4D0F-B0EF-CDE5B17E61E2}.Release|x64.Build.0 = Release|Any CPU
+		{F91E91AF-1028-40E4-9341-AF9252909C1E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F91E91AF-1028-40E4-9341-AF9252909C1E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F91E91AF-1028-40E4-9341-AF9252909C1E}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{F91E91AF-1028-40E4-9341-AF9252909C1E}.Debug|x64.Build.0 = Debug|Any CPU
+		{F91E91AF-1028-40E4-9341-AF9252909C1E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F91E91AF-1028-40E4-9341-AF9252909C1E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F91E91AF-1028-40E4-9341-AF9252909C1E}.Release|x64.ActiveCfg = Release|Any CPU
+		{F91E91AF-1028-40E4-9341-AF9252909C1E}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

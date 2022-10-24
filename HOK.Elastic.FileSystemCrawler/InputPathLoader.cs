@@ -43,7 +43,7 @@ namespace HOK.Elastic.FileSystemCrawler
         /// </summary>
         /// <param name="filepath"></param>
         /// <param name="jobSettings"></param>
-        public static void LoadUnfinishedPaths(string filepath,  ref InputPathCollectionCrawl<InputPathBase> paths)
+        public static void LoadUnfinishedPaths(string filepath,  ref InputPathCollectionCrawl paths)
         {
             if (HasUnfinishedPaths(filepath) && paths != null)
             {

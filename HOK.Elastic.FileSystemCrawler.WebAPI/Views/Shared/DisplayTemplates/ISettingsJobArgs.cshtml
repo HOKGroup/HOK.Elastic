@@ -1,0 +1,45 @@
+﻿@model HOK.Elastic.FileSystemCrawler.Models.ISettingsJobArgs
+@{
+    ViewData["Title"] = "View";
+}
+<div>
+    <hr />
+    <dl class="row">
+        <dt class ="col-sm-2">
+            @Html.DisplayNameFor(model => model.CrawlThreads)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.CrawlThreads)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.DocInsertionThreads)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.DocInsertionThreads)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.DocReadingThreads)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.DocReadingThreads)
+        </dd> 
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.JsonQueryString)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.JsonQueryString)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.InputPathLocation)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.InputPathLocation)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.InputPaths)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.InputPaths)
+        </dd>
+    </dl>
+</div>

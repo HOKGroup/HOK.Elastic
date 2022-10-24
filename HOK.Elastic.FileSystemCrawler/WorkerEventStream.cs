@@ -51,7 +51,7 @@ namespace HOK.Elastic.FileSystemCrawler
             {
                 #region setup dataflowblocks
                 BufferBlock<InputPathEventStream> bb = new BufferBlock<InputPathEventStream>(new DataflowBlockOptions { BoundedCapacity = 300 });
-                ActionBlock<InputPathEventStream> blockActionMove = new ActionBlock<InputPathEventStream>(item => ActionMove(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
+                ActionBlock<InputPathEventStream> blockActionMove = new ActionBlock<InputPathEventStream>(item => ActionMoveOrCopy(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
                 ActionBlock<InputPathEventStream> blockActionUpdateOrNew = new ActionBlock<InputPathEventStream>(item => ActionUpdateOrNew(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
                 ActionBlock<InputPathEventStream> blockActionDelete = new ActionBlock<InputPathEventStream>(item => ActionDelete(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
                 bb.LinkTo(blockActionDelete, linkOptions, item => item.PresenceAction == ActionPresence.Delete);
@@ -125,7 +125,7 @@ namespace HOK.Elastic.FileSystemCrawler
             return completionInfo;
         }
 
-        private async Task ActionMove(InputPathEventStream auditEvent)
+        private async Task ActionMoveOrCopy(InputPathEventStream auditEvent)
         {
             try
             {
@@ -145,38 +145,41 @@ namespace HOK.Elastic.FileSystemCrawler
                 if (ToDoc == null)
                 {
                     //FileSystem Not Found
-                    if (ilwarn) _il.LogWarn("ActionMove NotFound PathTo", auditEvent.Path, auditEvent);
+                    if (ilwarn) _il.LogWarn("ActionMoveOrCopy NotFound PathTo", auditEvent.Path, auditEvent);
                     Interlocked.Increment(ref _filesnotfound);
                     return;
                 }
                 ToDoc = DocumentHelper.ReindexTransform(ToDoc);
 
-                if (ildebug) _il.LogDebugInfo("ActionMove OK", auditEvent.Path, auditEvent);
+                if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy OK", auditEvent.Path, auditEvent);
                 if (auditEvent.IsDir)
                 {
                     var fromPublishedPath = PathHelper.GetPublishedPath(auditEvent.PathFrom);
                     #region movedir
                     //first, move any affected Children....actually we should do this regardless if existing doc was found...
-                    var affectedDocuments = _discoveryEndPoint.FindChildren(fromPublishedPath);
+                    var affectedDocuments = _discoveryEndPoint.FindDescendentsForMoving(fromPublishedPath);
                     foreach (var fso in affectedDocuments)
                     {
                        try
                         {
                             //delete pathfrom doc....
                             string oldPath = fso.Id;
-                            if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase) ? !Directory.Exists(oldPath) : !File.Exists(oldPath))
+                            if (auditEvent.PresenceAction == ActionPresence.Move)
                             {
-                                if (Directory.Exists(PathHelper.ContentRoot))//double-check that the filer is online and available and then delete.
+                                if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase) ? !Directory.Exists(oldPath) : !File.Exists(oldPath))
                                 {
-                                    Interlocked.Add(ref _deleted, _indexEndPoint.Delete(oldPath, fso.IndexName));
+                                    if (Directory.Exists(PathHelper.ContentRoot))//double-check that the filer is online and available and then delete.
+                                    {
+                                        Interlocked.Add(ref _deleted, _indexEndPoint.Delete(oldPath, fso.IndexName));
+                                    }
                                 }
                             }
                             //add new path doc....
                             string newPublishedPath = fso.Id.Replace(fromPublishedPath, ToDoc.PublishedPath);
                             fso.Id = newPublishedPath;
                             fso.SetFileSystemInfoFromId();
-                            if (ildebug) _il.LogDebugInfo("ActionMove Child", oldPath, newPublishedPath);
-                            fso.Reason = "ActionMove Child";
+                            if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy Child", oldPath, newPublishedPath);
+                            fso.Reason = "ActionMoveOrCopy Child";
                             await docReindexTransformBlock.SendAsync(fso).ConfigureAwait(false);
                             Interlocked.Increment(ref _filesmatched);
                         }
@@ -184,12 +187,12 @@ namespace HOK.Elastic.FileSystemCrawler
                         {
                             if (ex is FileNotFoundException)
                             {
-                                if (ilwarn) _il.LogWarn("ActionMove Child NotFound", fso.Id, auditEvent);
+                                if (ilwarn) _il.LogWarn("ActionMoveOrCopy Child NotFound", fso.Id, auditEvent);
                                 Interlocked.Increment(ref _filesnotfound);
                             }
                             else
                             {
-                                if (ilerror) _il.LogErr("ActionMove Child", auditEvent.Path, auditEvent, ex);
+                                if (ilerror) _il.LogErr("ActionMoveOrCopy Child", auditEvent.Path, auditEvent, ex);
                             }
                         }
                     }
@@ -197,9 +200,12 @@ namespace HOK.Elastic.FileSystemCrawler
                     if (existingdoc != null)
                     {
                         //next, delete the existing, old document
-                        if (!Directory.Exists(auditEvent.PathFrom)&& Directory.Exists(PathHelper.ContentRoot))//this was path...but I think we'd only care about deleting the 'old/pathfrom' document...
+                        if (auditEvent.PresenceAction == ActionPresence.Move)
                         {
-                            Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
+                            if (!Directory.Exists(auditEvent.PathFrom) && Directory.Exists(PathHelper.ContentRoot))//this was path...but I think we'd only care about deleting the 'old/pathfrom' document...
+                            {
+                                Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
+                            }
                         }
                         //next, insert the new document after updating the properties of the existing doc with the new location's properties.
                         existingdoc.Id = ToDoc.Id;
@@ -229,10 +235,13 @@ namespace HOK.Elastic.FileSystemCrawler
                     if (existingdoc != null)
                     {
                         _il.LogDebugInfo("ActionMove File Reindex", existingdoc.Id, ToDoc.Id);
-                        if (!File.Exists(auditEvent.PathFrom))//this was path which would be the field for destination....which is incorrect
+                        if (auditEvent.PresenceAction == ActionPresence.Move)
                         {
-                            //source doesn't exist, therefore delete the old path from elastic                          
-                            Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
+                            if (!File.Exists(auditEvent.PathFrom))//this was path which would be the field for destination....which is incorrect
+                            {
+                                //source doesn't exist, therefore delete the old path from elastic                          
+                                Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
+                            }
                         }
                         existingdoc.Id = ToDoc.Id;
                         existingdoc.SetFileSystemInfoFromId();

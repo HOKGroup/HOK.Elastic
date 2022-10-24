@@ -33,14 +33,28 @@ namespace HOK.Elastic.DAL
         /// Called by workercrawler recursion
         /// </summary>
         /// <param name="path">ensure lowercase</param>
+        ///  /// <param name="includeFullSource">set to true to return the full source document (when duplicating a document for example</param>
         /// <returns></returns>
-        public DirectoryContents FindRootAndChildren(string path)
+        public DirectoryContents FindRootAndChildren(string path,bool includeFullSource = false)
         {
+            SourceFilterDescriptor<FSO> sourceFilter;
+            if (includeFullSource)
+            {
+                sourceFilter = new SourceFilterDescriptor<FSO>();
+                sourceFilter.IncludeAll();
+            }
+            else
+            {
+                sourceFilter = new SourceFilterDescriptor<FSO>();
+                sourceFilter.Includes(f => f.Fields(DefaultSourceFieldsFilter));
+            }
+
+
             var response = client.Search<FSO>(d => d
                         .Index(AllIndicies)
                         .Size(1000)//if we get results at size limit we will scroll the query.
                         .Sort(sort => sort.Ascending("id.keyword"))//added to ensure the root/parent/'path we are searching for' is actually found
-                        .Source(s => s.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))//we could sort here if we really wanted to ensure we get the 'root' document but it's highly likely to be returned in the sub 1000 query.
+                        .Source(s => sourceFilter)//we could sort here if we really wanted to ensure we get the 'root' document but it's highly likely to be returned in the sub 1000 query.
                         .Query(q => q
                             .Bool(b => b
                                 .Filter(bf => bf
@@ -115,12 +129,12 @@ namespace HOK.Elastic.DAL
         /// called by workercrawler recursion if there are more than 1k hits
         /// </summary>
         /// <param name="path"></param>
-        /// <param name="fullSource"></param>
+        /// <param name="includeFullSource "></param>
         /// <returns></returns>
-        private IEnumerable<IHit<IFSO>> FindChildrenScroll(string path, bool fullSource)
+        private IEnumerable<IHit<IFSO>> FindChildrenScroll(string path, bool includeFullSource)
         {
             SourceFilterDescriptor<FSO> sourceFilter;
-            if (fullSource)
+            if (includeFullSource)
             {
                 sourceFilter = new SourceFilterDescriptor<FSO>();
                 sourceFilter.IncludeAll();
@@ -173,7 +187,7 @@ namespace HOK.Elastic.DAL
         /// </summary>
         /// <param name="pageSize"></param>
         /// <returns>Fully Populated Model</returns>
-        public IEnumerable<IFSO> FindChildren(string path)
+        public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
             foreach (var doc in FindDescendentsForMoving<FSOdirectory>(path))
             {

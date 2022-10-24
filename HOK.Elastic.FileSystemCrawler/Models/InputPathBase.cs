@@ -1,4 +1,5 @@
 ﻿using HOK.Elastic.DAL.Models;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -86,7 +87,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
 
         public override string ToString()
         {
-            return string.Join(";", Office, Path, PathStatus); ;
+            return string.Join(";", Office, Path, PathStatus);
         }
 
 

@@ -56,7 +56,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 {
                     if (thetaskInfo.InputPaths == null)
                     {
-                        thetaskInfo.InputPaths = new List<InputPathBase>();
+                        thetaskInfo.InputPaths = new InputPathCollectionEventStream();// List<InputPathBase>();
                     }
                     else
                     {
