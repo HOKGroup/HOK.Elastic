@@ -12,6 +12,9 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Log4Net.AspNetCore;
 using HOK.Elastic.Logger;
 using log4net.Config;
+using Microsoft.Extensions.Logging.Configuration;
+using log4net.Repository.Hierarchy;
+using log4net;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -24,40 +27,20 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                    .ConfigureLogging((hostingContext, logging) =>
-                    {
-                        var assembly = Assembly.GetAssembly(typeof(Program));
-                        var pathToConfig = Path.Combine(
-                                  hostingContext.HostingEnvironment.ContentRootPath
-                                , "log4net", "log4net.config");
-                        //var logManager = new AppLogManager(pathToConfig, assembly);
-                        logging.AddLog4Net("log4net\\log4net.config");
-                        //logging.AddLog4Net(new Log4NetProviderOptions
-                        //{
-                        //    ExternalConfigurationSetup = true
-                        //});
-                    })
-
-                .ConfigureLogging(logging =>
-                {
-                    logging.ClearProviders();
-                    logging.SetMinimumLevel(LogLevel.Trace);
-                    logging.AddLog4Net("log4net\\log4net.config");
-                    //var logRepository = LogManager.GetRepository(System.Reflection.Assembly.GetEntryAssembly());
-                    //log4net.Config.XmlConfigurator.Configure(logRepository, new FileInfo("log4net\\log4net.config"));
-                    //begin logger	
-                    // logging.AddLog4Net("log4net\\log4net.config");
-                    // var logRepository = logging. LogManager.GetRepository(System.Reflection.Assembly.GetEntryAssembly());
-                    //XmlConfigurator.Configure(logRepository, new FileInfo("log4net\\log4net.config"));
-                    //end logger
-                    //
-                    
-                })
-
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
                     webBuilder.UseStartup<Startup>();
                 })
+
+            .ConfigureLogging(logging =>
+                {
+                    //logging.ClearProviders();
+                    logging.AddLog4Net();
+                    var xml = HOK.Elastic.Logger.Log4NetProvider.Parselog4NetConfigFile("log4net.config");
+                    var c = log4net.Config.XmlConfigurator.Configure(xml);
+                }
+
+                )
                 .ConfigureServices(services => {
                     services.AddSingleton<IHostedJobQueue, HostedJobQueue>(x => new HostedJobQueue(x.GetService<ILogger<HostedJobQueue>>(), 5));
                     services.AddHostedService<IHostedJobQueue>(x => x.GetRequiredService<IHostedJobQueue>());

@@ -26,7 +26,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         // GET: JobsViewController
         public ActionResult Index()
         {
-            if (_logger.IsEnabled(LogLevel.Debug))
+            if (isDebug)
             {
                 _logger.LogDebugInfo("Index", Request.GetDisplayUrl(), _hostedJobScheduler.Jobs);
             }
@@ -90,26 +90,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             }
         }
 
-        //// GET: JobsViewController/Edit/5
-        //public ActionResult Edit(int id)
-        //{
-        //    return View();
-        //}
-
-        //// POST: JobsViewController/Edit/5
-        //[HttpPost]
-        //[ValidateAntiForgeryToken]
-        //public ActionResult Edit(int id, IFormCollection collection)
-        //{
-        //    try
-        //    {
-        //        return RedirectToAction(nameof(Index));
-        //    }
-        //    catch
-        //    {
-        //        return View();
-        //    }
-        //}
 
         // GET: JobsViewController/Delete/5
         public ActionResult Delete(int id)
