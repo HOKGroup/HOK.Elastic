@@ -17,7 +17,7 @@ namespace HOK.Elastic.DAL
         public Discovery(Uri uri, Logger.Log4NetLogger logger) : base(uri, logger)
         {
         }
-        public Discovery(Uri[] uri, Logger.Log4NetLogger logger) : base(uri, logger)
+        public Discovery(IEnumerable<Uri> uri, Logger.Log4NetLogger logger) : base(uri, logger)
         {
         }
 
@@ -189,6 +189,14 @@ namespace HOK.Elastic.DAL
         /// <returns>Fully Populated Model</returns>
         public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
+            foreach (var doc in FindDescendentsForMoving<FSOemail>(path))//move 'most valuable' documents first.
+            {
+                yield return doc;
+            }
+            foreach (var doc in FindDescendentsForMoving<FSOdocument>(path))
+            {
+                yield return doc;
+            }
             foreach (var doc in FindDescendentsForMoving<FSOdirectory>(path))
             {
                 yield return doc;
@@ -197,14 +205,7 @@ namespace HOK.Elastic.DAL
             {
                 yield return doc;
             }
-            foreach (var doc in FindDescendentsForMoving<FSOemail>(path))
-            {
-                yield return doc;
-            }
-            foreach (var doc in FindDescendentsForMoving<FSOdocument>(path))
-            {
-                yield return doc;
-            }
+       
         }
 
         /// <summary>
@@ -232,12 +233,22 @@ namespace HOK.Elastic.DAL
                         );
             while (searchResponse != null && searchResponse.Documents.Any())
             {
+#if DEBUG
+                var scrollTime = DateTime.Now;
+#endif
+
                 foreach (var hit in searchResponse.Hits)
                 {
                     doc = hit.Source as T;
                     doc.IndexName = hit.Index;
                     yield return doc;
                 }
+#if DEBUG
+                if (ildebug)
+                {
+                    _il.LogDebugInfo("OurScroll took: " + DateTime.Now.Subtract(scrollTime).TotalMinutes.ToString());
+                }
+#endif
                 searchResponse = client.Scroll<T>(scrolltimeout, searchResponse.ScrollId);
             }
             if (searchResponse != null)
@@ -248,7 +259,7 @@ namespace HOK.Elastic.DAL
                     {
                         var err = ElasticResponseError.GetError(searchResponse);
                         _il.LogErr("Discovery.FindDescendentsForMoving", path, err);
-                        throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");
+                        throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");///hmm do we need to throw an error or can we try again or skip?
                     }
                 }
                 client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));

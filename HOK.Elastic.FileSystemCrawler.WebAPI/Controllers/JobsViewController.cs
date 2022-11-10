@@ -116,5 +116,15 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
                 return View();
             }
         }
+
+
+        [HttpGet]        
+        public IActionResult Download(int id)
+        {
+            var job = _hostedJobScheduler.Get(id);
+            var settingsJobArgs = job.SettingsJobArgs;
+            HttpContext.Response.Headers.Add("Content-Disposition", new System.Net.Mime.ContentDisposition{FileName = $"job{job.Id}settings.json",Inline = false}.ToString());
+            return new JsonResult(settingsJobArgs,new System.Text.Json.JsonSerializerOptions() { WriteIndented=true,IgnoreReadOnlyProperties=true,IgnoreReadOnlyFields=true});
+        }
     }
 }

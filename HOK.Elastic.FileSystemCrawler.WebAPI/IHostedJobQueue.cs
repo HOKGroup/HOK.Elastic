@@ -11,7 +11,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
     {
         HostedJobInfo Get(int Id);
         int Enqueue(SettingsJobArgs job);//insert the job onto a queue. 
-
+  
         HostedJobInfo Remove(int Id);
 
         int MaxJobs { get; }

@@ -1,0 +1,106 @@
+﻿using HOK.Elastic.FileSystemCrawler.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Logging;
+using Nest;
+using System.Net;
+using System;
+using System.Net.Http.Json;
+using System.Reflection;
+using System.Security.Principal;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+
+namespace HOK.Elastic.ArchiveDiscovery
+{
+    internal class APIClient
+    {
+        private Logger.Log4NetLogger _il;
+        private bool ilDebug;
+        private bool ilWarn;
+        private static HttpClient httpClient;
+        private string host;
+        private readonly string freeSlotpath;
+        public APIClient(string hostAddress, Logger.Log4NetLogger log4NetLogger)
+        {
+            _il = log4NetLogger;
+            ilDebug = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
+            ilWarn = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
+            host = hostAddress.Trim('/');
+            freeSlotpath = @$"{hostAddress}/jobs/freeslots";
+
+            //https://weblog.west-wind.com/posts/2021/Nov/27/NTLM-Windows-Authentication-Authentication-with-HttpClient
+            // Create a new Credential - note NTLM is not documented but works
+            var credentialsCache = new CredentialCache();
+            credentialsCache.Add(new Uri(host), "NTLM", CredentialCache.DefaultNetworkCredentials);
+            credentialsCache.Add(new Uri(host), "Negotiate", CredentialCache.DefaultNetworkCredentials);            
+            var handler = new HttpClientHandler() { Credentials = credentialsCache, PreAuthenticate = true };
+            httpClient = new HttpClient(handler) { Timeout = new TimeSpan(0, 0, 10)};
+
+        }
+
+        internal async Task<bool> HasFreeSlotsAsync()
+        {
+            var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, freeSlotpath));
+            if (response.IsSuccessStatusCode)
+            {
+                var jobId = await response.Content.ReadFromJsonAsync<int>();
+                return jobId > 0;
+            }
+            else
+            {
+                if (ilWarn) _il.LogWarn("Get Free Slots Failed", null, response);
+            }
+            return false;
+        }
+
+        internal async Task<int> PostAsync(SettingsJobArgsDTO settingsJobArgsDTO)
+        {
+            var path = @$"{host}/jobs";
+            var response = await httpClient.PostAsJsonAsync<SettingsJobArgsDTO>(path, settingsJobArgsDTO);
+            var jobId = await response.Content.ReadFromJsonAsync<int>();
+            return jobId;
+        }
+
+        internal async Task<HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo?> GetJobInfo(int taskId)
+        {
+            //https://localhost:44346/jobs/0
+            var path = @$"{host}/jobs/{taskId}";
+            var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, path));
+            response.EnsureSuccessStatusCode();
+
+            var result = await response.Content.ReadFromJsonAsync<HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo>();
+            if (result != null)
+            {
+                if (ilDebug) _il.LogDebugInfo("Retrieved task info", null, result);
+                return result;
+            }
+            else
+            {
+                if (ilWarn) _il.LogWarn($"Couldn't get{nameof(HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo)} for {taskId}", null, response.StatusCode);
+            }
+            return null;
+        }
+
+
+
+        internal async Task DeleteAsync(int taskId)
+        {
+            var path = @$"{host}/jobs/{taskId}";
+            try
+            {
+                var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Delete, path));
+                response.EnsureSuccessStatusCode();
+            }
+            catch (Exception e)
+            {
+                if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error))
+                {
+                    _il.LogErr("Couldn't delete", null, taskId, e);
+                }
+                throw;
+            }
+        }
+
+ 
+    }
+}

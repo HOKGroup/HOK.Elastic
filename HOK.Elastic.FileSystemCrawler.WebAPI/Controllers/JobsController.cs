@@ -8,6 +8,7 @@ using System.Management;
 using HOK.Elastic.FileSystemCrawler.Models;
 using Microsoft.AspNetCore.Http.Extensions;
 using System;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
 {
@@ -35,7 +36,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             if (jobs != null)
             {
                 if (isInfo) _logger.LogInformation($"Getting{jobs.Count()} jobs");
-                return new OkObjectResult(jobs.ToList());
+                return Ok(jobs.ToList());
             }
             else
             {
@@ -51,14 +52,14 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             try
             {
                 var job = _hostedJobScheduler.Get(Id);
-                return new OkObjectResult(job);
+                return Ok(job);
             }
             catch(Exception ex)
             {
                 return NotFound(ex.Message);
             }
         }
-        [HttpPut]
+        [HttpPost, HttpPut]
 
         /// <summary>
         /// pass any of the crawler jobs config definitions (full,incrmeental,event) possibly missing content and query crawl too.
@@ -66,16 +67,41 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         /// <param name="settingsJobArgs"></param>
         /// <returns></returns>
         
-        public ActionResult Post(ISettingsJobArgs settingsJobArgs)
+        public ActionResult Post(SettingsJobArgsDTO settingsJobArgsdto)
+        {             
+            var settingsJobArgs = settingsJobArgsdto as SettingsJobArgs;
+            if(settingsJobArgs.CrawlMode==CrawlMode.EventBased)//TODO hopefully we can refactor this.
+            {
+                var inputPaths = new InputPathCollectionEventStream() { };
+                foreach(var i in settingsJobArgsdto.InputPaths.Events)
+                {
+                    inputPaths.Add(i);
+                }
+                settingsJobArgs.InputPaths = inputPaths;
+            }
+            else
+            {
+                var inputPaths = new InputPathCollectionBase() { };
+                foreach (var i in settingsJobArgsdto.InputPaths.Crawls)
+                {
+                    inputPaths.Add(i);
+                }
+                settingsJobArgs.InputPaths = inputPaths;
+            }
+           
+            var jobId = _hostedJobScheduler.Enqueue(settingsJobArgs);
+            return Ok(jobId);
+        }
+
+        [HttpDelete("{id:int}")]
+        public ActionResult Delete(int Id)
         {
-            var index = new DAL.Index(settingsJobArgs.ElasticIndexURI.First(), new Elastic.Logger.Log4NetLogger("index"));
-            var discovery = new DAL.Discovery(settingsJobArgs.ElasticDiscoveryURI.First(), new Elastic.Logger.Log4NetLogger("discovery"));
-            SecurityHelper sh = new SecurityHelper(new Elastic.Logger.Log4NetLogger("test"));
-            DocumentHelper dh = new DocumentHelper(true, sh, index, new Elastic.Logger.Log4NetLogger("dh"));
-            WorkerEventStream ws = new WorkerEventStream(index, discovery, sh, dh, new Elastic.Logger.Log4NetLogger("ws"));
-            // var taskID = _hostedJobScheduler.Enqueue(System.Threading.Tasks.Task<JobDetails>.Run(async () => { return new JobDetails(55, async () => { await ws.RunAsync(settingsJobArgs);}).Hello);
-            //return new OkObjectResult(taskID);//use this Identifier to get status of running jobs(s) again later.;
-            return new OkObjectResult("hmm");
+            return Ok(_hostedJobScheduler.Remove(Id));
+        }
+        [HttpGet("FreeSlots")]
+        public ActionResult FreeSlots()
+        {
+            return Ok(_hostedJobScheduler.FreeSlots);
         }
     }
 }

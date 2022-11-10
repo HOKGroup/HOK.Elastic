@@ -6,6 +6,10 @@ namespace HOK.Elastic.FileSystemCrawler.Models
 {
     public class CompletionInfo : CrawlMetrics, ISettingsJobPathArgs
     {
+        public CompletionInfo():this("default")
+        {
+            
+        }
         public CompletionInfo(string jobName)
         {
             StartTime = DateTime.Now;
