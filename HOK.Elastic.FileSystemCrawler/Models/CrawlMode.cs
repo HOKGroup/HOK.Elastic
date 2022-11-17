@@ -1,4 +1,4 @@
-﻿namespace HOK.Elastic.FileSystemCrawler
+﻿namespace HOK.Elastic.FileSystemCrawler.Models
 {
     public enum CrawlMode
     {

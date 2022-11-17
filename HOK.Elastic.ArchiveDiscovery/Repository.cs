@@ -21,6 +21,7 @@ namespace HOK.Elastic.ArchiveDiscovery
         {
             string jsonIn = File.ReadAllText(_filePath);
             Value = JsonConvert.DeserializeObject<T>(jsonIn);
+            if (Value == null) throw new JsonSerializationException("Couldn't deserialize content from'" + _filePath + "'");
         }
 
         public void Save()

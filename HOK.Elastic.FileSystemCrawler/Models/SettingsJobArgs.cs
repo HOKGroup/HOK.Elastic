@@ -13,7 +13,10 @@ namespace HOK.Elastic.FileSystemCrawler.Models
         public int DocInsertionThreads { get; set; } = 2;
         public bool RunningInteractively { get; set; } = true;
         public string JobNotes { get; set; } = "None Provided";
-        public string JobName { get { return Path.GetFileName(InputPathLocation); } }
+        public virtual string JobName { get; set; } = "Default";
+        //public virtual string JobName { get { return Path.GetFileName(InputPathLocation); } set {
+            //todo revisit why we only supported set.            
+         //   } }
         public string InputPathLocation { get; set; }
         public string JsonQueryString { get; set; }
     }

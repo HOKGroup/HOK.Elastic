@@ -32,7 +32,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     webBuilder.UseStartup<Startup>();
                 })
 
-            .ConfigureLogging(logging =>
+                .ConfigureLogging(logging =>
                 {
                     //logging.ClearProviders();
                     logging.AddLog4Net();

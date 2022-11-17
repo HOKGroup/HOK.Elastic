@@ -1,107 +1,203 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using HOK.Elastic.DAL.Models;
+using HOK.Elastic.FileSystemCrawler.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using System.Linq;
-using HOK.Elastic.DAL.Models;
-using System.Configuration;
-using System.Management;
-using HOK.Elastic.FileSystemCrawler.Models;
-using Microsoft.AspNetCore.Http.Extensions;
+using Newtonsoft.Json;
 using System;
-using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
 {
-    [Authorize]
-    [ApiController]
-    [Route("[controller]")]
     public class JobsController : Controller
     {
-
         private ILogger _logger;
         private readonly IHostedJobQueue _hostedJobScheduler;
         private bool isDebug;
         private bool isInfo;
-        public JobsController(ILogger<JobsController> logger, IHostedJobQueue hostedJobQueue)
+        private bool isErr;
+        public JobsController(ILogger<JobsAPIController> logger, IHostedJobQueue hostedJobQueue)
         {
             _logger = logger;
             isDebug = _logger.IsEnabled(LogLevel.Debug);
             isInfo = _logger.IsEnabled(LogLevel.Information);
+            isErr = _logger.IsEnabled(LogLevel.Error);
             _hostedJobScheduler = hostedJobQueue;
         }
-       
-        public ActionResult Get()
+        // GET: JobsViewController
+        public ActionResult Index()
         {
+            if (isDebug)
+            {
+                _logger.LogDebugInfo("Index", Request.GetDisplayUrl(), _hostedJobScheduler.Jobs);
+            }
             var jobs = _hostedJobScheduler.Jobs;
             if (jobs != null)
             {
                 if (isInfo) _logger.LogInformation($"Getting{jobs.Count()} jobs");
-                return Ok(jobs.ToList());
+                return View(jobs.ToList());
             }
             else
             {
                 if (isInfo) _logger.LogInformation($"Null jobs");
-                return NotFound();
+                return View();
             }
-        }    
+        }
 
-
-        [HttpGet("{id:int}")]
-        public ActionResult Get(int Id)
+        // GET: JobsViewController/Details/5
+        public ActionResult Details(int id)
         {
             try
             {
-                var job = _hostedJobScheduler.Get(Id);
-                return Ok(job);
+                var job = _hostedJobScheduler.Get(id);
+                return View(job);
+            }
+            catch (Exception ex)
+            {
+                if (isErr) _logger.LogError(ex, $"{nameof(Details)} requested id={id}");
+                return NotFound(ex.Message);
+            }            
+        }
+
+        // GET: JobsViewController/Create
+        public ActionResult Create()
+        {
+            var defaults = new SettingsJobArgsDTO()
+            { BulkUploadSize = 5,
+                CrawlMode = CrawlMode.EmailOnlyMissingContent,
+                PublishedPath = "\\\\server\\one\\two\\three",
+                //InputEvents = new List<InputPathEventStream>() { new InputPathEventStream() {Path="c:\\",PathFrom="b:\\" }, new InputPathEventStream() { Path = "d:\\", PathFrom = "e:\\" } }
+                //InputPaths = new InputPathList() { 
+                //    Crawls=new List<InputPathBase>() { new InputPathBase() {Office="TEST",Path="c:\\temp" } } ,
+                //    Events = new List<InputPathEventStream>() { new InputPathEventStream() {Path="c:\\temp",PathFrom="c:\\windows" }, new InputPathEventStream() { Path = "c:\\temp4", PathFrom = "c:\\windows" } }                
+                //},
+               // InputEvent = new InputPathEventStream() { Path = "c:\\temp", PathFrom = "c:\\windows" }
+            };
+            return View(defaults);
+        }
+
+        // POST: JobsViewController/Create
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult Create(SettingsJobArgsDTO settingsJobArgsDTO,string command)
+        {
+            if (command == null) command = "";
+            try
+            {
+                if (ModelState.IsValid)
+                {
+                    if (command.Equals("addevent"))
+                    {
+                        if (settingsJobArgsDTO.InputEvents == null) settingsJobArgsDTO.InputEvents = new List<InputPathEventStream>();
+                        settingsJobArgsDTO.InputEvents.Add(new InputPathEventStream() {Path=settingsJobArgsDTO.PublishedPath??"c:\\" });
+                    } 
+                    else if(command.Equals("addcrawl"))
+                    {
+                        if (settingsJobArgsDTO.InputCrawls == null) settingsJobArgsDTO.InputCrawls = new List<InputPathBase>();
+                        settingsJobArgsDTO.InputCrawls.Add(new InputPathBase() { Path = settingsJobArgsDTO.PublishedPath ?? "c:\\" });
+                    }else if(command.Equals("download"))
+                    {
+                        return Download(settingsJobArgsDTO);
+                    }
+                    else if (command.Equals("addelasticindex"))
+                    {
+                        if (settingsJobArgsDTO.ElasticIndexURI == null) settingsJobArgsDTO.ElasticIndexURI = new List<string>();
+                        settingsJobArgsDTO.ElasticIndexURI.Add("server:5200");
+                    }
+                    else if (command.Equals("addelasticcrawl"))
+                    {
+                        if (settingsJobArgsDTO.ElasticIndexURI == null) settingsJobArgsDTO.ElasticIndexURI = new List<string>();
+                        settingsJobArgsDTO.ElasticIndexURI.Add("server:5200");
+                    }
+                    else
+                    {
+                        JobHelper.Post(_hostedJobScheduler, settingsJobArgsDTO, Request.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString());
+                        return RedirectToAction(nameof(Index));
+                    }                   
+                }               
             }
             catch(Exception ex)
             {
-                return NotFound(ex.Message);
+                if (isErr) _logger.LogError(ex, $"{nameof(Create)} attempted to create failed.");
+                throw;
             }
-        }
-        [HttpPost, HttpPut]
-
-        /// <summary>
-        /// pass any of the crawler jobs config definitions (full,incrmeental,event) possibly missing content and query crawl too.
-        /// </summary>
-        /// <param name="settingsJobArgs"></param>
-        /// <returns></returns>
-        
-        public ActionResult Post(SettingsJobArgsDTO settingsJobArgsdto)
-        {             
-            var settingsJobArgs = settingsJobArgsdto as SettingsJobArgs;
-            if(settingsJobArgs.CrawlMode==CrawlMode.EventBased)//TODO hopefully we can refactor this.
-            {
-                var inputPaths = new InputPathCollectionEventStream() { };
-                foreach(var i in settingsJobArgsdto.InputPaths.Events)
-                {
-                    inputPaths.Add(i);
-                }
-                settingsJobArgs.InputPaths = inputPaths;
-            }
-            else
-            {
-                var inputPaths = new InputPathCollectionBase() { };
-                foreach (var i in settingsJobArgsdto.InputPaths.Crawls)
-                {
-                    inputPaths.Add(i);
-                }
-                settingsJobArgs.InputPaths = inputPaths;
-            }
-           
-            var jobId = _hostedJobScheduler.Enqueue(settingsJobArgs);
-            return Ok(jobId);
+            return View(settingsJobArgsDTO);
         }
 
-        [HttpDelete("{id:int}")]
-        public ActionResult Delete(int Id)
-        {
-            return Ok(_hostedJobScheduler.Remove(Id));
+
+        // GET: JobsViewController/Delete/5
+        public ActionResult Delete(int id)
+        {   
+            return View(_hostedJobScheduler.Get(id));
         }
-        [HttpGet("FreeSlots")]
-        public ActionResult FreeSlots()
+
+        // POST: JobsViewController/Delete/5
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Delete(int id, HostedJobInfo hostedJobInfo)
         {
-            return Ok(_hostedJobScheduler.FreeSlots);
+            try
+            {
+                if(!hostedJobInfo.IsCompleted)
+                {
+                  var removed = _hostedJobScheduler.Remove(id);
+                    if (isInfo) _logger.LogInformation("Removed" + removed);
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            catch
+            {                
+                return View();
+            }
+        }
+
+
+        [HttpGet]        
+        public IActionResult Download(int id)
+        {
+            var job = _hostedJobScheduler.Get(id);
+            var settingsJobArgs = job.SettingsJobArgs;
+            var settingsJobArgsDTO = JobHelper.MakeDTO(settingsJobArgs);
+            return Download(settingsJobArgsDTO);
+            //HttpContext.Response.Headers.Add("Content-Disposition", new System.Net.Mime.ContentDisposition{FileName = $"job{job.Id}settings.json",Inline = false}.ToString());
+            //return new JsonResult(settingsJobArgsDTO,new System.Text.Json.JsonSerializerOptions() { WriteIndented=true,IgnoreReadOnlyProperties=true,IgnoreReadOnlyFields=true});
+        }
+
+        [HttpGet]
+        public IActionResult Download(SettingsJobArgsDTO settingsJobArgsDTO)
+        {
+            HttpContext.Response.Headers.Add("Content-Disposition", new System.Net.Mime.ContentDisposition { FileName = $"jobsettings.json", Inline = false }.ToString());
+            return new JsonResult(settingsJobArgsDTO, new System.Text.Json.JsonSerializerOptions() { WriteIndented = true, IgnoreReadOnlyProperties = true, IgnoreReadOnlyFields = true });
+        }
+
+        [HttpPost]
+        public async Task<ActionResult> Upload(IFormFile file)
+        {
+            try
+            {
+                if (file!=null && file.Length > 0 && file.Length < 999000)
+                {
+                    using (var reader = new StreamReader(file.OpenReadStream()))
+                    {
+                        var content = await reader.ReadToEndAsync();
+                        var json = JsonConvert.DeserializeObject<SettingsJobArgsDTO>(content);
+                        if (json != null)
+                        {
+                            return View("Create", json);
+                        }
+                    }
+                }                  
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Upload Failed", ex);
+            }
+            return RedirectToAction("Create");
         }
     }
 }

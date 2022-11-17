@@ -3,10 +3,14 @@
 @{
     ViewData["Title"] = "Details";
 }
+<h1>Details</h1>
+<h4>HostedJobInfo Details</h4>
 
-
-<div>
-    <h4>HostedJobInfo Details</h4>
+<div>    
+    <div class="row">
+        @Html.ActionLink("Download", "Download", new { id=Model.Id })
+        |<a asp-action="Index">Back to List</a>
+    </div>
     <dl class="row">
         <dt class="col-sm-2">
             @Html.DisplayNameFor(model => model.Id)
@@ -46,7 +50,4 @@
         </dd>
     </dl>
 </div>
-<div>
-   
-    <a asp-action="Index">Back to List</a>
-</div>
+

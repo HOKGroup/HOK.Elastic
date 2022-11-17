@@ -17,7 +17,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private ISettingsJobArgs _job;
         private CancellationTokenSource _thisTokenSource;
         private CancellationTokenSource _linkedTokenSource;
-    
  
         public HostedJobInfo(ISettingsJobArgs settingsJob, CancellationToken cancellationToken)
         {
@@ -45,6 +44,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public ISettingsJobArgs SettingsJobArgs => _job;
         public int Id => _id;
         public CompletionInfo CompletionInfo { get; set; }
+
         public State Status { get; set; }
         public enum State
         {

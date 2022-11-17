@@ -19,6 +19,7 @@ namespace HOK.Elastic.ArchiveDiscovery
         private bool ilWarn;
         private static HttpClient httpClient;
         private string host;
+        private const string JOBSAPI = @"/jobsapi";
         private readonly string freeSlotpath;
         public APIClient(string hostAddress, Logger.Log4NetLogger log4NetLogger)
         {
@@ -26,7 +27,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             ilDebug = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
             ilWarn = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
             host = hostAddress.Trim('/');
-            freeSlotpath = @$"{hostAddress}/jobs/freeslots";
+            freeSlotpath = @$"{hostAddress}{JOBSAPI}/freeslots";
 
             //https://weblog.west-wind.com/posts/2021/Nov/27/NTLM-Windows-Authentication-Authentication-with-HttpClient
             // Create a new Credential - note NTLM is not documented but works
@@ -34,8 +35,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             credentialsCache.Add(new Uri(host), "NTLM", CredentialCache.DefaultNetworkCredentials);
             credentialsCache.Add(new Uri(host), "Negotiate", CredentialCache.DefaultNetworkCredentials);            
             var handler = new HttpClientHandler() { Credentials = credentialsCache, PreAuthenticate = true };
-            httpClient = new HttpClient(handler) { Timeout = new TimeSpan(0, 0, 10)};
-
+            httpClient = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30)};
         }
 
         internal async Task<bool> HasFreeSlotsAsync()
@@ -55,8 +55,9 @@ namespace HOK.Elastic.ArchiveDiscovery
 
         internal async Task<int> PostAsync(SettingsJobArgsDTO settingsJobArgsDTO)
         {
-            var path = @$"{host}/jobs";
+            var path = @$"{host}{JOBSAPI}";
             var response = await httpClient.PostAsJsonAsync<SettingsJobArgsDTO>(path, settingsJobArgsDTO);
+            response.EnsureSuccessStatusCode();
             var jobId = await response.Content.ReadFromJsonAsync<int>();
             return jobId;
         }
@@ -64,7 +65,7 @@ namespace HOK.Elastic.ArchiveDiscovery
         internal async Task<HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo?> GetJobInfo(int taskId)
         {
             //https://localhost:44346/jobs/0
-            var path = @$"{host}/jobs/{taskId}";
+            var path = @$"{host}{JOBSAPI}/{taskId}";
             var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, path));
             response.EnsureSuccessStatusCode();
 
@@ -85,7 +86,7 @@ namespace HOK.Elastic.ArchiveDiscovery
 
         internal async Task DeleteAsync(int taskId)
         {
-            var path = @$"{host}/jobs/{taskId}";
+            var path = @$"{host}{JOBSAPI}/{taskId}";
             try
             {
                 var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Delete, path));
@@ -100,7 +101,5 @@ namespace HOK.Elastic.ArchiveDiscovery
                 throw;
             }
         }
-
- 
     }
 }

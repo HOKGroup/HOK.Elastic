@@ -220,7 +220,7 @@ namespace HOK.Elastic.DAL
             ISearchResponse<T> searchResponse = null;
             searchResponse = client.Search<T>(d => d
                         .Index(GetIndexName<T>())
-                        .Size(1000)
+                        .Size(500)//in 10m 
                         .Scroll(scrolltimeout)
                         .Source(a => a.IncludeAll())
                         .Query(q => q

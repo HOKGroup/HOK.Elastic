@@ -2,28 +2,42 @@
 using HOK.Elastic.ArchiveDiscovery;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
-Console.WriteLine("Hello, World!");
+HOK.Elastic.Logger.Log4NetLogger logger=default;
 try
 {
     var xml = HOK.Elastic.Logger.Log4NetProvider.Parselog4NetConfigFile("log4net.config");
     log4net.Config.XmlConfigurator.Configure(xml);
-
     var config = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json", false)
                     .Build();
+    logger = new HOK.Elastic.Logger.Log4NetLogger("main");
 
-    var webapi = (string)config.GetValue(typeof(string), "webAPI");
+    var webapiUrl = (string)config.GetValue(typeof(string), "webAPI");
 
     SettingsJobArgsDTO settingsJobArgsDTO = new SettingsJobArgsDTO();
     config.Bind(settingsJobArgsDTO);
-    //Worker worker = new Worker("https://localhost:44346");
-    Worker worker = new Worker(webapi);
-    await worker.WorkAsync(settingsJobArgsDTO);
+
+    if(logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information))
+    {       
+        logger.LogDebugInfo("Startup_webapi", "appsettings.json", webapiUrl);
+        logger.LogDebugInfo("Startup_SettingsJobConfig", "appsettings.json", settingsJobArgsDTO);
+    }
+
+    Worker worker = new Worker(webapiUrl);
+    await worker.RunAsync(settingsJobArgsDTO);
 }
 catch (Exception ex)
 {
-    Console.WriteLine(ex.ToString());
+    if(logger!=default && logger.IsEnabled(LogLevel.Critical))
+    {
+        logger.LogErr("Fatal Exception", null, ex);
+    }
+    else
+    {
+        Console.WriteLine(ex.ToString());
+    }
 }
 Console.WriteLine("done");
 Console.ReadLine();

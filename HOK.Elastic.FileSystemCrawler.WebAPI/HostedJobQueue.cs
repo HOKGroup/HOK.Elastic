@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using HOK.Elastic.DAL;
 using System.Collections.Generic;
+using HOK.Elastic.DAL.Models;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -32,7 +33,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
 
         public int MaxJobs { get; private set; }
-        public int FreeSlots => MaxJobs - buffer.Count - action.InputCount - action.OutputCount - completed.InputCount;
+        public int FreeSlots => MaxJobs - (buffer?.Count - action?.InputCount - action?.OutputCount - completed?.InputCount??MaxJobs);
 
         public HostedJobQueue(ILogger<HostedJobQueue> logger, int maxJobs)
         {
@@ -66,7 +67,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         protected async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             buffer = new BufferBlock<HostedJobInfo>(new DataflowBlockOptions() { CancellationToken = cancellationToken });
-            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { BoundedCapacity = MaxJobs, MaxDegreeOfParallelism = MaxJobs });
+            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { BoundedCapacity = MaxJobs, MaxDegreeOfParallelism = 4 });//TODO maxdegreeofparallelism is 1 so we don't run into conflicts with the static PathHelper class....:(
             completed = new ActionBlock<HostedJobInfo>(x => Finish(x));
             buffer.LinkTo(action, new DataflowLinkOptions() { PropagateCompletion = true });
             action.LinkTo(completed, new DataflowLinkOptions() { PropagateCompletion = true });
@@ -167,7 +168,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private void Finish(HostedJobInfo jobInfo)
         {
             jobInfo.WhenCompleted = DateTime.Now;
-            jobInfo.Status = HostedJobInfo.State.complete;
+            //jobInfo.Status = HostedJobInfo.State.complete;
             OnTaskCompleted(jobInfo.Id);
             jobInfo = _jobs[jobInfo.Id];
             if (isInfo) _logger.LogInformation("Completed {JobInfo}",jobInfo);
@@ -183,11 +184,13 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 var ii = random.Next(500, 16000);
                 var d = new HostedJobInfo(new HOK.Elastic.FileSystemCrawler.Models.SettingsJobArgs()
                 {
-                BulkUploadSize = ii,
-                    CrawlMode = HOK.Elastic.FileSystemCrawler.CrawlMode.EventBased,
+                    BulkUploadSize = ii,
+                    CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.EventBased,
                     ElasticDiscoveryURI = new Uri[] { new Uri("https://elasitcnode:9200/") },
                     ElasticIndexURI = new Uri[] { new Uri("https://elasticnode:9200/")},
                     DocInsertionThreads = 1,
+                    JobName="Sample",
+                    JobNotes="Some notes about the sample job",
                     IgnoreExtensions = new List<string>() { ".dat", ".db" },
                     IndexNamePrefix = $"test{ii}",
                     InputPathLocation = $"Job{ii}",
@@ -198,8 +201,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     PathInclusionRegex = ".*",
                     FileNameExclusionRegex = ".*",
                     OfficeSiteExtractRegex = "[a-z]{2,5}",
-                  ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
-
+                    ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
                 }, _cts.Token);
                 d.SettingsJobArgs.InputPaths.Add(new InputPathEventStream() { 
                     IsDir = true, 
@@ -219,7 +221,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 hostedJobInfo.CompletionInfo = new CompletionInfo(hostedJobInfo.SettingsJobArgs);
                 var workerargs = hostedJobInfo.SettingsJobArgs;
 
-                //we should add pre-flight check in indexbase or crawlerbase or something to ensure these basics are set.
+                //we should add pre-flight check in indexbase or crawlerbase or something to ensure these basics are set.or refactor so we don't have shared static..
                 HOK.Elastic.DAL.Models.PathHelper.Set(workerargs.PublishedPath, workerargs.PathForCrawlingContent, workerargs.PathForCrawling);
                 HOK.Elastic.DAL.Models.PathHelper.SetPathInclusion(workerargs.PathInclusionRegex);
                 HOK.Elastic.DAL.Models.PathHelper.SetFileNameExclusion(workerargs.FileNameExclusionRegex);
@@ -227,23 +229,31 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 HOK.Elastic.DAL.Models.PathHelper.SetProjectExtractRgx(workerargs.ProjectExtractRegex);
                 HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
                 DAL.StaticIndexPrefix.Prefix = workerargs.IndexNamePrefix;
-                //end of unchecked stuff that causes problems.
+                string safepath = workerargs.JobName + workerargs.JobNotes;
+                System.IO.Path.GetInvalidPathChars().Select(x => safepath = safepath.Replace(x, ' '));
+                workerargs.InputPathLocation = System.IO.Path.Combine("webapijobs",safepath + hostedJobInfo.GetHashCode());
+                //end of unchecked requirements stuff that causes problems.
 
 
                 var index = new DAL.Index(workerargs.ElasticIndexURI.First(), new Elastic.Logger.Log4NetLogger("index"));
                 var discovery = new DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), new Elastic.Logger.Log4NetLogger("discovery"));
-                var logger = new Elastic.Logger.Log4NetLogger($"worker{hostedJobInfo.Id}");
+                var logger = new Elastic.Logger.Log4NetLogger($"Worker{hostedJobInfo.Id}");
+
                 if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Constructing....");
                 SecurityHelper sh = new SecurityHelper(logger);
                 DocumentHelper dh = new DocumentHelper(true, sh, index, logger);
-                WorkerEventStream ws = new WorkerEventStream(index, discovery, sh, dh, logger);
+                IWorkerBase wb;
+                if (workerargs.CrawlMode == CrawlMode.EventBased)
+                {
+                     wb = new WorkerEventStream(index, discovery, sh, dh, logger);
+                }else
+                {
+                    wb = new WorkerCrawler(index, discovery, sh, dh, logger);
+                }
+                
                 if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Starting....");
-                hostedJobInfo.CompletionInfo = await ws.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//we can pass IProgress<T> here later if we want to get progress.
-                var token = hostedJobInfo.GetCancellationToken();
-                var testdelay = rnd.Next(60000,120000);
-                if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Delay by:" + testdelay.ToString());
-                workerargs.FileNameExclusionRegex = "Delay by:" + testdelay.ToString();
-                await (Task.Delay(testdelay, token));
+                hostedJobInfo.CompletionInfo = await wb.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//we can pass IProgress<T> here later if we want to get progress.
+                hostedJobInfo.Status = HostedJobInfo.State.complete;
                 if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Finisehd");
             }
             catch(Exception ex)            
@@ -251,8 +261,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 if (isError) _logger.LogError(ex, $"Running {hostedJobInfo.Id}");
                 hostedJobInfo.Exception = ex;
                 hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
-            }            
-            hostedJobInfo.CompletionInfo.FileSkipped = DateTime.Now.Ticks;
+            }
             return hostedJobInfo;
         }
     }

@@ -102,7 +102,7 @@ namespace HOK.Elastic.FileSystemCrawler
             }
             catch (AggregateException aex)
             {
-                completionInfo.exitCode = CompletionInfo.ExitCode.None;
+                completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;
                 if (ilerror)
                 {
                     _il.LogErr("CrawlingAggregateErrors", "", null, aex);//TODO verify log4net enumerates all the inner exceptions when it converts the exception object.
@@ -287,6 +287,7 @@ namespace HOK.Elastic.FileSystemCrawler
         {
             try
             {
+                
                 if (auditEvent.IsDir ? HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(auditEvent.Path) : HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreFile(auditEvent.Path))
                 {
                     _il.LogDebugInfo("ActionUpdateOrNew ShouldIgnore", auditEvent.Path, null);

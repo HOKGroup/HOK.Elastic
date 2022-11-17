@@ -32,15 +32,15 @@ namespace HOK.Elastic.ArchiveDiscovery
             ilInfo = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information);
             ilWarn = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
             ilError = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error);
-            //api = new APIClient("https://localhost:44346", new Logger.Log4NetLogger("API"));
             api = new APIClient(apihost, new Logger.Log4NetLogger("API"));
         }
      
-        internal async Task WorkAsync(SettingsJobArgsDTO settingsJobArgs)
+        internal async Task RunAsync(SettingsJobArgsDTO settingsJobArgsDTO)
         {
-            var settingsJobArgsDTO = (SettingsJobArgsDTO)settingsJobArgs;
-            StaticIndexPrefix.Prefix =settingsJobArgs.IndexNamePrefix;
-            DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(settingsJobArgs.ElasticDiscoveryURI, new Logger.Log4NetLogger("test"));
+            //var settingsJobArgsDTO = (SettingsJobArgsDTO)settingsJobArgsDTO;
+            StaticIndexPrefix.Prefix =settingsJobArgsDTO.IndexNamePrefix;
+           var discoveryuris = settingsJobArgsDTO.ElasticDiscoveryURI.Select(x => new Uri(x)).ToList();
+            DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(discoveryuris, new Logger.Log4NetLogger("test"));
             var clientStatus = discoveryArchive.GetClientStatus();
             if(ilDebug)_il.LogDebugInfo("status",null,clientStatus);
             var offices = await discoveryArchive.FindOffices();
@@ -90,12 +90,23 @@ namespace HOK.Elastic.ArchiveDiscovery
                 #region SendJobsToAPI               
                 while (await api.HasFreeSlotsAsync())
                 {
-                    var item = context.Value.Where(x => x.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.unstarted).FirstOrDefault();
+                    var item = context.Value.Where(x => x
+                    .Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.unstarted
+                    ).FirstOrDefault();
                     if (item != null)
                     {
-                        var inputPaths = new List<InputPathEventStream>();
-                        inputPaths.Add(new FileSystemCrawler.Models.InputPathEventStream() { Path = item.Target, PathFrom = item.Source, PresenceAction = ActionPresence.Copy });
-                        settingsJobArgsDTO.InputPaths = new SettingsJobArgsDTO.InputPathList() { Events = inputPaths};// = new FileSystemCrawler.Models.SettingsJobArgs() { InputPaths = inputPaths, PathForCrawling = "", IndexNamePrefix = "" };
+                        settingsJobArgsDTO.InputEvents = new List<InputPathEventStream>();
+
+                        settingsJobArgsDTO.InputEvents.Add(new InputPathEventStream() { 
+                            Path = item.Target, 
+                            PathFrom = item.Source,
+                            IsDir=true,
+                            TimeStampUtc=DateTime.Now,
+                            PresenceAction = ActionPresence.Copy 
+                        }
+                        );
+                        settingsJobArgsDTO.JobName = $"ArchiveJob_{item.Office}_{item.ProjectNumber}";
+                        settingsJobArgsDTO.JobNotes = $"ArchiveDiscovery{Environment.MachineName}{Environment.UserName}";
                         int Id = await api.PostAsync(settingsJobArgsDTO);
                         if (Id >= 0)
                         {

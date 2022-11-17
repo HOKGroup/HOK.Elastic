@@ -1,0 +1,67 @@
+﻿@model IEnumerable<HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo>
+
+@{
+    ViewData["Title"] = "View";
+}
+
+<h1>Index</h1>
+<h4>HostedJobQueue</h4>
+
+<div class="row">
+    <div class="col-md-2">
+        <a asp-action="Create">Add New...</a>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>
+                        @Html.DisplayNameFor(model => model.SettingsJobArgs.JobName)
+                    </th>
+                    <th>
+                        @Html.DisplayNameFor(model => model.SettingsJobArgs.JobNotes)
+                    </th>
+                    <th>
+                        @Html.DisplayNameFor(model => model.IsCompleted)
+                    </th>
+                    <th>
+                        @Html.DisplayNameFor(model => model.WhenCompleted)
+                    </th>
+                    <th>
+                        @Html.DisplayNameFor(model => model.Status)
+                    </th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model)
+                {
+                    <tr>  
+                        <td>
+                            @Html.DisplayFor(modelItem => item.SettingsJobArgs.JobName)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.SettingsJobArgs.JobNotes)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.IsCompleted)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.WhenCompleted)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Status)
+                        </td>
+                        <td>
+                            @Html.ActionLink("Details", "Details", new { id=item.Id }) |
+                            @Html.ActionLink("Download", "Download", new { id=item.Id }) |
+                            @Html.ActionLink("Delete", "Delete", new { id=item.Id })
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
