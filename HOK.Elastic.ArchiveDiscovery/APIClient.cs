@@ -67,18 +67,16 @@ namespace HOK.Elastic.ArchiveDiscovery
             //https://localhost:44346/jobs/0
             var path = @$"{host}{JOBSAPI}/{taskId}";
             var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, path));
-            response.EnsureSuccessStatusCode();
-
-            var result = await response.Content.ReadFromJsonAsync<HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo>();
-            if (result != null)
+            if(response.IsSuccessStatusCode)
             {
-                if (ilDebug) _il.LogDebugInfo("Retrieved task info", null, result);
-                return result;
+                var result = await response.Content.ReadFromJsonAsync<HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo>();
+                if (result != null)
+                {
+                    if (ilDebug) _il.LogDebugInfo("Retrieved task info", null, result);
+                    return result;
+                }
             }
-            else
-            {
                 if (ilWarn) _il.LogWarn($"Couldn't get{nameof(HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo)} for {taskId}", null, response.StatusCode);
-            }
             return null;
         }
 

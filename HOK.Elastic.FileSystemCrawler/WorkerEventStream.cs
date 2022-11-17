@@ -30,6 +30,7 @@ namespace HOK.Elastic.FileSystemCrawler
         /// <returns></returns>
         public override async Task<CompletionInfo> RunAsync(ISettingsJobArgs args, CancellationToken ct = default)
         {
+            _ct = ct;
             var completionInfo = new CompletionInfo(args);
             Interlocked.Exchange(ref _filesmatched, 0);
             Interlocked.Exchange(ref _filesnotfound, 0);
@@ -97,7 +98,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 docUpdateExistingTransformBlock.Complete();
                 await Task.WhenAll(docInsertArray.Completion, docInsert.Completion, docInsertReindex.Completion, docUpdate.Completion).ConfigureAwait(false);
                 if (ilinfo) _il.LogInfo("Completed Task");
-                completionInfo.exitCode = CompletionInfo.ExitCode.OK;
+                completionInfo.exitCode = _ct.IsCancellationRequested?CompletionInfo.ExitCode.Cancel: CompletionInfo.ExitCode.OK;
                 #endregion
             }
             catch (AggregateException aex)
@@ -107,6 +108,9 @@ namespace HOK.Elastic.FileSystemCrawler
                 {
                     _il.LogErr("CrawlingAggregateErrors", "", null, aex);//TODO verify log4net enumerates all the inner exceptions when it converts the exception object.
                 }
+            }catch(OperationCanceledException)
+            {
+                completionInfo.exitCode = CompletionInfo.ExitCode.Cancel;
             }
             catch (Exception ex)
             {
@@ -160,6 +164,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     var affectedDocuments = _discoveryEndPoint.FindDescendentsForMoving(fromPublishedPath);
                     foreach (var fso in affectedDocuments)
                     {
+                        _ct.ThrowIfCancellationRequested();
                        try
                         {
                             //delete pathfrom doc....
@@ -325,6 +330,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         {
                             foreach (var item in affectedDocuments)
                             {
+                                _ct.ThrowIfCancellationRequested();
                                 counter++;
                                 newIfso = DocumentHelper.MakeBasicDoc(item.Id, item.IndexName.Equals(FSOdirectory.indexname,StringComparison.OrdinalIgnoreCase));
                                 if (newIfso != null)

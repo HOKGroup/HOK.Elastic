@@ -127,12 +127,19 @@ namespace HOK.Elastic.ArchiveDiscovery
                 #region MonitorJobsForCompletionAndRemove
                 List<JobItem> jobsToBeRemoved = new List<JobItem>();
                     foreach (var job in context.Value.Where(x => x.Status >= FileSystemCrawler.WebAPI.HostedJobInfo.State.started))
-                    {                    
+                {
+                    try
+                    {
                         var jobInfo = await api.GetJobInfo(job.TaskId);
-                        if (jobInfo ==null||jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.complete)
+                        if (jobInfo == null) 
                         {
-                        jobsToBeRemoved.Add(job);
-                        await api.DeleteAsync(job.TaskId);
+                            jobsToBeRemoved.Add(job);
+                            
+                        }
+                        else if(jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.complete)
+                        {
+                            jobsToBeRemoved.Add(job);
+                            await api.DeleteAsync(job.TaskId);
                         }
                         else if (jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.completedWithException)
                         {
@@ -143,18 +150,23 @@ namespace HOK.Elastic.ArchiveDiscovery
                                 job.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.unstarted;
                                 job.Retries++;
                                 //log warn that it's failing
-                                if (ilWarn) _il.LogWarn("Failed", job.Source, jobInfo);
+                                if (ilWarn) _il.LogWarn($"Failed {job.Retries+1} times", job.Source, jobInfo);
                             }
                             else
                             {
-                            if (ilError) _il.LogErr("Aborted", job.Source, job);
-                            jobsToBeRemoved.Add(job);
+                                if (ilError) _il.LogErr("Aborted", job.Source, job);
+                                jobsToBeRemoved.Add(job);
+                                await api.DeleteAsync(job.TaskId);
                             }
                         }
                         else
                         {
                             //still working on the job....
                         }
+                    }catch(Exception ex)
+                    {
+                        if (ilError) _il.LogErr("Error monitoringjobs and removing completed", null,ilDebug? context.Value:null, ex);
+                    }
                     }
                     foreach(var job in jobsToBeRemoved)
                     {
