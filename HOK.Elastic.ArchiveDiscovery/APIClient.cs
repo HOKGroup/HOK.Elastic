@@ -43,8 +43,8 @@ namespace HOK.Elastic.ArchiveDiscovery
             var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, freeSlotpath));
             if (response.IsSuccessStatusCode)
             {
-                var jobId = await response.Content.ReadFromJsonAsync<int>();
-                return jobId > 0;
+                var freeSlots = await response.Content.ReadFromJsonAsync<int>();
+                return freeSlots > 0;
             }
             else
             {

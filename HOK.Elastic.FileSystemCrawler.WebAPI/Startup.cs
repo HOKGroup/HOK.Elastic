@@ -14,6 +14,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Server.IIS;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Options;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -22,6 +25,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
+            Program.Config = configuration;
         }
 
         public IConfiguration Configuration { get; }
@@ -30,7 +34,19 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public void ConfigureServices(IServiceCollection services)
         {
             //services.AddControllersWithViews();
+            services.AddAuthentication(IISServerDefaults.AuthenticationScheme);
+            services.AddAuthorization(o =>
+            {
+                o.FallbackPolicy = new AuthorizationPolicyBuilder().RequireAssertion(x => AccessPolicy.GetFallBack(x)).Build();// By default, all incoming requests will be authorized according to the fallback policy if it hasn't been specified for an endpoint. We want this restrictive.
+               
+                foreach (var ourAccessPolicies in AccessPolicy.Policies)
+                {
+                    o.AddPolicy(ourAccessPolicies.Key, ourAccessPolicies.Value);
+                }
+            }
+            );
             services.AddMvc();
+       
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -58,6 +74,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
             app.UseRouting();
             app.UseAuthorization();
+            app.UseAuthentication();
 
             app.UseEndpoints(endpoints =>
             {
@@ -65,6 +82,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
             });
+    
         }
     }
 }

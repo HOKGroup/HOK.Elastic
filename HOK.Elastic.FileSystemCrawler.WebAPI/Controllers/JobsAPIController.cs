@@ -11,9 +11,10 @@ using System;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.Extensions.Hosting;
 
+
 namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = AccessPolicy.PolicyNames.Default)]
     [ApiController]
     [Route("[controller]")]
     public class JobsAPIController : Controller
@@ -41,7 +42,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             }
             else
             {
-                if (isInfo) _logger.LogInformation($"Null jobs");
+                if (isInfo) _logger.LogInformation($"Null job collection");
                 return NotFound();
             }
         }    
@@ -60,17 +61,17 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
                 return NotFound(ex.Message);
             }
         }
-        [HttpPost, HttpPut]
+
 
         /// <summary>
         /// pass any of the crawler jobs config definitions (full,incrmeental,event) possibly missing content and query crawl too.
         /// </summary>
-        /// <param name="settingsJobArgs"></param>
+        /// <param name="settingsJobArgsDto"></param>
         /// <returns></returns>
-        
-        public ActionResult Post(SettingsJobArgsDTO settingsJobArgsdto)
+        [HttpPost, HttpPut]
+        public ActionResult Post(SettingsJobArgsDTO settingsJobArgsDto)
         {
-            var id = JobHelper.Post(_hostedJobScheduler, settingsJobArgsdto, Request.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString());
+            var id = JobHelper.Post(_hostedJobScheduler, settingsJobArgsDto, Request.HttpContext.Connection.RemoteIpAddress.MapToIPv4().ToString());
             return Ok(id);
         }
 

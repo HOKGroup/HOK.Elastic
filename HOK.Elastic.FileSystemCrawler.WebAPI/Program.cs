@@ -20,6 +20,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
     public class Program
     {
+        public static IConfiguration Config { get; internal set; }
+
         public static void Main(string[] args)
         {
             CreateHostBuilder(args).Build().Run();
@@ -31,7 +33,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 {
                     webBuilder.UseStartup<Startup>();
                 })
-
+           
                 .ConfigureLogging(logging =>
                 {
                     //logging.ClearProviders();
@@ -42,7 +44,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
                 )
                 .ConfigureServices(services => {
-                    services.AddSingleton<IHostedJobQueue, HostedJobQueue>(x => new HostedJobQueue(x.GetService<ILogger<HostedJobQueue>>(), 5));
+                    services.AddSingleton<IHostedJobQueue, HostedJobQueue>(x => new HostedJobQueue(x.GetService<ILogger<HostedJobQueue>>(), 2));
                     services.AddHostedService<IHostedJobQueue>(x => x.GetRequiredService<IHostedJobQueue>());
                 });
          

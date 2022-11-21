@@ -1,6 +1,8 @@
 ﻿using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Nest;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,6 +11,7 @@ using System.Threading.Tasks;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
 {
+    [Authorize(Policy = AccessPolicy.PolicyNames.Default)]
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;

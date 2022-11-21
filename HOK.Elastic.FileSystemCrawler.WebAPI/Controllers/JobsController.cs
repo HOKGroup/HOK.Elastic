@@ -1,6 +1,7 @@
 ﻿using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
@@ -14,6 +15,7 @@ using System.Threading.Tasks;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
 {
+    [Authorize(Policy =AccessPolicy.PolicyNames.Default)]
     public class JobsController : Controller
     {
         private ILogger _logger;

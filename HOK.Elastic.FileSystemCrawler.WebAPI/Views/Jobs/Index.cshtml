@@ -8,8 +8,9 @@
 <h4>HostedJobQueue</h4>
 
 <div class="row">
-    <div class="col-md-2">
-        <a asp-action="Create">Add New...</a>
+    <div class="col-md-12">
+        <a asp-action="Index">Refresh</a>|
+        <a asp-action="Create">Add New...</a>       
     </div>
 </div>
 <div class="row">
@@ -18,13 +19,22 @@
             <thead>
                 <tr>
                     <th>
+                        @Html.DisplayNameFor(model => model.Id)
+                    </th>
+                    <th>
                         @Html.DisplayNameFor(model => model.SettingsJobArgs.JobName)
                     </th>
                     <th>
                         @Html.DisplayNameFor(model => model.SettingsJobArgs.JobNotes)
                     </th>
                     <th>
+                        @Html.DisplayNameFor(model => model.SettingsJobArgs.CrawlMode)
+                    </th>
+                    <th>
                         @Html.DisplayNameFor(model => model.IsCompleted)
+                    </th>
+                    <th>
+                        @Html.DisplayNameFor(model => model.WhenCreated)
                     </th>
                     <th>
                         @Html.DisplayNameFor(model => model.WhenCompleted)
@@ -38,7 +48,10 @@
             <tbody>
                 @foreach (var item in Model)
                 {
-                    <tr>  
+                    <tr>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.Id)
+                        </td>
                         <td>
                             @Html.DisplayFor(modelItem => item.SettingsJobArgs.JobName)
                         </td>
@@ -46,7 +59,13 @@
                             @Html.DisplayFor(modelItem => item.SettingsJobArgs.JobNotes)
                         </td>
                         <td>
+                            @Html.DisplayFor(modelItem => item.SettingsJobArgs.CrawlMode)
+                        </td>
+                        <td>
                             @Html.DisplayFor(modelItem => item.IsCompleted)
+                        </td>
+                        <td>
+                            @Html.DisplayFor(modelItem => item.WhenCreated)
                         </td>
                         <td>
                             @Html.DisplayFor(modelItem => item.WhenCompleted)

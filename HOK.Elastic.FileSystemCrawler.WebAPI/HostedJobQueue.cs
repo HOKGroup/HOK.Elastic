@@ -12,6 +12,7 @@ using System.Threading.Tasks.Dataflow;
 using HOK.Elastic.DAL;
 using System.Collections.Generic;
 using HOK.Elastic.DAL.Models;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -20,7 +21,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
     {
         private ConcurrentDictionary<int, HostedJobInfo> _jobs = new ConcurrentDictionary<int, HostedJobInfo>();
         CancellationTokenSource _cts = new CancellationTokenSource();
-        private Task _taskLoop;
+        private Task _taskLoop = null;
         private ILogger _logger;
         private bool isDebug;
         private bool isInfo;
@@ -30,19 +31,34 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private ActionBlock<HostedJobInfo> completed;
         private Random rnd = new Random();
         public event EventHandler<int> ProcessCompleted;
+        
 
 
         public int MaxJobs { get; private set; }
-        public int FreeSlots => MaxJobs - (buffer?.Count - action?.InputCount - action?.OutputCount - completed?.InputCount??MaxJobs);
+        public int FreeSlots
+        {
+            get
+            {
+                var result = MaxJobs - (_jobs.Values.Where(x=>x.IsCompleted!=true)?.Take(MaxJobs).Count() ?? MaxJobs);
+                if (result <= MaxJobs)
+                {
+                    return result;
+                }
+                else
+                {
+                    return MaxJobs;
+                }
+            }
+        }
 
         public HostedJobQueue(ILogger<HostedJobQueue> logger, int maxJobs)
         {
             _logger = logger;
             isDebug = _logger.IsEnabled(LogLevel.Debug);
-            isInfo =  _logger.IsEnabled(LogLevel.Information);
+            isInfo = _logger.IsEnabled(LogLevel.Information);
             isError = _logger.IsEnabled(LogLevel.Error);
             MaxJobs = maxJobs;
-        }     
+        }
 
         protected virtual void OnTaskCompleted(int Id)
         {
@@ -51,11 +67,13 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // Store the worker task
+            // Store the iWorker task
             if (isInfo) _logger.LogInfo("Starting...");
-            _taskLoop = ExecuteAsync(cancellationToken);
-
-            // If the task is completedId then return it,
+            if (_taskLoop == null)
+            {
+                _taskLoop = ExecuteAsync(cancellationToken);
+            }
+            // If the task is completed then return it,
             // this will bubble cancellation and failure to the caller
             if (_taskLoop.IsCompleted)
             {
@@ -67,57 +85,59 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         protected async Task ExecuteAsync(CancellationToken cancellationToken)
         {
             buffer = new BufferBlock<HostedJobInfo>(new DataflowBlockOptions() { CancellationToken = cancellationToken });
-            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { BoundedCapacity = MaxJobs, MaxDegreeOfParallelism = 4 });//TODO maxdegreeofparallelism is 1 so we don't run into conflicts with the static PathHelper class....:(
+            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = MaxJobs });//TODO maxdegreeofparallelism is 1 so we don't run into conflicts with the static PathHelper class....:(
             completed = new ActionBlock<HostedJobInfo>(x => Finish(x));
             buffer.LinkTo(action, new DataflowLinkOptions() { PropagateCompletion = true });
             action.LinkTo(completed, new DataflowLinkOptions() { PropagateCompletion = true });
             await Task.WhenAny(MonitorAsync(cancellationToken), completed.Completion);
+            if (isDebug) _logger.LogDebug($"ExecuteAsync Monitor Complete");
         }
 
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
-            DateTime trigger = DateTime.Now;
+            //DateTime trigger = DateTime.Now;
+#if DEBUG
             LoadSomeRandomJobs(1);
+#endif
             while (!cancellationToken.IsCancellationRequested)
-            {                
-              if(isDebug)_logger.LogDebug($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
-                if (DateTime.Now.Subtract(trigger).TotalSeconds > 30)
-                {
-                    trigger = DateTime.Now;
-                    if (buffer.Count < 1)///for testing purposes just keep making more items.
-                    {
-                     //   LoadSomeRandomJobs(3);
-                    }
-                }
+            {
+                if (isDebug) _logger.LogDebug($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
+                //if (DateTime.Now.Subtract(trigger).TotalSeconds > 30)
+                //{
+                //    trigger = DateTime.Now;
+                //    if (buffer.Count < 1)///for testing purposes just keep making more items.
+                //    {
+                //        //   LoadSomeRandomJobs(3);
+                //    }
+                //}
                 //queue items to the bufferblock so they will be processed by the transformblock.
                 if (buffer.Count < 4)
                 {
-                    var next = _jobs.Values.Where(x => x.Status == HostedJobInfo.State.unstarted).Take(4 - buffer.Count);
+                    var next = _jobs.Values.Where(x => x.Status == HostedJobInfo.State.unstarted).Take(MaxJobs - buffer.Count);
                     if (next.Any())
                     {
                         foreach (var x in next)
                         {
-                            x.Status = HostedJobInfo.State.started;
                             await buffer.SendAsync(x);
                         }
                     }
                 }
-                await Task.Delay(TimeSpan.FromSeconds(15));
+                await Task.Delay(TimeSpan.FromSeconds(30));//monitor Loop
             }
         }
 
         public int Enqueue(SettingsJobArgs settingsJobArgs)
         {
-            HostedJobInfo d = new HostedJobInfo(settingsJobArgs, _cts.Token);
-            _jobs[d.Id] = d;
-            return d.Id;
+            HostedJobInfo job = new HostedJobInfo(settingsJobArgs, _cts.Token);
+            _jobs[job.Id] = job;
+            return job.Id;
         }
 
         public HostedJobInfo Get(int id)
         {
-            if (_jobs.TryGetValue(id, out HostedJobInfo d))
+            if (_jobs.TryGetValue(id, out HostedJobInfo job))
             {
-                return d;
+                return job;
             }
             else
             {
@@ -161,20 +181,17 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             finally
             {
                 // Wait until the task completes or the stop token triggers
-                await Task.WhenAny(_taskLoop, Task.Delay(Timeout.Infinite,cancellationToken));
+                await Task.WhenAny(_taskLoop, Task.Delay(Timeout.Infinite, cancellationToken));
             }
         }
 
         private void Finish(HostedJobInfo jobInfo)
         {
-            jobInfo.WhenCompleted = DateTime.Now;
-            //jobInfo.Status = HostedJobInfo.State.complete;
+            if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
             OnTaskCompleted(jobInfo.Id);
-            jobInfo = _jobs[jobInfo.Id];
-            if (isInfo) _logger.LogInformation("Completed {JobInfo}",jobInfo);
-        }  
- 
+        }
 
+#if DEBUG
         public void LoadSomeRandomJobs(int itemsToCreate)
         {
             //load up some random tasks
@@ -187,10 +204,10 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     BulkUploadSize = ii,
                     CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.EventBased,
                     ElasticDiscoveryURI = new Uri[] { new Uri("https://elasitcnode:9200/") },
-                    ElasticIndexURI = new Uri[] { new Uri("https://elasticnode:9200/")},
+                    ElasticIndexURI = new Uri[] { new Uri("https://elasticnode:9200/") },
                     DocInsertionThreads = 1,
-                    JobName="Sample",
-                    JobNotes="Some notes about the sample job",
+                    JobName = "Sample",
+                    JobNotes = "Some notes about the sample job",
                     IgnoreExtensions = new List<string>() { ".dat", ".db" },
                     IndexNamePrefix = $"test{ii}",
                     InputPathLocation = $"Job{ii}",
@@ -203,21 +220,24 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     OfficeSiteExtractRegex = "[a-z]{2,5}",
                     ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
                 }, _cts.Token);
-                d.SettingsJobArgs.InputPaths.Add(new InputPathEventStream() { 
-                    IsDir = true, 
-                    Path = "c:\\archive", 
-                    PathFrom = "c:\\production", 
-                    PresenceAction = ActionPresence.Copy 
+                d.SettingsJobArgs.InputPaths.Add(new InputPathEventStream()
+                {
+                    IsDir = true,
+                    Path = "c:\\archive",
+                    PathFrom = "c:\\production",
+                    PresenceAction = ActionPresence.Copy
                 });
                 if (isInfo) _logger.LogInformation($">>>>>>>Inserting {d.Id} bulk {d.SettingsJobArgs.BulkUploadSize}");
                 _jobs[d.Id] = d;
             }
         }
+#endif
 
         public async Task<HostedJobInfo> RunJobAsync(HostedJobInfo hostedJobInfo)
         {
             try
             {
+                hostedJobInfo.Status = HostedJobInfo.State.started;
                 hostedJobInfo.CompletionInfo = new CompletionInfo(hostedJobInfo.SettingsJobArgs);
                 var workerargs = hostedJobInfo.SettingsJobArgs;
 
@@ -231,9 +251,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 DAL.StaticIndexPrefix.Prefix = workerargs.IndexNamePrefix;
                 string safepath = workerargs.JobName + workerargs.JobNotes;
                 System.IO.Path.GetInvalidPathChars().Select(x => safepath = safepath.Replace(x, ' '));
-                workerargs.InputPathLocation = System.IO.Path.Combine("webapijobs",safepath + hostedJobInfo.GetHashCode());
+                workerargs.InputPathLocation = System.IO.Path.Combine("webapijobs", safepath + hostedJobInfo.GetHashCode());
                 //end of unchecked requirements stuff that causes problems.
-
 
                 var index = new DAL.Index(workerargs.ElasticIndexURI.First(), new Elastic.Logger.Log4NetLogger("index"));
                 var discovery = new DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), new Elastic.Logger.Log4NetLogger("discovery"));
@@ -242,26 +261,47 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Constructing....");
                 SecurityHelper sh = new SecurityHelper(logger);
                 DocumentHelper dh = new DocumentHelper(true, sh, index, logger);
-                IWorkerBase wb;
+                IWorkerBase iWorker;
                 if (workerargs.CrawlMode == CrawlMode.EventBased)
                 {
-                     wb = new WorkerEventStream(index, discovery, sh, dh, logger);
-                }else
-                {
-                    wb = new WorkerCrawler(index, discovery, sh, dh, logger);
+                    iWorker = new WorkerEventStream(index, discovery, sh, dh, logger);
                 }
-                
-                if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Starting....");
-                hostedJobInfo.CompletionInfo = await wb.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//we can pass IProgress<T> here later if we want to get progress.
-                hostedJobInfo.Status = HostedJobInfo.State.complete;
+                else
+                {
+                    iWorker = new WorkerCrawler(index, discovery, sh, dh, logger);
+                }
+
+                if (logger.IsEnabled(LogLevel.Information)) logger.LogInfo("Starting....",null,hostedJobInfo.SettingsJobArgs.JobName);
+               
+                hostedJobInfo.CompletionInfo = await iWorker.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//we can pass IProgress<T> here later if we want to get progress.
+
+
+                switch (hostedJobInfo.CompletionInfo.exitCode)
+                {
+                    case CompletionInfo.ExitCode.None:
+                        hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
+                        break;
+                    case CompletionInfo.ExitCode.OK:
+                        hostedJobInfo.Status = HostedJobInfo.State.complete;
+                        break;
+                    case CompletionInfo.ExitCode.Cancel:
+                        hostedJobInfo.Status = HostedJobInfo.State.cancelled;
+                        break;
+                    case CompletionInfo.ExitCode.Fatal:
+                        hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
+                        break;
+                    default:
+                        break;
+                }
                 if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Finisehd");
             }
-            catch(Exception ex)            
+            catch (Exception ex)
             {
                 if (isError) _logger.LogError(ex, $"Running {hostedJobInfo.Id}");
                 hostedJobInfo.Exception = ex;
                 hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
             }
+            hostedJobInfo.WhenCompleted = DateTime.Now;
             return hostedJobInfo;
         }
     }

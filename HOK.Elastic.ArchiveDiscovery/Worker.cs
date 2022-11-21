@@ -34,21 +34,22 @@ namespace HOK.Elastic.ArchiveDiscovery
             ilError = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error);
             api = new APIClient(apihost, new Logger.Log4NetLogger("API"));
         }
-     
+
         internal async Task RunAsync(SettingsJobArgsDTO settingsJobArgsDTO)
         {
             //var settingsJobArgsDTO = (SettingsJobArgsDTO)settingsJobArgsDTO;
-            StaticIndexPrefix.Prefix =settingsJobArgsDTO.IndexNamePrefix;
-           var discoveryuris = settingsJobArgsDTO.ElasticDiscoveryURI.Select(x => new Uri(x)).ToList();
+            StaticIndexPrefix.Prefix = settingsJobArgsDTO.IndexNamePrefix;
+            var discoveryuris = settingsJobArgsDTO.ElasticDiscoveryURI.Select(x => new Uri(x)).ToList();
             DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(discoveryuris, new Logger.Log4NetLogger("test"));
             var clientStatus = discoveryArchive.GetClientStatus();
-            if(ilDebug)_il.LogDebugInfo("status",null,clientStatus);
+            if (ilDebug) _il.LogDebugInfo("status", null, clientStatus);
             var offices = await discoveryArchive.FindOffices();
             foreach (var office in offices)
             {
+                if (ilInfo) _il.LogInfo($">>>Searching: '{office}'", null, null);
                 var projectRootsInArchive = await discoveryArchive.FindProjectRootsInArchive(office);
                 if (projectRootsInArchive.Any())
-                {
+                {                   
                     if (ilDebug) _il.LogDebugInfo(office + " " + String.Join(",", projectRootsInArchive.Select(x => x.Project.FullName)));
                     foreach (var archiveDocument in projectRootsInArchive.Where(x => x.Last_write_timeUTC >= DateTime.MinValue))
                     {
@@ -56,32 +57,35 @@ namespace HOK.Elastic.ArchiveDiscovery
                         if (productionDocument != null)
                         {
                             var workItem = new JobItem(office, archiveDocument.Project.Number, productionDocument.Id, archiveDocument.Id);
-                            if (ilDebug) _il.LogDebugInfo($"Found matching pair PROD>ARCHIVE WorkItem", null, workItem);
+                            if (ilDebug) _il.LogDebugInfo($">>>Found matching pair PROD>ARCHIVE WorkItem", null, workItem);
                             context.Value.Add(workItem);
                         }
                     }
                 }
                 else
                 {
-                    if (ilDebug) _il.LogDebugInfo($"No projects found for: '{office}'", null,null);
-                }
+                    if (ilDebug) _il.LogDebugInfo($"No projects found for: '{office}'", null, null);
+                }              
             }
             try
-            {               
-                await CopyToArchive(settingsJobArgsDTO);
-            }catch(Exception e)
             {
-                if (_il.IsEnabled(LogLevel.Critical)) _il.LogErr("Fatal",null, e);
+                await CopyToArchive(settingsJobArgsDTO);
+            }
+            catch (Exception e)
+            {
+                if (_il.IsEnabled(LogLevel.Critical)) _il.LogErr("Fatal", null, e);
             }
         }
 
         private async Task<bool> CopyToArchive(SettingsJobArgsDTO settingsJobArgsDTO)
         {
+
             DateTime timer = DateTime.MinValue;
             while (context.Value.Any())
             {
+                if (ilInfo) _il.LogInfo("Looping jobs in context...", null, context.Value.Count);
                 #region PersistJobs
-                if (DateTime.Now.Subtract(timer).TotalMinutes > 5)
+                if (DateTime.Now.Subtract(timer).TotalMinutes > 2)
                 {
                     timer = DateTime.Now;
                     context.Save();
@@ -97,12 +101,13 @@ namespace HOK.Elastic.ArchiveDiscovery
                     {
                         settingsJobArgsDTO.InputEvents = new List<InputPathEventStream>();
 
-                        settingsJobArgsDTO.InputEvents.Add(new InputPathEventStream() { 
-                            Path = item.Target, 
+                        settingsJobArgsDTO.InputEvents.Add(new InputPathEventStream()
+                        {
+                            Path = item.Target,
                             PathFrom = item.Source,
-                            IsDir=true,
-                            TimeStampUtc=DateTime.Now,
-                            PresenceAction = ActionPresence.Copy 
+                            IsDir = true,
+                            TimeStampUtc = DateTime.Now,
+                            PresenceAction = ActionPresence.Copy
                         }
                         );
                         settingsJobArgsDTO.JobName = $"ArchiveJob_{item.Office}_{item.ProjectNumber}";
@@ -112,74 +117,94 @@ namespace HOK.Elastic.ArchiveDiscovery
                         {
                             item.TaskId = Id;
                             item.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.started;
-                        }else
+                        }
+                        else
                         {
                             //else job failed...we increment retries if we want to exit endless loop in case of failure.
+                            if (ilDebug) _il.LogDebugInfo("Unexpected JobId failure when posting", null, Id);
                             await Task.Delay(TimeSpan.FromSeconds(5));
                         }
                     }
                     else
                     {
+                        if (ilInfo) _il.LogInfo("no items waiting to be sent to API");
                         break;
-                    }                    
+                    }
                 }
                 #endregion
                 #region MonitorJobsForCompletionAndRemove
                 List<JobItem> jobsToBeRemoved = new List<JobItem>();
-                    foreach (var job in context.Value.Where(x => x.Status >= FileSystemCrawler.WebAPI.HostedJobInfo.State.started))
+                foreach (var job in context.Value.Where(x => x.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.started || x.Status== FileSystemCrawler.WebAPI.HostedJobInfo.State.completedWithException ))
                 {
                     try
                     {
                         var jobInfo = await api.GetJobInfo(job.TaskId);
-                        if (jobInfo == null) 
+                        if (jobInfo == null)
                         {
                             jobsToBeRemoved.Add(job);
-                            
-                        }
-                        else if(jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.complete)
-                        {
-                            jobsToBeRemoved.Add(job);
-                            await api.DeleteAsync(job.TaskId);
-                        }
-                        else if (jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.completedWithException)
-                        {
-                            if (job.Retries < 3)
-                            {
-                                //retry the job.
-                                await api.DeleteAsync(job.TaskId);
-                                job.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.unstarted;
-                                job.Retries++;
-                                //log warn that it's failing
-                                if (ilWarn) _il.LogWarn($"Failed {job.Retries+1} times", job.Source, jobInfo);
-                            }
-                            else
-                            {
-                                if (ilError) _il.LogErr("Aborted", job.Source, job);
-                                jobsToBeRemoved.Add(job);
-                                await api.DeleteAsync(job.TaskId);
-                            }
                         }
                         else
                         {
-                            //still working on the job....
+                            if (jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.complete && jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
+                            {
+                                if (jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
+                                {
+                                    jobsToBeRemoved.Add(job);
+                                    await api.DeleteAsync(job.TaskId);
+                                }
+                                else
+                                {
+                                    job.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.complete;
+                                }
+                            }
+                            else if (jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.completedWithException)
+                            {
+                                if (job.Retries < 3)
+                                {
+                                    //retry the job.
+                                    await api.DeleteAsync(job.TaskId);
+                                    job.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.unstarted;
+                                    job.Retries++;
+                                    //log warn that it's failing
+                                    if (ilWarn) _il.LogWarn($"Failed {job.Retries + 1} times", job.Source, jobInfo);
+                                }
+                                else if (jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
+                                {
+                                    if (ilError) _il.LogErr("Aborted", job.Source, job);
+                                    jobsToBeRemoved.Add(job);
+                                    await api.DeleteAsync(job.TaskId);
+                                }
+                                else
+                                {
+                                    job.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.completedWithException;
+                                }
+                            }
+                            else
+                            {
+                                //still working on the job....
+                            }
                         }
-                    }catch(Exception ex)
+                    }
+                    catch (Exception ex)
                     {
-                        if (ilError) _il.LogErr("Error monitoringjobs and removing completed", null,ilDebug? context.Value:null, ex);
+                        if (ilError) _il.LogErr("Error monitoringjobs and removing completed", null, ilDebug ? context.Value : null, ex);
                     }
-                    }
-                    foreach(var job in jobsToBeRemoved)
-                    {
-                        //log that this failed and not complete.                        
-                        context.Value.Remove(job);
-                    }
-                    await Task.Delay(TimeSpan.FromSeconds(5));               
+                }
+                foreach (var job in jobsToBeRemoved)
+                {
+                    //log that this failed and not complete.                        
+                    context.Value.Remove(job);
+                }
+              
+#if DEBUG
+                await Task.Delay(TimeSpan.FromSeconds(10));
+#else
+ await Task.Delay(TimeSpan.FromSeconds(90));
+#endif
                 #endregion
             }
             context.Save();
             return true;
         }
-
-
     }
 }
