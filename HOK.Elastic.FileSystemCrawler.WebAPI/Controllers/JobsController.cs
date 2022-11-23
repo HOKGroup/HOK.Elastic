@@ -69,8 +69,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         // GET: JobsViewController/Create
         public ActionResult Create()
         {
+            //provide some default suggestions....
             var defaults = new SettingsJobArgsDTO()
-            { BulkUploadSize = 5,
+            {   BulkUploadSize = 5,
                 CrawlMode = CrawlMode.EmailOnlyMissingContent,
                 PublishedPath = "\\\\server\\one\\two\\three",
                 //InputEvents = new List<InputPathEventStream>() { new InputPathEventStream() {Path="c:\\",PathFrom="b:\\" }, new InputPathEventStream() { Path = "d:\\", PathFrom = "e:\\" } }

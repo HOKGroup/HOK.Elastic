@@ -24,6 +24,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
                 CrawlMode = args.CrawlMode;
                 CPUCoreThreadMultiplier = args.CPUCoreThreadMultiplier??1;
                 StartTime = DateTime.Now;
+                EndTime = StartTime;
                 JobNotes = args.JobNotes;
                 InputPaths = args.InputPaths;
             }
@@ -38,12 +39,12 @@ namespace HOK.Elastic.FileSystemCrawler.Models
         public string AppVersion { get { return System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString(); } }
         public ExitCode exitCode { get; set; }
         public DateTime StartTime { get; private set; }
-        public DateTime EndTime { get; internal set; }
+        public DateTime EndTime { get; internal set; } 
         public string Duration
         {
             get
             {
-                TimeSpan endtime = DateTime.Now - StartTime;
+                TimeSpan endtime = EndTime - StartTime;
                 return string.Format(System.Globalization.DateTimeFormatInfo.InvariantInfo, "{0:dd} days {0:hh} hours {0:mm} minutes {0:ss} seconds total duration", endtime);
             }
         }
@@ -51,7 +52,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
         {
             get
             {
-                TimeSpan endtime = DateTime.Now - StartTime;
+                TimeSpan endtime = EndTime - StartTime;
                 return endtime.TotalSeconds;
             }
         }

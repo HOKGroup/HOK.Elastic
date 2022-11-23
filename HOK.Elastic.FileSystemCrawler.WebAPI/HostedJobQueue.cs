@@ -30,23 +30,24 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private TransformBlock<HostedJobInfo, HostedJobInfo> action;
         private ActionBlock<HostedJobInfo> completed;
         private Random rnd = new Random();
-        public event EventHandler<int> ProcessCompleted;
-        
+        public event EventHandler<int> ProcessCompleted;        
 
 
         public int MaxJobs { get; private set; }
+        public int JobSlots => (int)(MaxJobs * 1.5);
+       
         public int FreeSlots
         {
             get
             {
-                var result = MaxJobs - (_jobs.Values.Where(x=>x.IsCompleted!=true)?.Take(MaxJobs).Count() ?? MaxJobs);
-                if (result <= MaxJobs)
+                var result = JobSlots - (_jobs.Values.Where(x=>x.IsCompleted!=true)?.Take(JobSlots).Count() ?? JobSlots);
+                if (result <= JobSlots)
                 {
                     return result;
                 }
                 else
                 {
-                    return MaxJobs;
+                    return JobSlots;
                 }
             }
         }
@@ -67,13 +68,13 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // Store the iWorker task
+            // Store the IHostedJobQueue task
             if (isInfo) _logger.LogInfo("Starting...");
             if (_taskLoop == null)
             {
                 _taskLoop = ExecuteAsync(cancellationToken);
             }
-            // If the task is completed then return it,
+            // If the task is completed, then return it,
             // this will bubble cancellation and failure to the caller
             if (_taskLoop.IsCompleted)
             {
@@ -83,35 +84,26 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             return Task.CompletedTask;
         }
         protected async Task ExecuteAsync(CancellationToken cancellationToken)
-        {
-            buffer = new BufferBlock<HostedJobInfo>(new DataflowBlockOptions() { CancellationToken = cancellationToken });
-            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = MaxJobs });//TODO maxdegreeofparallelism is 1 so we don't run into conflicts with the static PathHelper class....:(
+        {     
+            buffer = new BufferBlock<HostedJobInfo>(new DataflowBlockOptions() {BoundedCapacity=-1, CancellationToken = cancellationToken });
+            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { BoundedCapacity=FreeSlots, MaxDegreeOfParallelism = MaxJobs });//TODO maxdegreeofparallelism is 1 so we don't run into conflicts with the static PathHelper class....:(
             completed = new ActionBlock<HostedJobInfo>(x => Finish(x));
             buffer.LinkTo(action, new DataflowLinkOptions() { PropagateCompletion = true });
             action.LinkTo(completed, new DataflowLinkOptions() { PropagateCompletion = true });
+            if (isDebug) _logger.LogDebug($"ExecuteAsync Monitor Starting");
             await Task.WhenAny(MonitorAsync(cancellationToken), completed.Completion);
             if (isDebug) _logger.LogDebug($"ExecuteAsync Monitor Complete");
         }
 
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
-            //DateTime trigger = DateTime.Now;
 #if DEBUG
             LoadSomeRandomJobs(1);
 #endif
             while (!cancellationToken.IsCancellationRequested)
             {
                 if (isDebug) _logger.LogDebug($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
-                //if (DateTime.Now.Subtract(trigger).TotalSeconds > 30)
-                //{
-                //    trigger = DateTime.Now;
-                //    if (buffer.Count < 1)///for testing purposes just keep making more items.
-                //    {
-                //        //   LoadSomeRandomJobs(3);
-                //    }
-                //}
-                //queue items to the bufferblock so they will be processed by the transformblock.
-                if (buffer.Count < 4)
+                if (buffer.Count < MaxJobs)
                 {
                     var next = _jobs.Values.Where(x => x.Status == HostedJobInfo.State.unstarted).Take(MaxJobs - buffer.Count);
                     if (next.Any())
@@ -191,48 +183,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             OnTaskCompleted(jobInfo.Id);
         }
 
-#if DEBUG
-        public void LoadSomeRandomJobs(int itemsToCreate)
-        {
-            //load up some random tasks
-            Random random = new Random();
-            for (int i = 0; i < itemsToCreate; i++)
-            {
-                var ii = random.Next(500, 16000);
-                var d = new HostedJobInfo(new HOK.Elastic.FileSystemCrawler.Models.SettingsJobArgs()
-                {
-                    BulkUploadSize = ii,
-                    CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.EventBased,
-                    ElasticDiscoveryURI = new Uri[] { new Uri("https://elasitcnode:9200/") },
-                    ElasticIndexURI = new Uri[] { new Uri("https://elasticnode:9200/") },
-                    DocInsertionThreads = 1,
-                    JobName = "Sample",
-                    JobNotes = "Some notes about the sample job",
-                    IgnoreExtensions = new List<string>() { ".dat", ".db" },
-                    IndexNamePrefix = $"test{ii}",
-                    InputPathLocation = $"Job{ii}",
-                    InputPaths = new InputPathCollectionEventStream(),
-                    PublishedPath = "c:\\",
-                    PathForCrawling = "c:\\",
-                    PathForCrawlingContent = "c:\\",
-                    PathInclusionRegex = ".*",
-                    FileNameExclusionRegex = ".*",
-                    OfficeSiteExtractRegex = "[a-z]{2,5}",
-                    ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
-                }, _cts.Token);
-                d.SettingsJobArgs.InputPaths.Add(new InputPathEventStream()
-                {
-                    IsDir = true,
-                    Path = "c:\\archive",
-                    PathFrom = "c:\\production",
-                    PresenceAction = ActionPresence.Copy
-                });
-                if (isInfo) _logger.LogInformation($">>>>>>>Inserting {d.Id} bulk {d.SettingsJobArgs.BulkUploadSize}");
-                _jobs[d.Id] = d;
-            }
-        }
-#endif
-
         public async Task<HostedJobInfo> RunJobAsync(HostedJobInfo hostedJobInfo)
         {
             try
@@ -275,7 +225,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                
                 hostedJobInfo.CompletionInfo = await iWorker.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//we can pass IProgress<T> here later if we want to get progress.
 
-
                 switch (hostedJobInfo.CompletionInfo.exitCode)
                 {
                     case CompletionInfo.ExitCode.None:
@@ -304,5 +253,49 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             hostedJobInfo.WhenCompleted = DateTime.Now;
             return hostedJobInfo;
         }
+
+
+#if DEBUG
+        public void LoadSomeRandomJobs(int itemsToCreate)
+        {
+            //load up some random tasks
+            Random random = new Random();
+            for (int i = 0; i < itemsToCreate; i++)
+            {
+                var ii = random.Next(500, 16000);
+                var d = new HostedJobInfo(new HOK.Elastic.FileSystemCrawler.Models.SettingsJobArgs()
+                {
+                    BulkUploadSize = ii,
+                    CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.EventBased,
+                    ElasticDiscoveryURI = new Uri[] { new Uri("https://elasitcnode:9200/") },
+                    ElasticIndexURI = new Uri[] { new Uri("https://elasticnode:9200/") },
+                    DocInsertionThreads = 1,
+                    JobName = "Sample",
+                    JobNotes = "Some notes about the sample job",
+                    IgnoreExtensions = new List<string>() { ".dat", ".db" },
+                    IndexNamePrefix = $"test{ii}",
+                    InputPathLocation = $"Job{ii}",
+                    InputPaths = new InputPathCollectionEventStream(),
+                    PublishedPath = "c:\\",
+                    PathForCrawling = "c:\\",
+                    PathForCrawlingContent = "c:\\",
+                    PathInclusionRegex = ".*",
+                    FileNameExclusionRegex = ".*",
+                    OfficeSiteExtractRegex = "[a-z]{2,5}",
+                    ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
+                }, _cts.Token);
+                d.SettingsJobArgs.InputPaths.Add(new InputPathEventStream()
+                {
+                    IsDir = true,
+                    Path = "c:\\archive",
+                    PathFrom = "c:\\production",
+                    PresenceAction = ActionPresence.Copy
+                });
+                if (isInfo) _logger.LogInformation($">>>>>>>Inserting {d.Id} bulk {d.SettingsJobArgs.BulkUploadSize}");
+                _jobs[d.Id] = d;
+            }
+        }
+#endif
+
     }
 }

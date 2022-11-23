@@ -29,7 +29,13 @@ namespace HOK.Elastic.ArchiveDiscovery
             string json = JsonConvert.SerializeObject(Value);   
                 File.WriteAllText(_filePath, json);
         }
-        
+
+        public void SaveAsync()
+        {
+            string json = JsonConvert.SerializeObject(Value);
+            File.WriteAllTextAsync(_filePath, json);
+        }
+
         public T Value { get; set; }
     }
 }

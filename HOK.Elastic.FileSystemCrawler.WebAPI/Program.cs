@@ -29,24 +29,19 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder =>
-                {
+                .ConfigureWebHostDefaults(webBuilder =>{
                     webBuilder.UseStartup<Startup>();
-                })
-           
-                .ConfigureLogging(logging =>
-                {
-                    //logging.ClearProviders();
+                    })           
+                .ConfigureLogging(logging =>{
+                    //logging.ClearProviders();               
                     logging.AddLog4Net();
-                    var xml = HOK.Elastic.Logger.Log4NetProvider.Parselog4NetConfigFile("log4net.config");
-                    var c = log4net.Config.XmlConfigurator.Configure(xml);
-                }
-
-                )
+                    var xml = HOK.Elastic.Logger.Log4NetProvider.Parselog4NetConfigFile("log4net.config");                  
+                    var c = log4net.Config.XmlConfigurator.Configure(xml);                  
+                })
                 .ConfigureServices(services => {
-                    services.AddSingleton<IHostedJobQueue, HostedJobQueue>(x => new HostedJobQueue(x.GetService<ILogger<HostedJobQueue>>(), 2));
+                    var maxJobs = int.Parse(Program.Config["ConcurrentJobs"]);
+                    services.AddSingleton<IHostedJobQueue, HostedJobQueue>(x => new HostedJobQueue(x.GetService<ILogger<HostedJobQueue>>(), maxJobs));
                     services.AddHostedService<IHostedJobQueue>(x => x.GetRequiredService<IHostedJobQueue>());
-                });
-         
+                    });
     }
 }
