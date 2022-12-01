@@ -1,7 +1,19 @@
-﻿@model HOK.Elastic.FileSystemCrawler.Models.ISettingsJobArgs
+﻿@model SettingsJobArgsDTO
 
 <div>
     <dl class="row border border-primary rounded-sm">
+         <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.ElasticIndexURI)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.ElasticIndexURI)
+        </dd>
+        <dt class="col-sm-2">
+            @Html.DisplayNameFor(model => model.ElasticDiscoveryURI)
+        </dt>
+        <dd class="col-sm-10">
+            @Html.DisplayFor(model => model.ElasticDiscoveryURI)
+        </dd>
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.CrawlThreads)
         </dt>

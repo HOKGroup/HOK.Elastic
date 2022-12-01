@@ -13,6 +13,12 @@ using HOK.Elastic.DAL;
 using System.Collections.Generic;
 using HOK.Elastic.DAL.Models;
 using System.Runtime.InteropServices.WindowsRuntime;
+using Newtonsoft.Json;
+using System.Text;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using Newtonsoft.Json.Serialization;
+using System.Runtime.ConstrainedExecution;
+using System.Runtime.Serialization;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -25,13 +31,14 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private ILogger _logger;
         private bool isDebug;
         private bool isInfo;
+        private bool isWarn;
         private bool isError;
         private BufferBlock<HostedJobInfo> buffer;
         private TransformBlock<HostedJobInfo, HostedJobInfo> action;
         private ActionBlock<HostedJobInfo> completed;
         private Random rnd = new Random();
-        public event EventHandler<int> ProcessCompleted;        
-
+        public event EventHandler<int> ProcessCompleted;
+        private readonly string persistFile = @"logs\jobs.json";
 
         public int MaxJobs { get; private set; }
         public int JobSlots => (int)(MaxJobs * 1.5);
@@ -52,11 +59,17 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
         }
 
+        private int GetNextId()
+        {
+            return _jobs.Keys.Max() + 1;
+        }
+
         public HostedJobQueue(ILogger<HostedJobQueue> logger, int maxJobs)
         {
             _logger = logger;
             isDebug = _logger.IsEnabled(LogLevel.Debug);
             isInfo = _logger.IsEnabled(LogLevel.Information);
+            isWarn = _logger.IsEnabled(LogLevel.Warning);
             isError = _logger.IsEnabled(LogLevel.Error);
             MaxJobs = maxJobs;
         }
@@ -83,26 +96,34 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             // Otherwise it's running
             return Task.CompletedTask;
         }
+
         protected async Task ExecuteAsync(CancellationToken cancellationToken)
-        {     
+        {  
+            Load();
             buffer = new BufferBlock<HostedJobInfo>(new DataflowBlockOptions() {BoundedCapacity=-1, CancellationToken = cancellationToken });
-            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { BoundedCapacity=FreeSlots, MaxDegreeOfParallelism = MaxJobs });//TODO maxdegreeofparallelism is 1 so we don't run into conflicts with the static PathHelper class....:(
+            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { BoundedCapacity=MaxJobs, MaxDegreeOfParallelism = MaxJobs });//TODO maxdegreeofparallelism is 1 so we don't run into conflicts with the static PathHelper class....:(
             completed = new ActionBlock<HostedJobInfo>(x => Finish(x));
             buffer.LinkTo(action, new DataflowLinkOptions() { PropagateCompletion = true });
             action.LinkTo(completed, new DataflowLinkOptions() { PropagateCompletion = true });
-            if (isDebug) _logger.LogDebug($"ExecuteAsync Monitor Starting");
+            if (isInfo) _logger.LogInfo($"ExecuteAsync Monitor Starting");
             await Task.WhenAny(MonitorAsync(cancellationToken), completed.Completion);
-            if (isDebug) _logger.LogDebug($"ExecuteAsync Monitor Complete");
+            if (isInfo) _logger.LogInfo($"ExecuteAsync Monitor Complete");
         }
 
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-            LoadSomeRandomJobs(1);
+            LoadSomeRandomTestJobs(1);
 #endif
+            DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
             {
-                if (isDebug) _logger.LogDebug($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
+                if(DateTime.Now.Subtract(trigger)>TimeSpan.FromMinutes(5))
+                {
+                    trigger = DateTime.Now;
+                    Save();
+                }
+                if (isInfo) _logger.LogInfo($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
                 if (buffer.Count < MaxJobs)
                 {
                     var next = _jobs.Values.Where(x => x.Status == HostedJobInfo.State.unstarted).Take(MaxJobs - buffer.Count);
@@ -118,10 +139,12 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
         }
 
-        public int Enqueue(SettingsJobArgs settingsJobArgs)
+        public int Enqueue(SettingsJobArgsDTO settingsJobArgsDTO)
         {
-            HostedJobInfo job = new HostedJobInfo(settingsJobArgs, _cts.Token);
+            HostedJobInfo job = new HostedJobInfo(settingsJobArgsDTO, _cts.Token);
+            job.Id = GetNextId();
             _jobs[job.Id] = job;
+            if (isInfo) _logger.LogInformation($">>>>>>>Inserting {job.Id} : {job.ToString()}");
             return job.Id;
         }
 
@@ -168,12 +191,53 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             {
                 // Signal cancellation to the executing method  
                 _cts.Cancel();
+                Save();
                 buffer?.Complete();
+                
             }
             finally
             {
                 // Wait until the task completes or the stop token triggers
                 await Task.WhenAny(_taskLoop, Task.Delay(Timeout.Infinite, cancellationToken));
+            }
+        }
+
+        private void Save()//just a basic,best-effort to persist existing jobs (perhaps jobs that have completed but haven't been looked at etc.)
+        {
+            try
+            {
+                var json = JsonConvert.SerializeObject(_jobs.Values, Formatting.Indented, new JsonSerializerSettings() { });
+                System.IO.File.WriteAllText(persistFile, json, new UTF8Encoding(false));
+            }catch(Exception ex)
+            {
+                if (isError) _logger.LogErr("Error saving job", null, null, ex);
+            }
+        }
+
+
+        private void Load()
+        {
+            if (System.IO.File.Exists(persistFile))
+            {
+                try
+                {
+                    string json = System.IO.File.ReadAllText(persistFile);
+                    if (isDebug) _logger.LogDebug(json);
+                    var jobs = JsonConvert.DeserializeObject<HostedJobInfo[]>(json);                    
+                    if (isDebug) _logger.LogDebug($"job count = {jobs.Count()}");
+
+                    foreach (var job in jobs)
+                    {
+                       if(!_jobs.TryAdd(job.Id, job))
+                        {                            
+                            if (isWarn) _logger.LogWarn($"Couldn't add jobid={job.Id} from '{persistFile}' as it already exists");
+                        }
+                    }
+                }
+                catch(Exception ex)
+                {
+                    if (isError) _logger.LogErr($"Error loading {persistFile}",null,null,ex);
+                }
             }
         }
 
@@ -188,9 +252,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             try
             {
                 hostedJobInfo.Status = HostedJobInfo.State.started;
-                hostedJobInfo.CompletionInfo = new CompletionInfo(hostedJobInfo.SettingsJobArgs);
-                var workerargs = hostedJobInfo.SettingsJobArgs;
+                hostedJobInfo.CompletionInfo = new CompletionInfo(hostedJobInfo.SettingsJobArgsDTO);
 
+                var workerargs = SettingsJobArgsDTO.UnDTO(hostedJobInfo.SettingsJobArgsDTO);
                 //we should add pre-flight check in indexbase or crawlerbase or something to ensure these basics are set.or refactor so we don't have shared static..
                 HOK.Elastic.DAL.Models.PathHelper.Set(workerargs.PublishedPath, workerargs.PathForCrawlingContent, workerargs.PathForCrawling);
                 HOK.Elastic.DAL.Models.PathHelper.SetPathInclusion(workerargs.PathInclusionRegex);
@@ -221,7 +285,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     iWorker = new WorkerCrawler(index, discovery, sh, dh, logger);
                 }
 
-                if (logger.IsEnabled(LogLevel.Information)) logger.LogInfo("Starting....",null,hostedJobInfo.SettingsJobArgs.JobName);
+                if (logger.IsEnabled(LogLevel.Information)) logger.LogInfo("Starting....",null,hostedJobInfo.SettingsJobArgsDTO.JobName);
                
                 hostedJobInfo.CompletionInfo = await iWorker.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//we can pass IProgress<T> here later if we want to get progress.
 
@@ -256,26 +320,32 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
 
 #if DEBUG
-        public void LoadSomeRandomJobs(int itemsToCreate)
+        public void LoadSomeRandomTestJobs(int itemsToCreate)
         {
             //load up some random tasks
             Random random = new Random();
             for (int i = 0; i < itemsToCreate; i++)
             {
-                var ii = random.Next(500, 16000);
-                var d = new HostedJobInfo(new HOK.Elastic.FileSystemCrawler.Models.SettingsJobArgs()
+                var rnd = random.Next(50, 500);
+                var d = new SettingsJobArgsDTO()
                 {
-                    BulkUploadSize = ii,
+                    BulkUploadSize = rnd,
                     CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.EventBased,
-                    ElasticDiscoveryURI = new Uri[] { new Uri("https://elasitcnode:9200/") },
-                    ElasticIndexURI = new Uri[] { new Uri("https://elasticnode:9200/") },
+                    ElasticDiscoveryURI = new List<string> { "https://elasitcnode:9200/" },
+                    ElasticIndexURI = new List<string> { "https://elasticnode:9200/" },
                     DocInsertionThreads = 1,
-                    JobName = "Sample",
+                    JobName = "Sample" + rnd,
                     JobNotes = "Some notes about the sample job",
                     IgnoreExtensions = new List<string>() { ".dat", ".db" },
-                    IndexNamePrefix = $"test{ii}",
-                    InputPathLocation = $"Job{ii}",
-                    InputPaths = new InputPathCollectionEventStream(),
+                    IndexNamePrefix = $"test{rnd}",
+                    InputPathLocation = $"c:\\",
+                    InputEvents = new List<InputPathEventStream>() {new InputPathEventStream(){
+                        IsDir = true,
+                        Path = "c:\\archive",
+                        PathFrom = "c:\\production",
+                        PresenceAction = ActionPresence.Copy
+                            }
+                    },
                     PublishedPath = "c:\\",
                     PathForCrawling = "c:\\",
                     PathForCrawlingContent = "c:\\",
@@ -283,16 +353,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     FileNameExclusionRegex = ".*",
                     OfficeSiteExtractRegex = "[a-z]{2,5}",
                     ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
-                }, _cts.Token);
-                d.SettingsJobArgs.InputPaths.Add(new InputPathEventStream()
-                {
-                    IsDir = true,
-                    Path = "c:\\archive",
-                    PathFrom = "c:\\production",
-                    PresenceAction = ActionPresence.Copy
-                });
-                if (isInfo) _logger.LogInformation($">>>>>>>Inserting {d.Id} bulk {d.SettingsJobArgs.BulkUploadSize}");
-                _jobs[d.Id] = d;
+                };
+                Enqueue(d);
             }
         }
 #endif

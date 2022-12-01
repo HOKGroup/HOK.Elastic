@@ -1,4 +1,5 @@
 ﻿using HOK.Elastic.FileSystemCrawler.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Nest;
 using Newtonsoft.Json;
 using System;
@@ -11,51 +12,13 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
     //https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-6.0&tabs=visual-studio
     public class HostedJobInfo
     {
-        private static SemaphoreSlim _lock = new SemaphoreSlim(1,1);
-        private static int _uid = 0;
-        private int _id;
-        private ISettingsJobArgs _job;
         private CancellationTokenSource _thisTokenSource;
         private CancellationTokenSource _linkedTokenSource;
- 
-        public HostedJobInfo(ISettingsJobArgs settingsJob, CancellationToken cancellationToken)
-        {
-            Status = State.unstarted;
-            try
-            {
-               if( _lock.Wait(500, cancellationToken))
-                {
-                    _id = _uid++;
-                }
-            }finally
-            {
-                _lock.Release();
-            } 
-        
-            _job = settingsJob;
-            _thisTokenSource = new CancellationTokenSource();
-            _linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _thisTokenSource.Token);
-#if DEBUG
-            _linkedTokenSource.CancelAfter(60000);//just for fun to give a sample of jobs running.
-#endif
-            WhenCreated = DateTime.Now;
-        }
-        /// <summary>
-        /// Detault Constructor called when deserializing.
-        /// </summary>
-        public HostedJobInfo()
-        {
-            _thisTokenSource = new CancellationTokenSource();
-            _linkedTokenSource = new CancellationTokenSource();
-        }
-  
-        public bool IsCompleted => Status >= State.complete;
+        public int Id { get; set; }
         public DateTime? WhenCreated { get; set; }
         public DateTime? WhenCompleted { get; set; }
-        public ISettingsJobArgs SettingsJobArgs => _job;
-        public int Id => _id;
+        public SettingsJobArgsDTO SettingsJobArgsDTO { get; set; }
         public CompletionInfo CompletionInfo { get; set; }
-
         public State Status { get; set; }
         public enum State
         {
@@ -65,11 +28,33 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             complete,
             completedWithException
         }
-
+        public bool IsCompleted => Status >= State.complete;
         private Exception? _exception;
         public bool HasException => _exception != null;
         public Exception GetException() { return _exception; }       
         public Exception Exception { set { _exception = value; } }
+
+        /// <summary>
+        /// Detault Constructor called when deserializing.
+        /// </summary>
+        public HostedJobInfo()
+        {
+            _thisTokenSource = new CancellationTokenSource();
+            _linkedTokenSource = new CancellationTokenSource();
+        }
+        public HostedJobInfo(SettingsJobArgsDTO settingsJob, CancellationToken cancellationToken)
+        {
+            Status = State.unstarted;
+
+            this.SettingsJobArgsDTO = settingsJob;
+            _thisTokenSource = new CancellationTokenSource();
+            _linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _thisTokenSource.Token);
+#if DEBUG
+            _linkedTokenSource.CancelAfter(60000);//just for fun to give a sample of jobs running.
+#endif
+            WhenCreated = DateTime.Now;
+        }
+
         public override string ToString()
         {
             var json = JsonConvert.SerializeObject(this);

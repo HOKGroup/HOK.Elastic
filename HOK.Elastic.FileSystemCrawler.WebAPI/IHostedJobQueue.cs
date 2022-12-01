@@ -10,7 +10,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
     public interface IHostedJobQueue:IHostedService//could be a library project
     {
         HostedJobInfo Get(int Id);
-        int Enqueue(SettingsJobArgs job);//insert the job onto a queue. 
+        int Enqueue(Models.SettingsJobArgsDTO job);//insert the job onto a queue. 
   
         HostedJobInfo Remove(int Id);
 

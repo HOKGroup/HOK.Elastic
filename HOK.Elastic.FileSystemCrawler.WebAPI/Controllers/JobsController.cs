@@ -164,11 +164,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         public IActionResult Download(int id)
         {
             var job = _hostedJobScheduler.Get(id);
-            var settingsJobArgs = job.SettingsJobArgs;
-            var settingsJobArgsDTO = JobHelper.MakeDTO(settingsJobArgs);
+            var settingsJobArgsDTO = job.SettingsJobArgsDTO;
             return Download(settingsJobArgsDTO);
-            //HttpContext.Response.Headers.Add("Content-Disposition", new System.Net.Mime.ContentDisposition{FileName = $"job{job.Id}settings.json",Inline = false}.ToString());
-            //return new JsonResult(settingsJobArgsDTO,new System.Text.Json.JsonSerializerOptions() { WriteIndented=true,IgnoreReadOnlyProperties=true,IgnoreReadOnlyFields=true});
         }
 
         [HttpGet]
