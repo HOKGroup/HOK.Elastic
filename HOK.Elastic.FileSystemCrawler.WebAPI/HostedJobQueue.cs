@@ -122,6 +122,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 {
                     trigger = DateTime.Now;
                     Save();
+                    CleanupOldJobs();
                 }
                 if (isInfo) _logger.LogInfo($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
                 if (buffer.Count < MaxJobs)
@@ -136,6 +137,18 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     }
                 }
                 await Task.Delay(TimeSpan.FromSeconds(30));//monitor Loop
+            }
+        }
+
+        public void CleanupOldJobs()
+        {
+            var oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && x.WhenCompleted != null && DateTime.Now.Subtract(x.WhenCompleted.Value).TotalHours > 36);
+            if (oldJobs.Any())
+            {
+                foreach (var job in oldJobs)
+                {
+                    Remove(job.Id);
+                }
             }
         }
 
@@ -244,6 +257,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private void Finish(HostedJobInfo jobInfo)
         {
             if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
+            System.IO.File.AppendAllText("logs\\completedjobs.txt", jobInfo.ToString());
             OnTaskCompleted(jobInfo.Id);
         }
 
