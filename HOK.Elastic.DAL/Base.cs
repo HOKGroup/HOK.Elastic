@@ -83,6 +83,9 @@ namespace HOK.Elastic.DAL
                 handler.UseDefaultCredentials = true;
                 handler.PreAuthenticate = true;
                 handler.ClientCertificateOptions = ClientCertificateOption.Automatic;
+                handler.AllowAutoRedirect = true;//true by default
+                handler.UseProxy = true;//true by default
+                handler.UseCookies = true;//true by default
                 return handler;
             }
         }
