@@ -309,7 +309,6 @@ namespace HOK.Elastic.DAL
                     InvalidateApiKey(apiKeyGuid);
                     client.ConnectionSettings.Connection.Dispose();
                 }
-
                 disposedValue = true;
             }
         }

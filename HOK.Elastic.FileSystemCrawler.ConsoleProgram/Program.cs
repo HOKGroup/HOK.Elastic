@@ -107,8 +107,8 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     
                     if (workerargs.CrawlMode == CrawlMode.Incremental || workerargs.CrawlMode == CrawlMode.Full)
                     {
-                        //var inputPathWorkerCollection = new InputPathCollectionCrawl(jobSettings.InputPaths);
-                        var inputPathWorkerCollection = jobSettings.InputPaths as InputPathCollectionCrawl;// new InputPathCollectionCrawl(jobSettings.InputPaths);
+                        var inputPathWorkerCollection = new InputPathCollectionCrawl(jobSettings.InputPaths);
+                        //var inputPathWorkerCollection = jobSettings.InputPaths as InputPathCollectionCrawl;// new InputPathCollectionCrawl(jobSettings.InputPaths);
                         if (InputPathLoader.HasUnfinishedPaths(jobDirectoryInfo.FullName))
                         {
                             InputPathLoader.LoadUnfinishedPaths(jobDirectoryInfo.FullName, ref inputPathWorkerCollection);

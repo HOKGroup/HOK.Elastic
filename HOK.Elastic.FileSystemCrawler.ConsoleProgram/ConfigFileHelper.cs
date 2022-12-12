@@ -70,8 +70,14 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             JSchemaGenerator generator = new JSchemaGenerator();
             JSchema settingsschema = generator.Generate(typeof(HOK.Elastic.FileSystemCrawler.Models.SettingsApp));
             JSchema settingsjobschema = generator.Generate(typeof(HOK.Elastic.FileSystemCrawler.Models.SettingsJob));
-            File.WriteAllText(nameof(settingsjobschema), settingsjobschema.ToString());
-            File.WriteAllText(nameof(settingsschema), settingsschema.ToString());
+            try
+            {
+                File.WriteAllText(nameof(settingsjobschema) + ".json", settingsjobschema.ToString());
+                File.WriteAllText(nameof(settingsschema) + ".json", settingsschema.ToString());
+            }catch(Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
         }
     }
 }
