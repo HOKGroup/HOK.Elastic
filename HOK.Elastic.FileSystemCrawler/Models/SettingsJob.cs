@@ -10,7 +10,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
         public CrawlMode CrawlMode { get; set; }
         public bool? ReadFileContents { get; set; }
         public virtual InputPathCollectionBase InputPaths { get; set; }
-        //public int Count => InputPaths?.Count??0;
+        public int Count => InputPaths?.Count ?? 0;
         public string PathForCrawling { get; set; }
         public string PathForCrawlingContent { get; set; }
         public string PublishedPath { get; set; }
