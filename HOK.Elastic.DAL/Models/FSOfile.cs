@@ -2,8 +2,6 @@
 using System;
 using System.IO;
 
-
-
 namespace HOK.Elastic.DAL.Models
 {
     public class FSOfile : FSO, IFSO, IFSOfile
