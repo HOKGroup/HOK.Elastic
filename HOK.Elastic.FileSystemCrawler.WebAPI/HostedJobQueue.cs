@@ -1,6 +1,4 @@
-﻿using HOK.Elastic.FileSystemCrawler;
-using HOK.Elastic.FileSystemCrawler.Models;
-using log4net.Repository.Hierarchy;
+﻿using HOK.Elastic.FileSystemCrawler.Models;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
@@ -9,16 +7,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
-using HOK.Elastic.DAL;
 using System.Collections.Generic;
-using HOK.Elastic.DAL.Models;
-using System.Runtime.InteropServices.WindowsRuntime;
 using Newtonsoft.Json;
 using System.Text;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
-using Newtonsoft.Json.Serialization;
-using System.Runtime.ConstrainedExecution;
-using System.Runtime.Serialization;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -36,7 +28,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private BufferBlock<HostedJobInfo> buffer;
         private TransformBlock<HostedJobInfo, HostedJobInfo> action;
         private ActionBlock<HostedJobInfo> completed;
-        private Random rnd = new Random();
         public event EventHandler<int> ProcessCompleted;
         private readonly string persistFile = @"logs\jobs.json";
 
@@ -157,7 +148,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             HostedJobInfo job = new HostedJobInfo(settingsJobArgsDTO, _cts.Token);
             job.Id = GetNextId();
             _jobs[job.Id] = job;
-            if (isInfo) _logger.LogInformation($">>>>>>>Inserting {job.Id} : {job.ToString()}");
+            if (isInfo) _logger.LogInformation($">>>>>>>Inserting {job.Id} : {job}");
             return job.Id;
         }
 
