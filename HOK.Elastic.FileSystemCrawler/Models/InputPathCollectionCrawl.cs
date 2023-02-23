@@ -11,7 +11,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
     /// <summary>
     /// collection of inputpaths used for full,incremental and missing content crawls
     /// </summary>
-    public class InputPathCollectionCrawl<T> : InputPathCollectionBase<InputPathBase>
+    public class InputPathCollectionCrawl : InputPathCollectionBase
     {
         public InputPathCollectionCrawl(ICollection<InputPathBase> inputPaths)
         {
@@ -67,12 +67,6 @@ namespace HOK.Elastic.FileSystemCrawler.Models
             {
                 throw new ArgumentException("Null", nameof(inputPath));
             }
-        }
-
-        public static explicit operator InputPathCollectionCrawl<T>(List<InputPathBase> v)
-        {
-            InputPathCollectionCrawl<T> i = new InputPathCollectionCrawl<T>(v);
-            return i;
         }
     }
 }

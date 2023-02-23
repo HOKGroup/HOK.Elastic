@@ -1,0 +1,18 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+    <p>Example Links:</p>
+</div>
+@{
+    var link1 = @Url.Action("index", "jobs");
+    var link2 = @Url.Action("index", "jobsAPI");
+    var link3 = @Url.Action("0", "jobsAPI");
+}
+<pre>  
+<a href=@link1>@link1</a>   
+<a href=@link2>@link2</a>
+<a href=@link3>@link3</a>
+</pre>

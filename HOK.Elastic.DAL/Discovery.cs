@@ -17,7 +17,7 @@ namespace HOK.Elastic.DAL
         public Discovery(Uri uri, Logger.Log4NetLogger logger) : base(uri, logger)
         {
         }
-        public Discovery(Uri[] uri, Logger.Log4NetLogger logger) : base(uri, logger)
+        public Discovery(IEnumerable<Uri> uri, Logger.Log4NetLogger logger) : base(uri, logger)
         {
         }
 
@@ -33,14 +33,28 @@ namespace HOK.Elastic.DAL
         /// Called by workercrawler recursion
         /// </summary>
         /// <param name="path">ensure lowercase</param>
+        ///  /// <param name="includeFullSource">set to true to return the full source document (when duplicating a document for example</param>
         /// <returns></returns>
-        public DirectoryContents FindRootAndChildren(string path)
+        public DirectoryContents FindRootAndChildren(string path,bool includeFullSource = false)
         {
+            SourceFilterDescriptor<FSO> sourceFilter;
+            if (includeFullSource)
+            {
+                sourceFilter = new SourceFilterDescriptor<FSO>();
+                sourceFilter.IncludeAll();
+            }
+            else
+            {
+                sourceFilter = new SourceFilterDescriptor<FSO>();
+                sourceFilter.Includes(f => f.Fields(DefaultSourceFieldsFilter));
+            }
+
+
             var response = client.Search<FSO>(d => d
                         .Index(AllIndicies)
                         .Size(1000)//if we get results at size limit we will scroll the query.
                         .Sort(sort => sort.Ascending("id.keyword"))//added to ensure the root/parent/'path we are searching for' is actually found
-                        .Source(s => s.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))//we could sort here if we really wanted to ensure we get the 'root' document but it's highly likely to be returned in the sub 1000 query.
+                        .Source(s => sourceFilter)//we could sort here if we really wanted to ensure we get the 'root' document but it's highly likely to be returned in the sub 1000 query.
                         .Query(q => q
                             .Bool(b => b
                                 .Filter(bf => bf
@@ -115,12 +129,12 @@ namespace HOK.Elastic.DAL
         /// called by workercrawler recursion if there are more than 1k hits
         /// </summary>
         /// <param name="path"></param>
-        /// <param name="fullSource"></param>
+        /// <param name="includeFullSource "></param>
         /// <returns></returns>
-        private IEnumerable<IHit<IFSO>> FindChildrenScroll(string path, bool fullSource)
+        private IEnumerable<IHit<IFSO>> FindChildrenScroll(string path, bool includeFullSource)
         {
             SourceFilterDescriptor<FSO> sourceFilter;
-            if (fullSource)
+            if (includeFullSource)
             {
                 sourceFilter = new SourceFilterDescriptor<FSO>();
                 sourceFilter.IncludeAll();
@@ -173,8 +187,16 @@ namespace HOK.Elastic.DAL
         /// </summary>
         /// <param name="pageSize"></param>
         /// <returns>Fully Populated Model</returns>
-        public IEnumerable<IFSO> FindChildren(string path)
+        public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
+            foreach (var doc in FindDescendentsForMoving<FSOemail>(path))//move 'most valuable' documents first.
+            {
+                yield return doc;
+            }
+            foreach (var doc in FindDescendentsForMoving<FSOdocument>(path))
+            {
+                yield return doc;
+            }
             foreach (var doc in FindDescendentsForMoving<FSOdirectory>(path))
             {
                 yield return doc;
@@ -183,14 +205,7 @@ namespace HOK.Elastic.DAL
             {
                 yield return doc;
             }
-            foreach (var doc in FindDescendentsForMoving<FSOemail>(path))
-            {
-                yield return doc;
-            }
-            foreach (var doc in FindDescendentsForMoving<FSOdocument>(path))
-            {
-                yield return doc;
-            }
+       
         }
 
         /// <summary>
@@ -205,7 +220,7 @@ namespace HOK.Elastic.DAL
             ISearchResponse<T> searchResponse = null;
             searchResponse = client.Search<T>(d => d
                         .Index(GetIndexName<T>())
-                        .Size(1000)
+                        .Size(500)//in 10m 
                         .Scroll(scrolltimeout)
                         .Source(a => a.IncludeAll())
                         .Query(q => q
@@ -218,12 +233,22 @@ namespace HOK.Elastic.DAL
                         );
             while (searchResponse != null && searchResponse.Documents.Any())
             {
+#if DEBUG
+                var scrollTime = DateTime.Now;
+#endif
+
                 foreach (var hit in searchResponse.Hits)
                 {
                     doc = hit.Source as T;
                     doc.IndexName = hit.Index;
                     yield return doc;
                 }
+#if DEBUG
+                if (ildebug)
+                {
+                    _il.LogDebugInfo("OurScroll took: " + DateTime.Now.Subtract(scrollTime).TotalMinutes.ToString());
+                }
+#endif
                 searchResponse = client.Scroll<T>(scrolltimeout, searchResponse.ScrollId);
             }
             if (searchResponse != null)
@@ -234,7 +259,7 @@ namespace HOK.Elastic.DAL
                     {
                         var err = ElasticResponseError.GetError(searchResponse);
                         _il.LogErr("Discovery.FindDescendentsForMoving", path, err);
-                        throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");
+                        throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");///hmm do we need to throw an error or can we try again or skip?
                     }
                 }
                 client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));

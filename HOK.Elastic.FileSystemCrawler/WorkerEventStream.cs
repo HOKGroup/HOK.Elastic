@@ -30,6 +30,7 @@ namespace HOK.Elastic.FileSystemCrawler
         /// <returns></returns>
         public override async Task<CompletionInfo> RunAsync(ISettingsJobArgs args, CancellationToken ct = default)
         {
+            _ct = ct;
             var completionInfo = new CompletionInfo(args);
             Interlocked.Exchange(ref _filesmatched, 0);
             Interlocked.Exchange(ref _filesnotfound, 0);
@@ -51,11 +52,11 @@ namespace HOK.Elastic.FileSystemCrawler
             {
                 #region setup dataflowblocks
                 BufferBlock<InputPathEventStream> bb = new BufferBlock<InputPathEventStream>(new DataflowBlockOptions { BoundedCapacity = 300 });
-                ActionBlock<InputPathEventStream> blockActionMove = new ActionBlock<InputPathEventStream>(item => ActionMove(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
+                ActionBlock<InputPathEventStream> blockActionMove = new ActionBlock<InputPathEventStream>(item => ActionMoveOrCopy(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
                 ActionBlock<InputPathEventStream> blockActionUpdateOrNew = new ActionBlock<InputPathEventStream>(item => ActionUpdateOrNew(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
                 ActionBlock<InputPathEventStream> blockActionDelete = new ActionBlock<InputPathEventStream>(item => ActionDelete(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
                 bb.LinkTo(blockActionDelete, linkOptions, item => item.PresenceAction == ActionPresence.Delete);
-                bb.LinkTo(blockActionMove, linkOptions, item => item.PresenceAction == ActionPresence.Move);
+                bb.LinkTo(blockActionMove, linkOptions, item => item.PresenceAction == ActionPresence.Move|| item.PresenceAction==ActionPresence.Copy);
                 bb.LinkTo(blockActionUpdateOrNew, linkOptions, item => item.PresenceAction == ActionPresence.None);
                 docInsertTranformBlock = new TransformBlock<IFSO, IFSO>(item => DocumentHelper.InsertTransform(item));
                 docReindexTransformBlock = new TransformBlock<IFSO, IFSO>(item => DocumentHelper.ReindexTransform(item));
@@ -97,16 +98,19 @@ namespace HOK.Elastic.FileSystemCrawler
                 docUpdateExistingTransformBlock.Complete();
                 await Task.WhenAll(docInsertArray.Completion, docInsert.Completion, docInsertReindex.Completion, docUpdate.Completion).ConfigureAwait(false);
                 if (ilinfo) _il.LogInfo("Completed Task");
-                completionInfo.exitCode = CompletionInfo.ExitCode.OK;
+                completionInfo.exitCode = _ct.IsCancellationRequested?CompletionInfo.ExitCode.Cancel: CompletionInfo.ExitCode.OK;
                 #endregion
             }
             catch (AggregateException aex)
             {
-                completionInfo.exitCode = CompletionInfo.ExitCode.None;
+                completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;
                 if (ilerror)
                 {
                     _il.LogErr("CrawlingAggregateErrors", "", null, aex);//TODO verify log4net enumerates all the inner exceptions when it converts the exception object.
                 }
+            }catch(OperationCanceledException)
+            {
+                completionInfo.exitCode = CompletionInfo.ExitCode.Cancel;
             }
             catch (Exception ex)
             {
@@ -125,13 +129,13 @@ namespace HOK.Elastic.FileSystemCrawler
             return completionInfo;
         }
 
-        private async Task ActionMove(InputPathEventStream auditEvent)
+        private async Task ActionMoveOrCopy(InputPathEventStream auditEvent)
         {
             try
             {
                 if (auditEvent.IsDir ? HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(auditEvent.Path) : HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreFile(auditEvent.Path))
                 {
-                    if (ildebug) _il.LogDebugInfo("ActionMove PathTo ShouldIgnore", auditEvent.Path, null);
+                    if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy PathTo ShouldIgnore", auditEvent.Path, null);
                     if (!auditEvent.IsDir ? HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(auditEvent.PathFrom) : HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreFile(auditEvent.PathFrom))
                     {
                         ActionDelete(auditEvent);
@@ -145,38 +149,43 @@ namespace HOK.Elastic.FileSystemCrawler
                 if (ToDoc == null)
                 {
                     //FileSystem Not Found
-                    if (ilwarn) _il.LogWarn("ActionMove NotFound PathTo", auditEvent.Path, auditEvent);
+                    if (ilwarn) _il.LogWarn("ActionMoveOrCopy NotFound PathTo", auditEvent.Path, auditEvent);
                     Interlocked.Increment(ref _filesnotfound);
                     return;
                 }
                 ToDoc = DocumentHelper.ReindexTransform(ToDoc);
 
-                if (ildebug) _il.LogDebugInfo("ActionMove OK", auditEvent.Path, auditEvent);
+                if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy OK", auditEvent.Path, auditEvent);
                 if (auditEvent.IsDir)
                 {
                     var fromPublishedPath = PathHelper.GetPublishedPath(auditEvent.PathFrom);
                     #region movedir
                     //first, move any affected Children....actually we should do this regardless if existing doc was found...
-                    var affectedDocuments = _discoveryEndPoint.FindChildren(fromPublishedPath);
+                    var affectedDocuments = _discoveryEndPoint.FindDescendentsForMoving(fromPublishedPath);
                     foreach (var fso in affectedDocuments)
                     {
+                        _ct.ThrowIfCancellationRequested();
                        try
                         {
                             //delete pathfrom doc....
                             string oldPath = fso.Id;
-                            if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase) ? !Directory.Exists(oldPath) : !File.Exists(oldPath))
+                            if (auditEvent.PresenceAction == ActionPresence.Move)
                             {
-                                if (Directory.Exists(PathHelper.ContentRoot))//double-check that the filer is online and available and then delete.
+                                if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase) ? !Directory.Exists(oldPath) : !File.Exists(oldPath))
                                 {
-                                    Interlocked.Add(ref _deleted, _indexEndPoint.Delete(oldPath, fso.IndexName));
+                                    if (Directory.Exists(PathHelper.ContentRoot))//double-check that the filer is online and available and then delete.
+                                    {
+                                        Interlocked.Add(ref _deleted, _indexEndPoint.Delete(oldPath, fso.IndexName));
+                                    }
                                 }
                             }
                             //add new path doc....
                             string newPublishedPath = fso.Id.Replace(fromPublishedPath, ToDoc.PublishedPath);
                             fso.Id = newPublishedPath;
                             fso.SetFileSystemInfoFromId();
-                            if (ildebug) _il.LogDebugInfo("ActionMove Child", oldPath, newPublishedPath);
-                            fso.Reason = "ActionMove Child";
+                            fso.Acls = SecurityHelper.GetDocACLs(new DirectoryInfo(newPublishedPath));//todo make same change in the movefile region
+                            if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy Child", oldPath, newPublishedPath);
+                            fso.Reason = "ActionMoveOrCopy Child";
                             await docReindexTransformBlock.SendAsync(fso).ConfigureAwait(false);
                             Interlocked.Increment(ref _filesmatched);
                         }
@@ -184,12 +193,12 @@ namespace HOK.Elastic.FileSystemCrawler
                         {
                             if (ex is FileNotFoundException)
                             {
-                                if (ilwarn) _il.LogWarn("ActionMove Child NotFound", fso.Id, auditEvent);
+                                if (ilwarn) _il.LogWarn("ActionMoveOrCopy Child NotFound", fso.Id, auditEvent);
                                 Interlocked.Increment(ref _filesnotfound);
                             }
                             else
                             {
-                                if (ilerror) _il.LogErr("ActionMove Child", auditEvent.Path, auditEvent, ex);
+                                if (ilerror) _il.LogErr("ActionMoveOrCopy Child", auditEvent.Path, auditEvent, ex);
                             }
                         }
                     }
@@ -197,25 +206,27 @@ namespace HOK.Elastic.FileSystemCrawler
                     if (existingdoc != null)
                     {
                         //next, delete the existing, old document
-                        if (!Directory.Exists(auditEvent.PathFrom)&& Directory.Exists(PathHelper.ContentRoot))//this was path...but I think we'd only care about deleting the 'old/pathfrom' document...
+                        if (auditEvent.PresenceAction == ActionPresence.Move)
                         {
-                            Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
+                            if (!Directory.Exists(auditEvent.PathFrom) && Directory.Exists(PathHelper.ContentRoot))//this was path...but I think we'd only care about deleting the 'old/pathfrom' document...
+                            {
+                                Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
+                            }
                         }
                         //next, insert the new document after updating the properties of the existing doc with the new location's properties.
                         existingdoc.Id = ToDoc.Id;
                         existingdoc.SetFileSystemInfoFromId();
-                        if (auditEvent.ContentAction >= ActionContent.ACLSet)
-                        {
-                            existingdoc.Acls = ToDoc.Acls;
-                        }
-                        existingdoc.Reason = "ActionMove Dir";
+                        existingdoc.Acls = ToDoc.Acls;
+                        existingdoc.Category = ToDoc.Category;
+
+                        existingdoc.Reason = "ActionMoveOrCopy Dir";
                         await docInsertTranformBlock.SendAsync(existingdoc).ConfigureAwait(false);
                         Interlocked.Increment(ref _dircount);
                     }
                     else
                     {
                         //existing doc was null
-                        ToDoc.Reason = "ActionMove Dir Null";
+                        ToDoc.Reason = "ActionMoveOrCopy Dir Null";
                         await docInsertTranformBlock.SendAsync(ToDoc).ConfigureAwait(false);
                         Interlocked.Increment(ref _filesmatched);
                     }
@@ -224,42 +235,47 @@ namespace HOK.Elastic.FileSystemCrawler
                 else
                 {
                     #region movefile
-                    //audit event is no dir...MOVE FILE
+                    //audit event is not dir...MOVE FILE
                     var existingdoc = GetExistingDocument(auditEvent);
                     if (existingdoc != null)
                     {
-                        _il.LogDebugInfo("ActionMove File Reindex", existingdoc.Id, ToDoc.Id);
-                        if (!File.Exists(auditEvent.PathFrom))//this was path which would be the field for destination....which is incorrect
+                        _il.LogDebugInfo("ActionMoveOrCopy File Reindex", existingdoc.Id, ToDoc.Id);
+                        if (auditEvent.PresenceAction == ActionPresence.Move)
                         {
-                            //source doesn't exist, therefore delete the old path from elastic                          
-                            Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
-                        }
-                        existingdoc.Id = ToDoc.Id;
-                        existingdoc.SetFileSystemInfoFromId();
-                        if (File.Exists(existingdoc.PathForCrawling))// existingdoc.FileSystemInfo.Exists)
-                        {
-                            if (auditEvent.ContentAction == ActionContent.None)
+                            if (!File.Exists(auditEvent.PathFrom))//this was path which would be the field for destination....which is incorrect
                             {
-                                existingdoc.Reason = "ActionMove and actioncontentnone";
+                                //source doesn't exist, therefore delete the old path from elastic                          
+                                Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
+                            }
+                        }                    
+                       if (File.Exists(ToDoc.PathForCrawling))
+                        {
+                            if (auditEvent.ContentAction == ActionContent.None)//if move or copy retain the attachment content if applicable but update the path and acls.
+                            {                               
+                                existingdoc.Id = ToDoc.Id;
+                                existingdoc.SetFileSystemInfoFromId();
+                                existingdoc.Acls = ToDoc.Acls;
+                                existingdoc.Category = ToDoc.Category;
+                                existingdoc.Reason = "ActionMoveOrCopy and actioncontentnone";
                                 await docReindexTransformBlock.SendAsync(existingdoc).ConfigureAwait(false);//I think this should be docinserttransform....as we aren't reindexing anything that currently exists at that ID
                                 Interlocked.Increment(ref _filesmatched);
                             }
                             else
                             {
-                                ToDoc.Reason = "ActionMove and newcontent";
+                                ToDoc.Reason = "ActionMoveOrCopy and newcontent";
                                 await docInsertTranformBlock.SendAsync(ToDoc).ConfigureAwait(false);//can't think of why we were insterting the existingdoc instead of the todoc......
                                 Interlocked.Increment(ref _filesmatched);
                             }
                         }
                         else
                         {
-                            if (ilwarn) _il.LogWarn("ActionMove NotFound", existingdoc.Id, auditEvent);
+                            if (ilwarn) _il.LogWarn("ActionMoveOrCopy NotFound", ToDoc.Id, auditEvent);
                             Interlocked.Increment(ref _filesnotfound);
                         }
                     }
                     else
                     {
-                        ToDoc.Reason = "ActionMove Filedoc null";
+                        ToDoc.Reason = "ActionMoveOrCopy Filedoc null";
                         await docInsertTranformBlock.SendAsync(ToDoc).ConfigureAwait(false);
                         Interlocked.Increment(ref _filesmatched);
                     }
@@ -268,7 +284,7 @@ namespace HOK.Elastic.FileSystemCrawler
             }
             catch (Exception ex)
             {
-                if (ilerror) _il.LogErr("ActionMove", auditEvent.Path, auditEvent, ex);
+                if (ilerror) _il.LogErr("ActionMoveOrCopy", auditEvent.Path, auditEvent, ex);
             }
         }
 
@@ -276,6 +292,7 @@ namespace HOK.Elastic.FileSystemCrawler
         {
             try
             {
+                
                 if (auditEvent.IsDir ? HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(auditEvent.Path) : HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreFile(auditEvent.Path))
                 {
                     _il.LogDebugInfo("ActionUpdateOrNew ShouldIgnore", auditEvent.Path, null);
@@ -313,6 +330,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         {
                             foreach (var item in affectedDocuments)
                             {
+                                _ct.ThrowIfCancellationRequested();
                                 counter++;
                                 newIfso = DocumentHelper.MakeBasicDoc(item.Id, item.IndexName.Equals(FSOdirectory.indexname,StringComparison.OrdinalIgnoreCase));
                                 if (newIfso != null)

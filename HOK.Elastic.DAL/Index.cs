@@ -3,6 +3,7 @@ using HOK.Elastic.DAL.Models;
 using Microsoft.Extensions.Logging;
 using Nest;
 using System;
+using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
@@ -19,7 +20,7 @@ namespace HOK.Elastic.DAL
         {
         }
 
-        public Index(Uri[] uri, Logger.Log4NetLogger logger)
+        public Index(IEnumerable<Uri> uri, Logger.Log4NetLogger logger)
             : base(uri, logger)
         {
         }

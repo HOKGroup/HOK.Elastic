@@ -1,5 +1,7 @@
 ﻿using HOK.Elastic.DAL.Models;
+using Newtonsoft.Json;
 using System;
+using System.Text;
 
 namespace HOK.Elastic.FileSystemCrawler.Models
 {
@@ -19,6 +21,10 @@ namespace HOK.Elastic.FileSystemCrawler.Models
         public InputPathEventStream() : base()
         {
         }
+        public override string ToString()
+        {
+           return JsonConvert.SerializeObject(this, Formatting.Indented);
+        }
     }
     public enum ActionContent
     {
@@ -30,6 +36,8 @@ namespace HOK.Elastic.FileSystemCrawler.Models
     {
         None = 0,
         Delete = 1,
-        Move = 2
+        Move = 2,
+        Copy = 3
     }
+   
 }
