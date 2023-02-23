@@ -28,6 +28,16 @@ steps:
     arguments: '--configuration $(buildConfiguration) -r $(runtime) --version-suffix "ci-build-$(Build.SourceVersion)" --output $(Build.ArtifactStagingDirectory)'
     zipAfterPublish: false
 
+- task: DownloadSecureFile@1
+  inputs:
+    secureFile: 'wwwroot.zip'
+
+- task: ExtractFiles@1
+  inputs:
+    archiveFilePatterns: '$(Agent.TempDirectory)/wwwroot.zip'
+    cleanDestinationFolder: false
+    destinationFolder: '$(Build.ArtifactStagingDirectory)/HOK.Elastic.FileSystemCrawler.WebAPI'
+
 - task: PublishBuildArtifacts@1
   inputs:
     PathtoPublish: '$(Build.ArtifactStagingDirectory)/HOK.Elastic.FileSystemCrawler.WebAPI'
