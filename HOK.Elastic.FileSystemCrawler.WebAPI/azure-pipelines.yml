@@ -31,6 +31,6 @@ steps:
 
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'WebAPI-$(Build.BuildNumber)'
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/HOK.Elastic.FileSystemCrawler.WebAPI'
+    ArtifactName: '$(Build.BuildNumber)'
     publishLocation: 'Container'
