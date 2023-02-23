@@ -34,14 +34,11 @@
     <WarningLevel>0</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="appsettings.json" />
+    <None Remove="log4net\log4net.config" />
     <Compile Remove="_CanV3\**" />
     <EmbeddedResource Remove="_CanV3\**" />
     <None Remove="_CanV3\**" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Remove="appsettings - Copy.json" />
-    <None Remove="appsettings.json" />
-    <None Remove="log4net\log4net.config" />
     <None Remove="_CanArchive\jobSettings.json" />
     <None Remove="_devJob\jobSettings.json" />
   </ItemGroup>
@@ -66,7 +63,7 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="appsettings.json">
+    <Content Include="appsettings.json" Condition="Exists('appsettings.json')">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="log4net\log4net.config">
