@@ -24,7 +24,6 @@ steps:
 - task: DotNetCoreCLI@2
   inputs:
     command: 'publish'
-    publishWebProjects: true
     projects: 'HOK.Elastic.FileSystemCrawler.WebAPI/HOK.Elastic.FileSystemCrawler.WebAPI.csproj'
     arguments: '--configuration $(buildConfiguration) -r $(runtime) --version-suffix "ci-build-$(Build.SourceVersion)" --output $(Build.ArtifactStagingDirectory)'
     zipAfterPublish: false
