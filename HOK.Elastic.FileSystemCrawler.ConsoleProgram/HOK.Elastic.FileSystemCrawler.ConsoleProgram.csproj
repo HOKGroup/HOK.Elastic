@@ -43,6 +43,7 @@
     <None Remove="appsettings.json" />
     <None Remove="log4net\log4net.config" />
     <None Remove="_CanArchive\jobSettings.json" />
+    <None Remove="_localjob\jobSettings.json" />
     <None Remove="_devJob\jobSettings.json" />
   </ItemGroup>
   <ItemGroup>
@@ -76,6 +77,9 @@
     </Content>
     <Content Include="_CanArchive\jobSettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="_localjob\jobSettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
     <Content Include="_devJob\jobSettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>

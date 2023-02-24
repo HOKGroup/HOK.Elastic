@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HOK.Elastic.DAL\HOK.Elastic.DAL.csproj" />
+    <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler.WebAPI\HOK.Elastic.FileSystemCrawler.WebAPI.csproj" />
+    <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler\HOK.Elastic.FileSystemCrawler.csproj" />
+    <ProjectReference Include="..\HOK.Elastic.Logger\HOK.Elastic.Logger.csproj" />
+  </ItemGroup>
+
+</Project>

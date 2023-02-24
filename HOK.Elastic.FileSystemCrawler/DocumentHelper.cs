@@ -156,7 +156,7 @@ namespace HOK.Elastic.FileSystemCrawler
         {
             var fi = new FileInfo(fsofile.PathForCrawling);
             fsofile.Owner = SecurityHelper.GetOwner(fi);//TODO this seems to be pre-populated maybe we don't need to populate it twice.
-            if (FSOemail.CanBeMadeFrom(fi))
+            if (false)//FSOemail.CanBeMadeFrom(fi))
             {
                 var fsoEmail = new FSOemail(fsofile);
                 fsoEmail.IndexName = FSOemail.indexname;
@@ -245,7 +245,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     return fsoEmail;
                 }
             }
-            else if (FSOdocument.CanBeMadeFrom(fi))
+            else if (FSOdocument.CanBeMadeFrom(fi)||FSOemail.CanBeMadeFrom(fi))
             {
                 var fsodoc = new FSOdocument(fsofile);
                 fsodoc.IndexName = FSOdocument.indexname;
