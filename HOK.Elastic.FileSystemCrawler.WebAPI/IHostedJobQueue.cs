@@ -1,9 +1,5 @@
-﻿using HOK.Elastic.FileSystemCrawler.Models;
-using Microsoft.Extensions.Hosting;
-using System;
+﻿using Microsoft.Extensions.Hosting;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using static HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobQueue;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {

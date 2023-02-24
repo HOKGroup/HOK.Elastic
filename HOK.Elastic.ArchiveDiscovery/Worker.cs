@@ -99,17 +99,17 @@ namespace HOK.Elastic.ArchiveDiscovery
                     ).FirstOrDefault();
                     if (item != null)
                     {
-                        settingsJobArgsDTO.InputEvents = new List<InputPathEventStream>();
-
-                        settingsJobArgsDTO.InputEvents.Add(new InputPathEventStream()
+                        settingsJobArgsDTO.InputEvents = new List<InputPathEventStream>
                         {
-                            Path = item.Target,
-                            PathFrom = item.Source,
-                            IsDir = true,
-                            TimeStampUtc = DateTime.Now,
-                            PresenceAction = ActionPresence.Copy
-                        }
-                        );
+                            new InputPathEventStream()
+                            {
+                                Path = item.Target,
+                                PathFrom = item.Source,
+                                IsDir = true,
+                                TimeStampUtc = DateTime.Now,
+                                PresenceAction = ActionPresence.Copy
+                            }
+                        };
                         settingsJobArgsDTO.JobName = $"ArchiveJob_{item.Office}_{item.ProjectNumber}";
                         settingsJobArgsDTO.JobNotes = $"ArchiveDiscovery{Environment.MachineName}{Environment.UserName}";
                         int Id = await api.PostAsync(settingsJobArgsDTO);

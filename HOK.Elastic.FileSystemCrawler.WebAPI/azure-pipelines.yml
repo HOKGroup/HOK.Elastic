@@ -1,0 +1,45 @@
+trigger:
+  branches:
+    include:
+      - main
+      - dev
+  paths:
+    include:
+      - HOK.Elastic.FileSystemCrawler.WebAPI/*
+      - HOK.Elastic.FileSystemCrawler/*
+      - HOK.Elastic.DAL/*
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  buildConfiguration: 'Release'
+  runtime: 'win-x64'
+
+steps:
+- task: UseDotNet@2
+  inputs:
+    version: '3.1.x'
+
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'publish'
+    projects: 'HOK.Elastic.FileSystemCrawler.WebAPI/HOK.Elastic.FileSystemCrawler.WebAPI.csproj'
+    arguments: '--configuration $(buildConfiguration) -r $(runtime) --version-suffix "ci-build-$(Build.SourceVersion)" --output $(Build.ArtifactStagingDirectory)'
+    zipAfterPublish: false
+
+- task: DownloadSecureFile@1
+  inputs:
+    secureFile: 'wwwroot.zip'
+
+- task: ExtractFiles@1
+  inputs:
+    archiveFilePatterns: '$(Agent.TempDirectory)/wwwroot.zip'
+    cleanDestinationFolder: false
+    destinationFolder: '$(Build.ArtifactStagingDirectory)/HOK.Elastic.FileSystemCrawler.WebAPI'
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)/HOK.Elastic.FileSystemCrawler.WebAPI'
+    ArtifactName: '$(Build.BuildNumber)'
+    publishLocation: 'Container'

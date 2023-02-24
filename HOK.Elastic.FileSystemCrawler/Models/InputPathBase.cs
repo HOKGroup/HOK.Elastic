@@ -1,5 +1,4 @@
 ﻿using HOK.Elastic.DAL.Models;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -13,7 +12,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
         /// Path always stored in lowercase.
         /// </summary>
         [Key]
-        public string Path { get => LongPaths.GetLegacyLongPath(_path)??""; set => _path = value?.ToLowerInvariant().TrimEnd('\\'); }//could be file or directory
+        public string Path { get => LongPaths.GetLegacyLongPath(_path) ?? ""; set => _path = value?.ToLowerInvariant().TrimEnd('\\'); }//could be file or directory
         public string Office { get; set; }//calculate this if we have to otherwise pass it, otherwise calculate it at ingestion.todo
         public PathStatus PathStatus { get; set; }
 
