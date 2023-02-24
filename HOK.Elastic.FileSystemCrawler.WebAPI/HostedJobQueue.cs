@@ -61,7 +61,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         private int GetNextId()
         {
-            return _jobs.Keys.Max() + 1;
+            return _jobs.Keys.Any() ? _jobs.Keys.Max() + 1 : 1;
         }
 
         public HostedJobQueue(ILogger<HostedJobQueue> logger, int maxJobs)
@@ -113,7 +113,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-            LoadSomeRandomTestJobs(1);
+         //   LoadSomeRandomTestJobs(1);
 #endif
             DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
@@ -270,6 +270,10 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
                 var workerargs = SettingsJobArgsDTO.UnDTO(hostedJobInfo.SettingsJobArgsDTO);
                 //we should add pre-flight check in indexbase or crawlerbase or something to ensure these basics are set.or refactor so we don't have shared static..
+                if(string.IsNullOrEmpty(workerargs.PublishedPath)|| string.IsNullOrEmpty(workerargs.PathForCrawling) || string.IsNullOrEmpty(workerargs.PathForCrawlingContent))
+                {
+                    throw new ArgumentException("workerargs published path,pathforcrawling or pathforcrawlingcontent was empty");
+                }
                 HOK.Elastic.DAL.Models.PathHelper.Set(workerargs.PublishedPath, workerargs.PathForCrawlingContent, workerargs.PathForCrawling);
                 HOK.Elastic.DAL.Models.PathHelper.SetPathInclusion(workerargs.PathInclusionRegex);
                 HOK.Elastic.DAL.Models.PathHelper.SetFileNameExclusion(workerargs.FileNameExclusionRegex);

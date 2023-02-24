@@ -171,7 +171,12 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         [HttpGet]
         public IActionResult Download(SettingsJobArgsDTO settingsJobArgsDTO)
         {
-            HttpContext.Response.Headers.Add("Content-Disposition", new System.Net.Mime.ContentDisposition { FileName = $"jobsettings.json", Inline = false }.ToString());
+            var filename = settingsJobArgsDTO.JobName;
+            if(string.IsNullOrEmpty(filename))
+            {
+                filename = "jobsettings";
+            }
+            HttpContext.Response.Headers.Add("Content-Disposition", new System.Net.Mime.ContentDisposition { FileName = $"{filename}.json", Inline = false }.ToString());
             return new JsonResult(settingsJobArgsDTO, new System.Text.Json.JsonSerializerOptions() { WriteIndented = true, IgnoreReadOnlyProperties = true, IgnoreReadOnlyFields = true });
         }
 
