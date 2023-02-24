@@ -263,7 +263,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 //we should add pre-flight check in indexbase or crawlerbase or something to ensure these basics are set.or refactor so we don't have shared static..
                 if(string.IsNullOrEmpty(workerargs.PublishedPath)|| string.IsNullOrEmpty(workerargs.PathForCrawling) || string.IsNullOrEmpty(workerargs.PathForCrawlingContent))
                 {
-                    throw new ArgumentException("workerargs published path,pathforcrawling or pathforcrawlingcontent was empty");
+                    throw new ArgumentException("jobsettings published path,pathforcrawling or pathforcrawlingcontent was empty");
                 }
                 HOK.Elastic.DAL.Models.PathHelper.Set(workerargs.PublishedPath, workerargs.PathForCrawlingContent, workerargs.PathForCrawling);
                 HOK.Elastic.DAL.Models.PathHelper.SetPathInclusion(workerargs.PathInclusionRegex);
