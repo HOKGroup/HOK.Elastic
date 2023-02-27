@@ -160,17 +160,21 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         }
 
 
-        [HttpGet]        
-        public IActionResult Download(int id)
-        {
-            var job = _hostedJobScheduler.Get(id);
-            var settingsJobArgsDTO = job.SettingsJobArgsDTO;
-            return Download(settingsJobArgsDTO);
-        }
+        //[HttpGet]        
+        //public IActionResult Download(int id)
+        //{
+            
+        //    return Download(settingsJobArgsDTO);
+        //}
 
         [HttpGet]
-        public IActionResult Download(SettingsJobArgsDTO settingsJobArgsDTO)
+        public IActionResult Download(SettingsJobArgsDTO settingsJobArgsDTO=default, int? id=default)
         {
+            if(id!=default)
+            {
+                var job = _hostedJobScheduler.Get(id.Value);
+                settingsJobArgsDTO = job.SettingsJobArgsDTO;
+            }
             var filename = settingsJobArgsDTO.JobName;
             if(string.IsNullOrEmpty(filename))
             {

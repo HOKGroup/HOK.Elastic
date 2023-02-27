@@ -31,7 +31,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public bool IsCompleted => Status >= State.complete;
         private Exception? _exception;
         public bool HasException => _exception != null;
-        public Exception GetException() { return _exception; }       
+        public Exception GetException() { return _exception; }        
         public Exception Exception { set { _exception = value; } }
 
         /// <summary>

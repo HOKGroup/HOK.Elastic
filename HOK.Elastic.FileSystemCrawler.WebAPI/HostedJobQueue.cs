@@ -264,6 +264,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 if(string.IsNullOrEmpty(workerargs.PublishedPath)|| string.IsNullOrEmpty(workerargs.PathForCrawling) || string.IsNullOrEmpty(workerargs.PathForCrawlingContent))
                 {
                     throw new ArgumentException("jobsettings published path,pathforcrawling or pathforcrawlingcontent was empty");
+                }else
+                {
+#if DEBUG
+                    throw new ArgumentException("just a test.");
+#endif
                 }
                 HOK.Elastic.DAL.Models.PathHelper.Set(workerargs.PublishedPath, workerargs.PathForCrawlingContent, workerargs.PathForCrawling);
                 HOK.Elastic.DAL.Models.PathHelper.SetPathInclusion(workerargs.PathInclusionRegex);

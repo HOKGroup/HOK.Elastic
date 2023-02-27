@@ -42,12 +42,35 @@
         <dd class="col-sm-10">
             @Html.DisplayFor(model => model.SettingsJobArgsDTO)
         </dd>
-        <dt class="col-sm-2">
-            @Html.DisplayNameFor(model => model.CompletionInfo)
-        </dt>
-        <dd class="col-sm-10">
-            @Html.DisplayFor(model => model.CompletionInfo)
-        </dd>
+        @if (Model.IsCompleted)
+        {
+            <dt class="col-sm-2">
+                @Html.DisplayNameFor(model => model.CompletionInfo)
+            </dt>
+            <dd class="col-sm-10">
+                @Html.DisplayFor(model => model.CompletionInfo)
+            </dd>
+        }
+        @if(Model.HasException)
+        {
+            <dt class="col-sm-2">
+                @Html.Label("Exceptions")
+            </dt>
+            <dd class="col-sm-10"> 
+                <pre> 
+                     @Html.Encode(Model.GetException().ToString());
+                </pre>
+            </dd>
+        }
+        else
+        {
+            <dt class="col-sm-2">
+                @Html.Label("Exceptions")
+            </dt>
+            <dd class="col-sm-10">
+                @Html.Label("None")
+            </dd>
+        }
     </dl>
 </div>
 

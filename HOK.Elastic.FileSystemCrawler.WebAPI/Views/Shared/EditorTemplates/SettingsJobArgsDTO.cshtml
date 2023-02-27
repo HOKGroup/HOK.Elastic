@@ -22,18 +22,19 @@
                     <input asp-for="IndexNamePrefix" class="form-control" />
                     <span asp-validation-for="IndexNamePrefix" class="text-danger"></span>
                 </div>
+            </div>
+            <div class="form-row">
                 <div class="form-group">
                     <label asp-for="CrawlMode" class="control-label"></label>
                     <!--input asp-for="CrawlMode" class="form-control" /-->
                     @Html.DropDownListFor(m => m.CrawlMode, Html.GetEnumSelectList(typeof(HOK.Elastic.FileSystemCrawler.Models.CrawlMode)))
                     <span asp-validation-for="CrawlMode" class="text-danger"></span>
                 </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group form-check">
-                    <label class="form-check-label">
-                        <input class="form-check-input" asp-for="ReadFileContents" /> @Html.DisplayNameFor(model => model.ReadFileContents)
-                    </label>
+                <div class="form-group">
+                   
+                      @Html.DisplayFor(model=>model.ReadFileContents)
+                        @Html.EditorFor(model => model.ReadFileContents)
+                   
                 </div>
             </div>
             <div class="form-row">
