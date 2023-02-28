@@ -1,0 +1,15 @@
+﻿@model HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo
+
+@{
+    ViewData["Title"] = "Cancel";
+}
+
+<h1>Cancel</h1>
+<h4>Are you sure you want to cancel this?</h4>
+<div>    
+    <form asp-action="Cancel">
+        @Html.DisplayForModel()   
+        <input type="submit" value="Cancel" class="btn btn-danger" /> |
+        <a asp-action="Index">Back to List</a>
+    </form>
+</div>

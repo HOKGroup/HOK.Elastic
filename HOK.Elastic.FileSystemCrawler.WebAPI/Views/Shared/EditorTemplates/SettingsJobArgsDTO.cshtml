@@ -167,6 +167,13 @@
                     <span asp-validation-for="BulkUploadSize" class="text-danger"></span>
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="EmailNotification" class="control-label"></label>
+                    <input asp-for="EmailNotification" class="form-control" />
+                    <span asp-validation-for="EmailNotification" class="text-danger"></span>
+                </div>
+            </div>
 
             <div class="form-group">
                 <input type="submit" value="Submit" class="btn btn-primary" />

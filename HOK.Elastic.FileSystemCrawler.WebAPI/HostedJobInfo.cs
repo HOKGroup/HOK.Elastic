@@ -14,7 +14,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
     {
         private CancellationTokenSource _thisTokenSource;
         private CancellationTokenSource _linkedTokenSource;
-        public int Id { get; set; }
+        public int Id { get; set; } 
         public DateTime? WhenCreated { get; set; }
         public DateTime? WhenCompleted { get; set; }
         public SettingsJobArgsDTO SettingsJobArgsDTO { get; set; }

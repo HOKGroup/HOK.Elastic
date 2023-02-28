@@ -14,10 +14,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
     {
         [Required]
         public override string JobName { get; set; }
-
+        public string EmailNotification { get; set; }
         public List<InputPathEventStream> InputEvents { get; set; }
         public List<InputPathBase> InputCrawls { get; set; }
-
         public List<string> ElasticDiscoveryURI { get; set; }
         public List<string> ElasticIndexURI { get; set; }
 
@@ -81,6 +80,5 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
             }
             return settingsJobArgs;
         }
-
     }
 }

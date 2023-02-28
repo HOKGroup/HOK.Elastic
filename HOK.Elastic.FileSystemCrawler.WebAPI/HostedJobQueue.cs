@@ -31,6 +31,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public event EventHandler<int> ProcessCompleted;
         private readonly string persistFile = @"logs\jobs.json";
         private readonly DateTime _startTimeUTC;
+        private IEmailService _emailService;
         public TimeSpan UpTime => DateTime.UtcNow - _startTimeUTC;
 
         public int MaxJobs { get; private set; }
@@ -57,13 +58,14 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             return _jobs.Keys.Any() ? _jobs.Keys.Max() + 1 : 1;
         }
 
-        public HostedJobQueue(ILogger<HostedJobQueue> logger, int maxJobs)
+        public HostedJobQueue(ILogger<HostedJobQueue> logger,IEmailService emailService, int maxJobs)
         {
             _logger = logger;
             isDebug = _logger.IsEnabled(LogLevel.Debug);
             isInfo = _logger.IsEnabled(LogLevel.Information);
             isWarn = _logger.IsEnabled(LogLevel.Warning);
             isError = _logger.IsEnabled(LogLevel.Error);
+            _emailService = emailService;
             MaxJobs = maxJobs;
             _startTimeUTC = DateTime.UtcNow;
         }
@@ -270,7 +272,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 }else
                 {
 #if DEBUG
-                    throw new ArgumentException("just a test.");
+                   // throw new ArgumentException("just a test.");
 #endif
                 }
                 HOK.Elastic.DAL.Models.PathHelper.Set(workerargs.PublishedPath, workerargs.PathForCrawlingContent, workerargs.PathForCrawling);
@@ -327,7 +329,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     default:
                         break;
                 }
-                if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Finisehd");
+                if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Finisehd");               
             }
             catch (Exception ex)
             {
@@ -336,6 +338,22 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
             }
             hostedJobInfo.WhenCompleted = DateTime.Now;
+            try
+            {
+                //try and notify if set
+                var email = hostedJobInfo.SettingsJobArgsDTO.EmailNotification;
+                if (!string.IsNullOrEmpty(email))
+                {
+                    //todo we should validate the email address before it gets here.
+                    var completionInfo = JsonConvert.SerializeObject(hostedJobInfo.CompletionInfo);
+                    var mail = EmailService.MakeMessage(_emailService.DefaultSender, email, $"CrawlJob Complete on {Environment.MachineName} {hostedJobInfo.SettingsJobArgsDTO.JobName}", $"{hostedJobInfo.Status}\r\n\r\n***\r\n\r\n{completionInfo}");
+                    _emailService.Send(mail);
+                }
+            }
+            catch(Exception ex)
+            {
+                if (isError) _logger.LogError(ex, $"Couldn't send email notification {hostedJobInfo.Id}");
+            }
             return hostedJobInfo;
         }
 
@@ -374,6 +392,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     FileNameExclusionRegex = ".*",
                     OfficeSiteExtractRegex = "[a-z]{2,5}",
                     ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
+                    EmailNotification = "james.blackadar@hok.com"
                 };
                 Enqueue(d);
             }
