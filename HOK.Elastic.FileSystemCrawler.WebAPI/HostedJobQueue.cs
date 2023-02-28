@@ -30,6 +30,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private ActionBlock<HostedJobInfo> completed;
         public event EventHandler<int> ProcessCompleted;
         private readonly string persistFile = @"logs\jobs.json";
+        private readonly DateTime _startTimeUTC;
+        public TimeSpan UpTime => DateTime.UtcNow - _startTimeUTC;
 
         public int MaxJobs { get; private set; }
         public int JobSlots => (int)(MaxJobs * 1.5);
@@ -63,6 +65,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             isWarn = _logger.IsEnabled(LogLevel.Warning);
             isError = _logger.IsEnabled(LogLevel.Error);
             MaxJobs = maxJobs;
+            _startTimeUTC = DateTime.UtcNow;
         }
 
         protected virtual void OnTaskCompleted(int Id)
@@ -104,7 +107,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-         //   LoadSomeRandomTestJobs(1);
+            LoadSomeRandomTestJobs(1);
 #endif
             DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
@@ -133,7 +136,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public void CleanupOldJobs()
         {
-            var oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && x.WhenCompleted != null && DateTime.Now.Subtract(x.WhenCompleted.Value).TotalHours > 36);
+            var oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && x.WhenCompleted != null && DateTime.Now.Subtract(x.WhenCompleted.Value).TotalDays > 7);
             if (oldJobs.Any())
             {
                 foreach (var job in oldJobs)
@@ -286,7 +289,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 var discovery = new DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), new Elastic.Logger.Log4NetLogger("discovery"));
                 var logger = new Elastic.Logger.Log4NetLogger($"Worker{hostedJobInfo.Id}");
 
-                if (logger.IsEnabled(LogLevel.Information)) logger.LogInformation("Constructing....");
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation("Constructing....");
+                    logger.LogInformation($"Joblocation={workerargs.InputPathLocation}");
+                }
                 SecurityHelper sh = new SecurityHelper(logger);
                 DocumentHelper dh = new DocumentHelper(true, sh, index, logger);
                 IWorkerBase iWorker;

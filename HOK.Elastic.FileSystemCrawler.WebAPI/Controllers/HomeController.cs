@@ -15,15 +15,17 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
     public class HomeController : Controller
     {
         private readonly ILogger<HomeController> _logger;
+        private readonly IHostedJobQueue _hostedJobScheduler;
 
-        public HomeController(ILogger<HomeController> logger)
+        public HomeController(ILogger<HomeController> logger,IHostedJobQueue hostedJobQueue)
         {
             _logger = logger;
+            _hostedJobScheduler= hostedJobQueue;
         }
 
         public IActionResult Index()
         {
-            return View();
+            return View(_hostedJobScheduler);
         }
 
         public IActionResult Privacy()

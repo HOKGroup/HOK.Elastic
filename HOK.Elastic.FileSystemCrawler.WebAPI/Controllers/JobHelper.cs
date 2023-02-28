@@ -12,7 +12,10 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         public static int Post(IHostedJobQueue hostedJobQueue, SettingsJobArgsDTO settingsJobArgsdto, string remoteidentifier)
         {
             var settingsJobArgs = settingsJobArgsdto as SettingsJobArgs;
-            settingsJobArgs.JobNotes = remoteidentifier + settingsJobArgs.JobNotes;
+            if(!settingsJobArgs.JobNotes.StartsWith(remoteidentifier))
+                {
+                settingsJobArgs.JobNotes = remoteidentifier + "-" + settingsJobArgs.JobNotes;
+            }            
             var jobId = hostedJobQueue.Enqueue(settingsJobArgsdto);
             return jobId;
         }

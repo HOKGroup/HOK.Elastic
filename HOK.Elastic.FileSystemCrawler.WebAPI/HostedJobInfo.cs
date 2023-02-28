@@ -44,13 +44,13 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         }
         public HostedJobInfo(SettingsJobArgsDTO settingsJob, CancellationToken cancellationToken)
         {
-            Status = State.unstarted;
 
+            Status = State.unstarted;
             this.SettingsJobArgsDTO = settingsJob;
             _thisTokenSource = new CancellationTokenSource();
             _linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _thisTokenSource.Token);
 #if DEBUG
-            _linkedTokenSource.CancelAfter(60000);//just for fun to give a sample of jobs running.
+            _linkedTokenSource.CancelAfter(120000);//just for fun to give a sample of jobs running.
 #endif
             WhenCreated = DateTime.Now;
         }
@@ -64,6 +64,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         internal void Cancel()
         {
             _thisTokenSource.Cancel();
+            this.Status = State.cancelled;
         }
     }
 }

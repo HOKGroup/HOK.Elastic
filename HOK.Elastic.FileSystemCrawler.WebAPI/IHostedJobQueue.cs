@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Hosting;
+using System;
 using System.Collections.Generic;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
@@ -13,7 +14,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         int MaxJobs { get; }
 
         int FreeSlots { get; }
-
+        TimeSpan UpTime { get; }
         IEnumerable<HostedJobInfo> Jobs { get; }
     }
 

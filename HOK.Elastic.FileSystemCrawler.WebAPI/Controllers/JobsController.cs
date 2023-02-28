@@ -132,6 +132,35 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             return View(settingsJobArgsDTO);
         }
 
+        // GET: JobsViewController/Details/5
+        public ActionResult Cancel(int id)
+        {
+            return View(_hostedJobScheduler.Get(id));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Cancel(int id, HostedJobInfo hostedJobInfo)
+        {
+            try
+            {
+                hostedJobInfo = _hostedJobScheduler.Get(hostedJobInfo.Id);
+                if (hostedJobInfo != null)
+                {
+                    if (!hostedJobInfo.IsCompleted)
+                    {
+                        hostedJobInfo.Cancel();
+                        if (isInfo) _logger.LogInformation($"Canceled Id:{hostedJobInfo.Id} JobName:{hostedJobInfo.SettingsJobArgsDTO.JobName}");
+                    }                   
+                }
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                if (isErr) _logger.LogError(ex, "Error cancelling..");
+                return View(hostedJobInfo);
+            }
+        }
 
         // GET: JobsViewController/Delete/5
         public ActionResult Delete(int id)
@@ -146,30 +175,29 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         {
             try
             {
-                if(!hostedJobInfo.IsCompleted)
+                hostedJobInfo = _hostedJobScheduler.Get(hostedJobInfo.Id);
+                if (hostedJobInfo != null)
                 {
-                  var removed = _hostedJobScheduler.Remove(id);
-                    if (isInfo) _logger.LogInformation("Removed" + removed);
+                    if (!hostedJobInfo.IsCompleted)
+                    {
+                        var removed = _hostedJobScheduler.Remove(id);
+                        if (isInfo) _logger.LogInformation("Removed" + removed);
+                    }
                 }
                 return RedirectToAction(nameof(Index));
             }
             catch
             {                
-                return View();
+                return View(hostedJobInfo);
             }
         }
 
 
-        //[HttpGet]        
-        //public IActionResult Download(int id)
-        //{
-            
-        //    return Download(settingsJobArgsDTO);
-        //}
 
         [HttpGet]
         public IActionResult Download(SettingsJobArgsDTO settingsJobArgsDTO=default, int? id=default)
         {
+            //either download job by passing settingjobargsdto or the id of the job.
             if(id!=default)
             {
                 var job = _hostedJobScheduler.Get(id.Value);
