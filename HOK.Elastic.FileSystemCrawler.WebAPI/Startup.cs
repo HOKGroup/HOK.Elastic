@@ -45,8 +45,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 }
             }
             );
-            services.AddMvc();
-       
+            services.AddMvc();       
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -81,8 +80,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 endpoints.MapControllerRoute(
                     name: "default",
                     pattern: "{controller=Home}/{action=Index}/{id?}");
-            });
-    
+            });    
         }
     }
 }

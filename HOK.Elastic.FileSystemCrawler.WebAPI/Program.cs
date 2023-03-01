@@ -48,7 +48,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     var xml = HOK.Elastic.Logger.Log4NetProvider.Parselog4NetConfigFile("log4net.config");                  
                     var c = log4net.Config.XmlConfigurator.Configure(xml);                  
                 })
-
                 .ConfigureServices(services => {
                     var maxJobs = AppSettings.ConcurrentJobs;// int.Parse(Program.Config["ConcurrentJobs"]);
                     services.AddSingleton<IEmailService, EmailService>(x => new EmailService(x.GetService<ILogger<HostedJobQueue>>(),
@@ -58,6 +57,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                        ));
                     services.AddSingleton<IHostedJobQueue, HostedJobQueue>(x => new HostedJobQueue(x.GetService<ILogger<HostedJobQueue>>(), x.GetService<IEmailService>(), maxJobs));
                     services.AddHostedService<IHostedJobQueue>(x => x.GetRequiredService<IHostedJobQueue>());
-                    });
+                });
     }
 }
