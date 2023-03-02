@@ -1,12 +1,11 @@
 ﻿using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Nest;
 using Newtonsoft.Json;
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Threading;
 
-namespace HOK.Elastic.FileSystemCrawler.WebAPI
+namespace HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models
 {
 
     //https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-6.0&tabs=visual-studio
@@ -14,7 +13,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
     {
         private CancellationTokenSource _thisTokenSource;
         private CancellationTokenSource _linkedTokenSource;
-        public int Id { get; set; } 
+        public int Id { get; set; }
         public DateTime? WhenCreated { get; set; }
         public DateTime? WhenCompleted { get; set; }
         public SettingsJobArgsDTO SettingsJobArgsDTO { get; set; }
@@ -29,9 +28,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             completedWithException
         }
         public bool IsCompleted => Status >= State.complete;
-        private Exception? _exception;
+        private Exception _exception;
         public bool HasException => _exception != null;
-        public Exception GetException() { return _exception; }        
+        public Exception GetException() { return _exception; }
         public Exception Exception { set { _exception = value; } }
 
         /// <summary>
@@ -46,7 +45,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         {
 
             Status = State.unstarted;
-            this.SettingsJobArgsDTO = settingsJob;
+            SettingsJobArgsDTO = settingsJob;
             _thisTokenSource = new CancellationTokenSource();
             _linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _thisTokenSource.Token);
 #if DEBUG
@@ -61,10 +60,10 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             return json;
         }
         public CancellationToken GetCancellationToken() => _linkedTokenSource.Token;
-        internal void Cancel()
+        public void Cancel()
         {
             _thisTokenSource.Cancel();
-            this.Status = State.cancelled;
+            Status = State.cancelled;
         }
     }
 }

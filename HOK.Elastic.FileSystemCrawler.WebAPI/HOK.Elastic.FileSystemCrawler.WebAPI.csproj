@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HOK.Elastic.DAL\HOK.Elastic.DAL.csproj" />
+    <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler.WebAPI.DAL\HOK.Elastic.FileSystemCrawler.WebAPI.DAL.csproj" />
     <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler\HOK.Elastic.FileSystemCrawler.csproj" />
   </ItemGroup>
 

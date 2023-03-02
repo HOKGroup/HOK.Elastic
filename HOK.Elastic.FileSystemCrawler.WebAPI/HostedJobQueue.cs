@@ -10,6 +10,7 @@ using System.Threading.Tasks.Dataflow;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Text;
+using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
@@ -217,7 +218,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             {
                 var json = JsonConvert.SerializeObject(_jobs.Values, Formatting.Indented, new JsonSerializerSettings() { });
                 System.IO.File.WriteAllText(persistFile, json, new UTF8Encoding(false));
-            }catch(Exception ex)
+            }
+            catch(Exception ex)
             {
                 if (isError) _logger.LogErr("Error saving job", null, null, ex);
             }
@@ -281,14 +283,14 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 HOK.Elastic.DAL.Models.PathHelper.SetOfficeExtractRgx(workerargs.OfficeSiteExtractRegex);
                 HOK.Elastic.DAL.Models.PathHelper.SetProjectExtractRgx(workerargs.ProjectExtractRegex);
                 HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
-                DAL.StaticIndexPrefix.Prefix = workerargs.IndexNamePrefix;
+                HOK.Elastic.DAL.StaticIndexPrefix.Prefix = workerargs.IndexNamePrefix;
                 string safepath = workerargs.JobName + workerargs.JobNotes;
                 System.IO.Path.GetInvalidPathChars().Select(x => safepath = safepath.Replace(x, ' '));
                 workerargs.InputPathLocation = System.IO.Path.Combine("webapijobs", safepath + hostedJobInfo.GetHashCode());
                 //end of unchecked requirements stuff that causes problems.
 
-                var index = new DAL.Index(workerargs.ElasticIndexURI.First(), new Elastic.Logger.Log4NetLogger("index"));
-                var discovery = new DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), new Elastic.Logger.Log4NetLogger("discovery"));
+                var index = new HOK.Elastic.DAL.Index(workerargs.ElasticIndexURI.First(), new Elastic.Logger.Log4NetLogger("index"));
+                var discovery = new HOK.Elastic.DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), new Elastic.Logger.Log4NetLogger("discovery"));
                 var logger = new Elastic.Logger.Log4NetLogger($"Worker{hostedJobInfo.Id}");
 
                 if (logger.IsEnabled(LogLevel.Information))

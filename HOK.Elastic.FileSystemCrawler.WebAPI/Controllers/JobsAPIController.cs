@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Http.Extensions;
 using System;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.Extensions.Hosting;
-
+using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
 {

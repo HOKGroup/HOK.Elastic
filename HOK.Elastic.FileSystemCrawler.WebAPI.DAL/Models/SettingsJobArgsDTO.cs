@@ -1,6 +1,4 @@
 ﻿using HOK.Elastic.FileSystemCrawler.Models;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Nest;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -8,7 +6,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 
-namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
+namespace HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models
 {
     public class SettingsJobArgsDTO : FileSystemCrawler.Models.SettingsJobArgs
     {
@@ -38,7 +36,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
             }
         }
 
-        internal static SettingsJobArgsDTO MakeDTO(ISettingsJobArgs settingsJobArgs)
+        public static SettingsJobArgsDTO MakeDTO(ISettingsJobArgs settingsJobArgs)
         {
             SettingsJobArgsDTO settingsJobArgsDTO = JsonConvert.DeserializeObject<SettingsJobArgsDTO>(JsonConvert.SerializeObject(settingsJobArgs));
             if (settingsJobArgs.CrawlMode == CrawlMode.EventBased)
@@ -52,7 +50,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
             return settingsJobArgsDTO;
         }
 
-        internal static SettingsJobArgs UnDTO(SettingsJobArgsDTO settingsJobArgsDTO)
+        public static SettingsJobArgs UnDTO(SettingsJobArgsDTO settingsJobArgsDTO)
         {
 
             SettingsJobArgs settingsJobArgs = JsonConvert.DeserializeObject<SettingsJobArgs>(JsonConvert.SerializeObject(settingsJobArgsDTO));

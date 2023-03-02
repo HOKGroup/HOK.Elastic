@@ -1,13 +1,14 @@
 ﻿using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;
+using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
     public interface IHostedJobQueue:IHostedService//could be a library project
     {
         HostedJobInfo Get(int Id);
-        int Enqueue(Models.SettingsJobArgsDTO job);//insert the job onto a queue. 
+        int Enqueue(SettingsJobArgsDTO job);//insert the job onto a queue. 
   
         HostedJobInfo Remove(int Id);
 
@@ -17,5 +18,4 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         TimeSpan UpTime { get; }
         IEnumerable<HostedJobInfo> Jobs { get; }
     }
-
 }

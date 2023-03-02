@@ -1,5 +1,5 @@
 ﻿using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 using Newtonsoft.Json;
 using System;
 using System.Linq;
