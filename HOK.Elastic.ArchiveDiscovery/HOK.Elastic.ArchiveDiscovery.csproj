@@ -1,10 +1,12 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+	<!--validateexecutable....supports projectreference of filesystemcrawler.webapi.csproj-->
+	<ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,10 +26,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="6.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="6.0.0" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\HOK.Elastic.DAL\HOK.Elastic.DAL.csproj" />
-    <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler.WebAPI\HOK.Elastic.FileSystemCrawler.WebAPI.csproj" />
+    <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler.WebAPI.DAL\HOK.Elastic.FileSystemCrawler.WebAPI.DAL.csproj" />
     <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler\HOK.Elastic.FileSystemCrawler.csproj" />
     <ProjectReference Include="..\HOK.Elastic.Logger\HOK.Elastic.Logger.csproj" />
   </ItemGroup>
-
 </Project>

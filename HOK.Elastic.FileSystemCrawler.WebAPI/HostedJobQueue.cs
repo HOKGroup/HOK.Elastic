@@ -15,7 +15,6 @@ using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
-
     public partial class HostedJobQueue : IHostedService, IHostedJobQueue
     {
         private ConcurrentDictionary<int, HostedJobInfo> _jobs = new ConcurrentDictionary<int, HostedJobInfo>();
@@ -139,12 +138,26 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public void CleanupOldJobs()
         {
-            var oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && x.WhenCompleted != null && DateTime.Now.Subtract(x.WhenCompleted.Value).TotalDays > 7);
-            if (oldJobs.Any())
+            if(_jobs.Count>100)
             {
-                foreach (var job in oldJobs)
+                var oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && x.WhenCompleted != null).OrderByDescending(x => x.WhenCreated).Skip(10);//leave 10 completed jobs in the queue for casual review
+                if (oldJobs.Any())
                 {
-                    Remove(job.Id);
+                    foreach (var job in oldJobs)
+                    {
+                        Remove(job.Id);
+                    }
+                }
+            }
+            else
+            {
+                var oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && x.WhenCompleted != null && DateTime.Now.Subtract(x.WhenCompleted.Value).TotalDays > 7);//leave jobs in the last week in the queue for casual review
+                if (oldJobs.Any())
+                {
+                    foreach (var job in oldJobs)
+                    {
+                        Remove(job.Id);
+                    }
                 }
             }
         }
@@ -251,14 +264,18 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 }
             }
         }
-
         private void Finish(HostedJobInfo jobInfo)
         {
             if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
-            System.IO.File.AppendAllText("logs\\completedjobs.txt", jobInfo.ToString());
+            var filename = MakeSafeFileName($"completed{jobInfo.SettingsJobArgsDTO.JobName}.json");
+            System.IO.File.AppendAllText($"logs\\{filename}", jobInfo.ToString());
             OnTaskCompleted(jobInfo.Id);
         }
-
+        private char[] _badChars = System.IO.Path.GetInvalidFileNameChars();
+        private string MakeSafeFileName(string filename)
+        {            
+           return new string(filename.Where(x=>!_badChars.Contains(x)).ToArray());
+        }
         public async Task<HostedJobInfo> RunJobAsync(HostedJobInfo hostedJobInfo)
         {
             try

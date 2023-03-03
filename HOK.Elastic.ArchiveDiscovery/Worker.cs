@@ -5,11 +5,12 @@ using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Policy;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HOK.Elastic.DAL;
 using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 
@@ -35,37 +36,45 @@ namespace HOK.Elastic.ArchiveDiscovery
             api = new APIClient(apihost, new Logger.Log4NetLogger("API"));
         }
 
-        internal async Task RunAsync(SettingsJobArgsDTO settingsJobArgsDTO)
+        internal async Task RunAsync(SettingsJobArgsDTO settingsJobArgsDTO,string pathPrefix,string pathProdSuffix,string pathArchiveSuffix,Regex officeMatch=null)
         {
-            //var settingsJobArgsDTO = (SettingsJobArgsDTO)settingsJobArgsDTO;
             StaticIndexPrefix.Prefix = settingsJobArgsDTO.IndexNamePrefix;
             var discoveryuris = settingsJobArgsDTO.ElasticDiscoveryURI.Select(x => new Uri(x)).ToList();
-            DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(discoveryuris, new Logger.Log4NetLogger("test"));
+            DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(discoveryuris, new Logger.Log4NetLogger(nameof(Worker)));
             var clientStatus = discoveryArchive.GetClientStatus();
-            if (ilDebug) _il.LogDebugInfo("status", null, clientStatus);
+            if (ilDebug) _il.LogDebugInfo("Status", null, clientStatus);
             var offices = await discoveryArchive.FindOffices();
-            foreach (var office in offices)
+            if(offices != null) { offices = offices.Where(x => officeMatch.IsMatch(x)); }
+            if (offices != null && offices.Any())
             {
-                if (ilInfo) _il.LogInfo($">>>Searching: '{office}'", null, null);
-                var projectRootsInArchive = await discoveryArchive.FindProjectRootsInArchive(office);
-                if (projectRootsInArchive.Any())
-                {                   
-                    if (ilDebug) _il.LogDebugInfo(office + " " + String.Join(",", projectRootsInArchive.Select(x => x.Project.FullName)));
-                    foreach (var archiveDocument in projectRootsInArchive.Where(x => x.Last_write_timeUTC >= DateTime.MinValue))
+                foreach (var office in offices)
+                {
+                    if (ilInfo) _il.LogInfo($">>>Searching: '{office}'", null, null);
+
+                    var projectRootsInArchive = discoveryArchive.FindProjectRootsInArchive(pathPrefix,  office,pathArchiveSuffix);
+                    if (projectRootsInArchive.Any())
                     {
-                        var productionDocument = await discoveryArchive.FindArchiveProjectsInProduction(office, archiveDocument.Project.Number);
-                        if (productionDocument != null)
+                        foreach (var archiveDocument in projectRootsInArchive.Where(x => x.Last_write_timeUTC >= DateTime.MinValue))
                         {
-                            var workItem = new JobItem(office, archiveDocument.Project.Number, productionDocument.Id, archiveDocument.Id);
-                            if (ilDebug) _il.LogDebugInfo($">>>Found matching pair PROD>ARCHIVE WorkItem", null, workItem);
-                            context.Value.Add(workItem);
+                            //if (ilDebug) _il.LogDebug($"searching '{office}' for '{archiveDocument.Project.FullName.ToString()}");
+                            var productionDocument = await discoveryArchive.FindArchiveProjectsInProduction(pathPrefix, office,pathProdSuffix, archiveDocument.Project.Number, archiveDocument.Project.Name);
+                            if (productionDocument != null)
+                            {
+                                var workItem = new JobItem(office, archiveDocument.Project.Number, productionDocument.Id, archiveDocument.Id);
+                                if (ilInfo) _il.LogInfo($">>>Found matching pair PROD>ARCHIVE WorkItem", null, workItem);
+                                context.Value.Add(workItem);
+                            }
                         }
                     }
+                    else
+                    {
+                        if (ilDebug) _il.LogDebugInfo($"No projects found for: '{office}'", null, null);
+                    }
                 }
-                else
-                {
-                    if (ilDebug) _il.LogDebugInfo($"No projects found for: '{office}'", null, null);
-                }              
+            }
+            else
+            {
+                if (ilInfo) _il.LogInfo("No offices" + officeMatch !=null? " matched " + officeMatch.ToString():" found that matched");
             }
             try
             {
@@ -95,7 +104,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                 while (await api.HasFreeSlotsAsync())
                 {
                     var item = context.Value.Where(x => x
-                    .Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.unstarted
+                    .Status == HostedJobInfo.State.unstarted
                     ).FirstOrDefault();
                     if (item != null)
                     {
@@ -116,7 +125,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                         if (Id >= 0)
                         {
                             item.TaskId = Id;
-                            item.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.started;
+                            item.Status = HostedJobInfo.State.started;
                         }
                         else
                         {
@@ -134,7 +143,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                 #endregion
                 #region MonitorJobsForCompletionAndRemove
                 List<JobItem> jobsToBeRemoved = new List<JobItem>();
-                foreach (var job in context.Value.Where(x => x.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.started || x.Status== FileSystemCrawler.WebAPI.HostedJobInfo.State.completedWithException ))
+                foreach (var job in context.Value.Where(x => x.Status == HostedJobInfo.State.started || x.Status== HostedJobInfo.State.completedWithException ))
                 {
                     try
                     {
@@ -145,7 +154,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                         }
                         else
                         {
-                            if (jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.complete && jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
+                            if (jobInfo.Status == HostedJobInfo.State.complete && jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
                             {
                                 if (jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
                                 {
@@ -154,16 +163,16 @@ namespace HOK.Elastic.ArchiveDiscovery
                                 }
                                 else
                                 {
-                                    job.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.complete;
+                                    job.Status = HostedJobInfo.State.complete;
                                 }
                             }
-                            else if (jobInfo.Status == FileSystemCrawler.WebAPI.HostedJobInfo.State.completedWithException)
+                            else if (jobInfo.Status == HostedJobInfo.State.completedWithException)
                             {
                                 if (job.Retries < 3)
                                 {
                                     //retry the job.
                                     await api.DeleteAsync(job.TaskId);
-                                    job.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.unstarted;
+                                    job.Status = HostedJobInfo.State.unstarted;
                                     job.Retries++;
                                     //log warn that it's failing
                                     if (ilWarn) _il.LogWarn($"Failed {job.Retries + 1} times", job.Source, jobInfo);
@@ -176,7 +185,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                                 }
                                 else
                                 {
-                                    job.Status = FileSystemCrawler.WebAPI.HostedJobInfo.State.completedWithException;
+                                    job.Status = HostedJobInfo.State.completedWithException;
                                 }
                             }
                             else

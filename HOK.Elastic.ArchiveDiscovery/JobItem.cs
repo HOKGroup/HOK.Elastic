@@ -1,4 +1,5 @@
 ﻿using Nest;
+using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 
 namespace HOK.Elastic.ArchiveDiscovery
 {
@@ -16,7 +17,7 @@ namespace HOK.Elastic.ArchiveDiscovery
         public string? ProjectNumber { get; set; }
         public string? Source { get; set; }
         public string? Target { get; set; }
-        public HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo.State Status { get; set; }//not the correct status of course.
+        public HostedJobInfo.State Status { get; set; }//not the correct status of course.
         public int TaskId { get; set; }
         public int Retries { get; internal set; }
     }

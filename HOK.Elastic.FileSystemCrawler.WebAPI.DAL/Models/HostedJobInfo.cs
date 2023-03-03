@@ -56,7 +56,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models
 
         public override string ToString()
         {
-            var json = JsonConvert.SerializeObject(this);
+            var json = JsonConvert.SerializeObject(this,Formatting.Indented);
             return json;
         }
         public CancellationToken GetCancellationToken() => _linkedTokenSource.Token;

@@ -1,6 +1,6 @@
 ﻿using HOK.Elastic.FileSystemCrawler.Models;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.WebUtilities;
+//using Microsoft.AspNetCore.Http;
+//using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Logging;
 using Nest;
 using System.Net;
@@ -8,7 +8,7 @@ using System;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Security.Principal;
-using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 
 namespace HOK.Elastic.ArchiveDiscovery
 {
@@ -62,21 +62,21 @@ namespace HOK.Elastic.ArchiveDiscovery
             return jobId;
         }
 
-        internal async Task<HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo?> GetJobInfo(int taskId)
+        internal async Task<HostedJobInfo> GetJobInfo(int taskId)
         {
             //https://localhost:44346/jobs/0
             var path = @$"{host}{JOBSAPI}/{taskId}";
             var response = await httpClient.SendAsync(new HttpRequestMessage(HttpMethod.Get, path));
             if(response.IsSuccessStatusCode)
             {
-                var result = await response.Content.ReadFromJsonAsync<HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo>();
+                var result = await response.Content.ReadFromJsonAsync<HostedJobInfo>();
                 if (result != null)
                 {
                     if (ilDebug) _il.LogDebugInfo("Retrieved task info", null, result);
                     return result;
                 }
             }
-                if (ilWarn) _il.LogWarn($"Couldn't get{nameof(HOK.Elastic.FileSystemCrawler.WebAPI.HostedJobInfo)} for {taskId}", null, response.StatusCode);
+                if (ilWarn) _il.LogWarn($"Couldn't get{nameof(HostedJobInfo)} for {taskId}", null, response.StatusCode);
             return null;
         }
 
