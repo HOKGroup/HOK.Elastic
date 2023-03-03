@@ -21,12 +21,14 @@ steps:
   inputs:
     version: '3.1.x'
 
-- task: DotNetCoreCLI@2
+- task: MSBuild@1
   inputs:
-    command: 'publish'
-    projects: 'HOK.Elastic.FileSystemCrawler.WebAPI/HOK.Elastic.FileSystemCrawler.WebAPI.csproj'
-    arguments: '--configuration $(buildConfiguration) -r $(runtime) --version-suffix "ci-build-$(Build.SourceVersion)" --output $(Build.ArtifactStagingDirectory)'
-    zipAfterPublish: false
+    solution: 'HOK.Elastic.FileSystemCrawler.WebAPI/HOK.Elastic.FileSystemCrawler.WebAPI.csproj'
+    msbuildArchitecture: 'x64'
+    configuration: '$(buildConfiguration)'
+    msbuildArguments: '/p:TargetFramework=net6.0-windows /p:PublishDir:$(Build.ArtifactStagingDirectory) /p:RuntimeIdentifier:$(runtime)'
+    restoreNugetPackages: true
+
 
 - task: DownloadSecureFile@1
   inputs:
