@@ -17,9 +17,11 @@ variables:
   runtime: 'win-x64'
 
 steps:
-- task: UseDotNet@2
+- task: NuGetCommand@2
   inputs:
-    version: '3.1.x'
+    command: 'restore'
+    restoreSolution: 'HOK.Elastic.FileSystemCrawler.WebAPI/HOK.Elastic.FileSystemCrawler.WebAPI.csproj'
+    feedsToUse: 'select'
 
 - task: MSBuild@1
   inputs:
@@ -27,7 +29,6 @@ steps:
     msbuildArchitecture: 'x64'
     configuration: '$(buildConfiguration)'
     msbuildArguments: '/p:TargetFramework=net6.0-windows /p:PublishDir:$(Build.ArtifactStagingDirectory) /p:RuntimeIdentifier:$(runtime)'
-    restoreNugetPackages: true
 
 
 - task: DownloadSecureFile@1
