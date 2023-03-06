@@ -4,14 +4,18 @@
 }
 
 <div class="text-center">
-    <h1 class="display-4">Welcome</h1>    
+    <h1 class="display-4">Welcome</h1>   
 </div>
 <div>
     <ul>
         <li>Jobs: @Model.Jobs.Count()</li>
         <li>Currently can do @Model.FreeSlots more jobs</li>
+        <li>Completed @Model.JobCompleted jobs</li>
         <li>Uptime: @Model.UpTime</li>
     </ul>
+</div>
+<div>
+    <pre>@Program.AppVersion</pre>
 </div>
 <div>
 @{

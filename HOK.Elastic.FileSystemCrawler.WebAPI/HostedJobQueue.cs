@@ -33,6 +33,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private readonly DateTime _startTimeUTC;
         private IEmailService _emailService;
         public TimeSpan UpTime => DateTime.UtcNow - _startTimeUTC;
+        public int JobCompleted { get; private set; }
 
         public int MaxJobs { get; private set; }
         public int JobSlots => (int)(MaxJobs * 1.5);
@@ -52,7 +53,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 }
             }
         }
-
         private int GetNextId()
         {
             return _jobs.Keys.Any() ? _jobs.Keys.Max() + 1 : 1;
@@ -72,6 +72,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         protected virtual void OnTaskCompleted(int Id)
         {
+            JobCompleted++;
             ProcessCompleted?.Invoke(this, Id);
         }
 

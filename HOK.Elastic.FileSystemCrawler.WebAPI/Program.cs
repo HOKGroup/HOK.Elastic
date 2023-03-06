@@ -17,11 +17,24 @@ using log4net.Repository.Hierarchy;
 using log4net;
 using Newtonsoft.Json;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using System.Text;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
+
     public class Program
     {
+        public static string AppVersion
+        {
+            get
+            {
+                StringBuilder sb = new StringBuilder();
+                sb.AppendLine("Runtime Version: " + System.Environment.Version.ToString());
+                sb.AppendLine("Program Version: " + typeof(Program).Assembly
+    .GetCustomAttribute<AssemblyFileVersionAttribute>().Version);
+                return sb.ToString();
+            }
+        }
         public static IConfiguration Config { get; internal set; }
         public static AppSettings AppSettings { get; internal set; }
         public static void Main(string[] args)
@@ -31,24 +44,27 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             {
                 var appSettings = JsonConvert.DeserializeObject<AppSettings>(File.ReadAllText(appSettingsPath));
                 {
-                    if(appSettings != null) { AppSettings = appSettings;}
+                    if (appSettings != null) { AppSettings = appSettings; }
                 }
             }
-           CreateHostBuilder(args).Build().Run();
+            CreateHostBuilder(args).Build().Run();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder =>{
+                .ConfigureWebHostDefaults(webBuilder =>
+                {
                     webBuilder.UseStartup<Startup>();
-                })           
-                .ConfigureLogging(logging =>{
+                })
+                .ConfigureLogging(logging =>
+                {
                     //logging.ClearProviders();               
                     logging.AddLog4Net();
-                    var xml = HOK.Elastic.Logger.Log4NetProvider.Parselog4NetConfigFile("log4net.config");                  
-                    var c = log4net.Config.XmlConfigurator.Configure(xml);                  
+                    var xml = HOK.Elastic.Logger.Log4NetProvider.Parselog4NetConfigFile("log4net.config");
+                    var c = log4net.Config.XmlConfigurator.Configure(xml);
                 })
-                .ConfigureServices(services => {
+                .ConfigureServices(services =>
+                {
                     var maxJobs = AppSettings.ConcurrentJobs;// int.Parse(Program.Config["ConcurrentJobs"]);
                     services.AddSingleton<IEmailService, EmailService>(x => new EmailService(x.GetService<ILogger<HostedJobQueue>>(),
                        AppSettings.EmailSMTPhost,

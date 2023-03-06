@@ -26,6 +26,8 @@ namespace HOK.Elastic.ArchiveDiscovery
         private bool ilWarn;
         private bool ilError;
         private APIClient api;
+        public int ProjectCount { get; set; } = 0;
+        public int ProjectCompletedCount { get; set; } = 0;
         public Worker(string apihost)
         {
             _il = new HOK.Elastic.Logger.Log4NetLogger(nameof(Worker));
@@ -43,10 +45,11 @@ namespace HOK.Elastic.ArchiveDiscovery
             DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(discoveryuris, new Logger.Log4NetLogger(nameof(Worker)));
             var clientStatus = discoveryArchive.GetClientStatus();
             if (ilDebug) _il.LogDebugInfo("Status", null, clientStatus);
-            var offices = await discoveryArchive.FindOffices();
-            if(offices != null) { offices = offices.Where(x => officeMatch.IsMatch(x)); }
+            var offices = (await discoveryArchive.FindOffices());
+            if(offices != null&&officeMatch!=null) { offices = offices.Where(x => officeMatch.IsMatch(x)); }
             if (offices != null && offices.Any())
             {
+                
                 foreach (var office in offices)
                 {
                     if (ilInfo) _il.LogInfo($">>>Searching: '{office}'", null, null);
@@ -88,11 +91,11 @@ namespace HOK.Elastic.ArchiveDiscovery
 
         private async Task<bool> CopyToArchive(SettingsJobArgsDTO settingsJobArgsDTO)
         {
-
             DateTime timer = DateTime.MinValue;
+            ProjectCount = context.Value.Count;
             while (context.Value.Any())
             {
-                if (ilInfo) _il.LogInfo("Looping jobs in context...", null, context.Value.Count);
+                if (ilInfo) _il.LogInfo("Looping jobs in context...", null, ProjectCount);
                 #region PersistJobs
                 if (DateTime.Now.Subtract(timer).TotalMinutes > 2)
                 {
@@ -126,6 +129,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                         {
                             item.TaskId = Id;
                             item.Status = HostedJobInfo.State.started;
+                            ProjectCompletedCount++;
                         }
                         else
                         {

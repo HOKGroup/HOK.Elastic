@@ -16,6 +16,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         int FreeSlots { get; }
         TimeSpan UpTime { get; }
+        int JobCompleted { get; }
         IEnumerable<HostedJobInfo> Jobs { get; }
     }
 }
