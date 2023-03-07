@@ -12,7 +12,6 @@ using Newtonsoft.Json;
 using System.Text;
 using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
-using Nest;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
