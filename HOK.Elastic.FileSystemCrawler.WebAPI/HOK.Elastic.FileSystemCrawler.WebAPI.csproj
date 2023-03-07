@@ -31,7 +31,6 @@
 
   <ItemGroup>
     <Folder Include="log4net\" />
-    <Folder Include="Logs\" />
   </ItemGroup>
 
 </Project>

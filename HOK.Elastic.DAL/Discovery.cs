@@ -144,11 +144,11 @@ namespace HOK.Elastic.DAL
                 sourceFilter = new SourceFilterDescriptor<FSO>();
                 sourceFilter.Includes(f => f.Fields(DefaultSourceFieldsFilter));
             }
-            string scrolltimeout = "10m";
+            string scrolltimeout = "10h";
             ISearchResponse<FSO> searchResponse = null;
             searchResponse = client.Search<FSO>(d => d
                         .Index(AllIndicies)
-                        .Size(1000)
+                        .Size(500)
                         .Scroll(scrolltimeout)
                         .Source(a => sourceFilter)
                         .Query(q => q
@@ -216,7 +216,7 @@ namespace HOK.Elastic.DAL
         public IEnumerable<T> FindDescendentsForMoving<T>(string path) where T : class, IFSO
         {
             T doc;
-            string scrolltimeout = "10m";
+            string scrolltimeout = "10h";
             ISearchResponse<T> searchResponse = null;
             searchResponse = client.Search<T>(d => d
                         .Index(GetIndexName<T>())

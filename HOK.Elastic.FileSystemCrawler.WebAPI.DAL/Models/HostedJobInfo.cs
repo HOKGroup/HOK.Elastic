@@ -49,7 +49,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models
             _thisTokenSource = new CancellationTokenSource();
             _linkedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _thisTokenSource.Token);
 #if DEBUG
-            _linkedTokenSource.CancelAfter(120000);//just for fun to give a sample of jobs running.
+           // _linkedTokenSource.CancelAfter(120000);//just for fun to give a sample of jobs running.
 #endif
             WhenCreated = DateTime.Now;
         }

@@ -32,6 +32,12 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 sb.AppendLine("Runtime Version: " + System.Environment.Version.ToString());
                 sb.AppendLine("Program Version: " + typeof(Program).Assembly
     .GetCustomAttribute<AssemblyFileVersionAttribute>().Version);
+                var appdir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                var di = new DirectoryInfo(appdir);
+                foreach (var fi in di.EnumerateFiles("HOK*.dll"))
+                {
+                    sb.AppendLine($"{fi.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")} {fi.Name} ");
+                }
                 return sb.ToString();
             }
         }
