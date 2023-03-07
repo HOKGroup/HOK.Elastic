@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using System.Text;
 using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using Nest;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -253,6 +254,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
                     foreach (var job in jobs)
                     {
+                        if (job.Status == HostedJobInfo.State.started) job.Status = HostedJobInfo.State.unstarted;//retry completing job that started but hadn't been previously marked as cancelled, completed or otherwise.
                         if (!_jobs.TryAdd(job.Id, job))
                         {
                             if (isWarn) _logger.LogWarn($"Couldn't add jobid={job.Id} from '{persistFile}' as it already exists");
