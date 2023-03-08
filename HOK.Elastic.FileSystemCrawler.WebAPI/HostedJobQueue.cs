@@ -409,7 +409,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 rollingFileAppenderLayout.ActivateOptions();
                 var rollingFileAppender = new log4net.Appender.RollingFileAppender();
                 rollingFileAppender.Name = $"job{projectName}";
-                rollingFileAppender.Threshold = log4net.Core.Level.Debug;
+                rollingFileAppender.Threshold = log4net.Core.Level.Info;
                 rollingFileAppender.CountDirection = 0;
                 rollingFileAppender.PreserveLogFileNameExtension = true;
                 rollingFileAppender.AppendToFile = true;
