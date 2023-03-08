@@ -42,7 +42,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             if (jobs != null)
             {
                 if (isInfo) _logger.LogInformation($"Getting{jobs.Count()} jobs");
-                return View(jobs.ToList());
+                return View(jobs.OrderBy(x=>x.Id).ToList());
             }
             else
             {
@@ -178,11 +178,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
                 hostedJobInfo = _hostedJobScheduler.Get(hostedJobInfo.Id);
                 if (hostedJobInfo != null)
                 {
-                    if (!hostedJobInfo.IsCompleted)
-                    {
+                    //if (!hostedJobInfo.IsCompleted)
+                    //{
                         var removed = _hostedJobScheduler.Remove(id);
                         if (isInfo) _logger.LogInformation("Removed" + removed);
-                    }
+                    //}
                 }
                 return RedirectToAction(nameof(Index));
             }

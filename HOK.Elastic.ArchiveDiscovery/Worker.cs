@@ -95,7 +95,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             ProjectCount = context.Value.Count;
             while (context.Value.Any())
             {
-                if (ilInfo) _il.LogInfo("Looping jobs in context...", null, ProjectCount);
+                if (ilInfo) _il.LogInfo($"Looping {ProjectCount} jobs in context...with {ProjectCompletedCount} completed.", null, null);
                 #region PersistJobs
                 if (DateTime.Now.Subtract(timer).TotalMinutes > 2)
                 {

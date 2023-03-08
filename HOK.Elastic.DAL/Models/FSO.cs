@@ -156,7 +156,7 @@ namespace HOK.Elastic.DAL.Models
             _crawlPath = null;
             _dfsPath = null;
             _contentPath = null;
-            if (lowercasePath.StartsWith(PathHelper.PublishedRoot))
+            if (lowercasePath.StartsWith(PathHelper.PublishedRoot))//sometimes legacy long paths are passed to this method and currently PublishedRoot is not-legacylongpath...so never matches...
             {
                 _commonPathComponent = lowercasePath.Substring(PathHelper.PublishedRoot.Length);
             }

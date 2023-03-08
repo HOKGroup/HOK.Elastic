@@ -33,7 +33,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private readonly DateTime _startTimeUTC;
         private IEmailService _emailService;
         public TimeSpan UpTime => DateTime.UtcNow - _startTimeUTC;
-        public int JobCompleted { get; private set; }
+        public int JobsCompleted { get; private set; }
 
         public int MaxJobs { get; private set; }
         public int JobSlots => (int)(MaxJobs * 1.5);
@@ -72,7 +72,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         protected virtual void OnTaskCompleted(int Id)
         {
-            JobCompleted++;
             ProcessCompleted?.Invoke(this, Id);
         }
 
@@ -110,7 +109,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-           // LoadSomeRandomTestJobs(1);
+           // LoadSomeRandomTestJobs(9);
 #endif
             DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
@@ -139,9 +138,10 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public void CleanupOldJobs()
         {
+            IEnumerable<HostedJobInfo> oldJobs;
             if (_jobs.Count > 100)
             {
-                var oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && x.WhenCompleted != null).OrderByDescending(x => x.WhenCreated).Skip(10);//leave 10 completed jobs in the queue for casual review
+                oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled).OrderByDescending(x => x.WhenCreated).Skip(10);//leave 10 completed jobs in the queue for casual review
                 if (oldJobs.Any())
                 {
                     foreach (var job in oldJobs)
@@ -150,15 +150,12 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     }
                 }
             }
-            else
+            oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && (x.WhenCreated == null || DateTime.Now.Subtract(x.WhenCompleted.Value).TotalDays > 7));//leave jobs in the last week in the queue for casual review
+            if (oldJobs.Any())
             {
-                var oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && x.WhenCompleted != null && DateTime.Now.Subtract(x.WhenCompleted.Value).TotalDays > 7);//leave jobs in the last week in the queue for casual review
-                if (oldJobs.Any())
+                foreach (var job in oldJobs)
                 {
-                    foreach (var job in oldJobs)
-                    {
-                        Remove(job.Id);
-                    }
+                    Remove(job.Id);
                 }
             }
         }
@@ -217,7 +214,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 _cts.Cancel();
                 Save();
                 buffer?.Complete();
-
             }
             finally
             {
@@ -251,7 +247,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     var jobs = JsonConvert.DeserializeObject<HostedJobInfo[]>(json);
                     if (isDebug) _logger.LogDebug($"job count = {jobs.Count()}");
 
-                    foreach (var job in jobs)
+                    foreach (var job in jobs.OrderBy(x => x.Id))
                     {
                         if (job.Status == HostedJobInfo.State.started) job.Status = HostedJobInfo.State.unstarted;//retry completing job that started but hadn't been previously marked as cancelled, completed or otherwise.
                         if (!_jobs.TryAdd(job.Id, job))
@@ -268,6 +264,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         }
         private void Finish(HostedJobInfo jobInfo)
         {
+            JobsCompleted++;
             if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
             var filename = MakeSafeFileName($"completed{jobInfo.SettingsJobArgsDTO.JobName}.json");
             System.IO.File.AppendAllText($"logs\\{filename}", jobInfo.ToString());
@@ -309,9 +306,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 workerargs.InputPathLocation = System.IO.Path.Combine("webapijobs", safepath + hostedJobInfo.GetHashCode());
                 //end of unchecked requirements stuff that causes problems.
                 //
-                
-                var customLogger = GetPerProjectLogger(hostedJobInfo.Id+workerargs.JobName, "genericsinglelogger");
-                var logger = new Elastic.Logger.Log4NetLogger("hmm",customLogger.Item1, customLogger.Item2);
+
+                var customLogger = GetPerProjectLogger(hostedJobInfo.Id + workerargs.JobName, "genericsinglelogger");
+                var logger = new Elastic.Logger.Log4NetLogger("hmm", customLogger.Item1, customLogger.Item2);
                 var index = new HOK.Elastic.DAL.Index(workerargs.ElasticIndexURI.First(), logger);
                 var discovery = new HOK.Elastic.DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), logger);
                 //var logger = new Elastic.Logger.Log4NetLogger($"Worker{hostedJobInfo.Id}");
@@ -371,7 +368,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 {
                     //todo we should validate the email address before it gets here.
                     var completionInfo = JsonConvert.SerializeObject(hostedJobInfo.CompletionInfo);
-                    var mail = EmailService.MakeMessage(_emailService.DefaultSender, email, $"CrawlJob Complete on {Environment.MachineName} {hostedJobInfo.SettingsJobArgsDTO.JobName}", $"{hostedJobInfo.Status}\r\n\r\n***\r\n\r\n{completionInfo}");
+                    var mail = EmailService.MakeMessage(_emailService.DefaultSender, email, $"CrawlJob Complete on {Environment.MachineName} {hostedJobInfo.SettingsJobArgsDTO.JobName}", $"{hostedJobInfo.Status}\r\n\r\n***\r\n\r\n{completionInfo}\r\n\r\nException: {(hostedJobInfo.HasException?hostedJobInfo.GetException().ToString():"No Fatal Exceptions...")}");
                     _emailService.Send(mail);
                 }
             }
@@ -381,9 +378,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
             return hostedJobInfo;
         }
-       
- 
-        private Tuple<log4net.Repository.ILoggerRepository,log4net.ILog> GetPerProjectLogger(string projectName, string name)
+
+
+        private Tuple<log4net.Repository.ILoggerRepository, log4net.ILog> GetPerProjectLogger(string projectName, string name)
         {
             //temporary untile we refactor logging...
             //https://stackoverflow.com/questions/21022467/log4net-different-logs-on-different-file-appenders-at-runtime
@@ -406,7 +403,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 repository = log4net.LogManager.CreateRepository(repositoryName);
 
                 hierarchy = (log4net.Repository.Hierarchy.Hierarchy)repository;
-                hierarchy.Root.Additivity = false;                
+                hierarchy.Root.Additivity = false;
 
                 var rollingFileAppenderLayout = new log4net.Layout.PatternLayout("%date{HH:mm:ss,fff}|T%2thread|%25.25logger|%5.5level| %message%newline");
                 rollingFileAppenderLayout.ActivateOptions();
@@ -423,60 +420,60 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 rollingFileAppender.RollingStyle = log4net.Appender.RollingFileAppender.RollingMode.Composite;
                 rollingFileAppender.DatePattern = ".yyyy-MM-dd'.log'";
                 rollingFileAppender.Layout = rollingFileAppenderLayout;
-                rollingFileAppender.File = string.Format("{0}{1}{2}", "logs\\job", projectName,".log");
+                rollingFileAppender.File = string.Format("{0}{1}{2}", "logs\\job", projectName, ".log");
                 rollingFileAppender.ActivateOptions();
                 hierarchy.Root.AddAppender(rollingFileAppender);
                 log4net.Config.BasicConfigurator.Configure(repository);
             }
             return new Tuple<log4net.Repository.ILoggerRepository, log4net.ILog>(repository, log4net.LogManager.GetLogger(repositoryName, name));
         }
-#endregion
+        #endregion
 
 
-        
 
-   
+
+
 
 #if DEBUG
-    public void LoadSomeRandomTestJobs(int itemsToCreate)
-    {
-        //load up some random tasks
-        Random random = new Random();
-        for (int i = 0; i < itemsToCreate; i++)
+        public void LoadSomeRandomTestJobs(int itemsToCreate)
         {
-            var rnd = random.Next(50, 500);
-            var d = new SettingsJobArgsDTO()
+            //load up some random tasks
+            Random random = new Random();
+            for (int i = 0; i < itemsToCreate; i++)
             {
-                BulkUploadSize = rnd,
-                CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.EventBased,
-                ElasticDiscoveryURI = new List<string> { "https://elasitcnode:9200/" },
-                ElasticIndexURI = new List<string> { "https://elasticnode:9200/" },
-                DocInsertionThreads = 1,
-                JobName = "Sample" + rnd,
-                JobNotes = "Some notes about the sample job",
-                IgnoreExtensions = new List<string>() { ".dat", ".db" },
-                IndexNamePrefix = $"test{rnd}",
-                InputPathLocation = $"c:\\",
-                InputEvents = new List<InputPathEventStream>() {new InputPathEventStream(){
+                var rnd = random.Next(50, 500);
+                var d = new SettingsJobArgsDTO()
+                {
+                    BulkUploadSize = rnd,
+                    CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.EventBased,
+                    ElasticDiscoveryURI = new List<string> { "https://elasitcnode:9200/" },
+                    ElasticIndexURI = new List<string> { "https://elasticnode:9200/" },
+                    DocInsertionThreads = 1,
+                    JobName = "Sample" + rnd,
+                    JobNotes = "Some notes about the sample job",
+                    IgnoreExtensions = new List<string>() { ".dat", ".db" },
+                    IndexNamePrefix = $"test{rnd}",
+                    InputPathLocation = $"c:\\",
+                    InputEvents = new List<InputPathEventStream>() {new InputPathEventStream(){
                         IsDir = true,
                         Path = "c:\\archive",
                         PathFrom = "c:\\production",
                         PresenceAction = ActionPresence.Copy
                             }
                     },
-                PublishedPath = "c:\\",
-                PathForCrawling = "c:\\",
-                PathForCrawlingContent = "c:\\",
-                PathInclusionRegex = ".*",
-                FileNameExclusionRegex = ".*",
-                OfficeSiteExtractRegex = "[a-z]{2,5}",
-                ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
-                EmailNotification = "james.blackadar@hok.com"
-            };
-            Enqueue(d);
+                    PublishedPath = "c:\\",
+                    PathForCrawling = "c:\\",
+                    PathForCrawlingContent = "c:\\",
+                    PathInclusionRegex = ".*",
+                    FileNameExclusionRegex = ".*",
+                    OfficeSiteExtractRegex = "[a-z]{2,5}",
+                    ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
+                    EmailNotification = "james.blackadar@hok.com"
+                };
+                Enqueue(d);
+            }
         }
-    }
 #endif
 
-}
+    }
 }

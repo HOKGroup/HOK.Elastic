@@ -56,7 +56,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 ActionBlock<InputPathEventStream> blockActionUpdateOrNew = new ActionBlock<InputPathEventStream>(item => ActionUpdateOrNew(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
                 ActionBlock<InputPathEventStream> blockActionDelete = new ActionBlock<InputPathEventStream>(item => ActionDelete(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 4, BoundedCapacity = 4 });
                 bb.LinkTo(blockActionDelete, linkOptions, item => item.PresenceAction == ActionPresence.Delete);
-                bb.LinkTo(blockActionMove, linkOptions, item => item.PresenceAction == ActionPresence.Move|| item.PresenceAction==ActionPresence.Copy);
+                bb.LinkTo(blockActionMove, linkOptions, item => item.PresenceAction == ActionPresence.Move || item.PresenceAction == ActionPresence.Copy);
                 bb.LinkTo(blockActionUpdateOrNew, linkOptions, item => item.PresenceAction == ActionPresence.None);
                 docInsertTranformBlock = new TransformBlock<IFSO, IFSO>(item => DocumentHelper.InsertTransform(item));
                 docReindexTransformBlock = new TransformBlock<IFSO, IFSO>(item => DocumentHelper.ReindexTransform(item));
@@ -70,7 +70,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 }
                 else
                 {
-                    docInsertBatch = new BatchBlock<IFSO>(args.BulkUploadSize??100);
+                    docInsertBatch = new BatchBlock<IFSO>(args.BulkUploadSize ?? 100);
                 }
                 docInsertBatch.LinkTo(docInsertArray, linkOptions);
                 docUpdate = new ActionBlock<IFSO>(item => DocumentHelper.Update(item));//todo make update methods
@@ -98,7 +98,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 docUpdateExistingTransformBlock.Complete();
                 await Task.WhenAll(docInsertArray.Completion, docInsert.Completion, docInsertReindex.Completion, docUpdate.Completion).ConfigureAwait(false);
                 if (ilinfo) _il.LogInfo("Completed Task");
-                completionInfo.exitCode = _ct.IsCancellationRequested?CompletionInfo.ExitCode.Cancel: CompletionInfo.ExitCode.OK;
+                completionInfo.exitCode = _ct.IsCancellationRequested ? CompletionInfo.ExitCode.Cancel : CompletionInfo.ExitCode.OK;
                 #endregion
             }
             catch (AggregateException aex)
@@ -108,7 +108,8 @@ namespace HOK.Elastic.FileSystemCrawler
                 {
                     _il.LogErr("CrawlingAggregateErrors", "", null, aex);//TODO verify log4net enumerates all the inner exceptions when it converts the exception object.
                 }
-            }catch(OperationCanceledException)
+            }
+            catch (OperationCanceledException)
             {
                 completionInfo.exitCode = CompletionInfo.ExitCode.Cancel;
             }
@@ -165,7 +166,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     foreach (var fso in affectedDocuments)
                     {
                         _ct.ThrowIfCancellationRequested();
-                       try
+                        try
                         {
                             //delete pathfrom doc....
                             string oldPath = fso.Id;
@@ -187,7 +188,15 @@ namespace HOK.Elastic.FileSystemCrawler
                             if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy Child", oldPath, newPublishedPath);
                             fso.Reason = "ActionMoveOrCopy Child";
                             await docReindexTransformBlock.SendAsync(fso).ConfigureAwait(false);
-                            Interlocked.Increment(ref _filesmatched);
+
+                            if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase))
+                            {
+                                Interlocked.Increment(ref _dircount);
+                            }
+                            else
+                            {
+                                Interlocked.Increment(ref _filesmatched);
+                            }
                         }
                         catch (Exception ex)
                         {
@@ -247,11 +256,11 @@ namespace HOK.Elastic.FileSystemCrawler
                                 //source doesn't exist, therefore delete the old path from elastic                          
                                 Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
                             }
-                        }                    
-                       if (File.Exists(ToDoc.PathForCrawling))
+                        }
+                        if (File.Exists(ToDoc.PathForCrawling))
                         {
                             if (auditEvent.ContentAction == ActionContent.None)//if move or copy retain the attachment content if applicable but update the path and acls.
-                            {                               
+                            {
                                 existingdoc.Id = ToDoc.Id;
                                 existingdoc.SetFileSystemInfoFromId();
                                 existingdoc.Acls = ToDoc.Acls;
@@ -292,7 +301,7 @@ namespace HOK.Elastic.FileSystemCrawler
         {
             try
             {
-                
+
                 if (auditEvent.IsDir ? HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(auditEvent.Path) : HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreFile(auditEvent.Path))
                 {
                     _il.LogDebugInfo("ActionUpdateOrNew ShouldIgnore", auditEvent.Path, null);
@@ -332,7 +341,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             {
                                 _ct.ThrowIfCancellationRequested();
                                 counter++;
-                                newIfso = DocumentHelper.MakeBasicDoc(item.Id, item.IndexName.Equals(FSOdirectory.indexname,StringComparison.OrdinalIgnoreCase));
+                                newIfso = DocumentHelper.MakeBasicDoc(item.Id, item.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase));
                                 if (newIfso != null)
                                 {
                                     newIfso.Reason = "ActionUpdateOrNew affected child doc";//TODO no evidence of these documents as .dir indicies...
