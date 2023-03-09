@@ -49,7 +49,7 @@ namespace HOK.Elastic.DAL.Models
         [Keyword(Normalizer = InitializationIndex.LOWERCASE, IgnoreAbove = 50)]
         public string Office { get; set; }
         public ProjectId Project { get; set; }
-       //configured in initialization [Keyword(Normalizer = InitializationIndex.LOWERCASE, IgnoreAbove = 50)]
+        //configured in initialization [Keyword(Normalizer = InitializationIndex.LOWERCASE, IgnoreAbove = 50)]
         public string Category { get; set; }
         [Keyword(Normalizer = InitializationIndex.LOWERCASE, IgnoreAbove = 50)]
         public string Department { get; set; }//empty if non-departmental
@@ -156,10 +156,10 @@ namespace HOK.Elastic.DAL.Models
             _crawlPath = null;
             _dfsPath = null;
             _contentPath = null;
-            if (lowercasePath.StartsWith(PathHelper.PublishedRoot))//sometimes legacy long paths are passed to this method and currently PublishedRoot is not-legacylongpath...so never matches...
+            if (lowercasePath.StartsWith(PathHelper.PublishedRoot))
             {
                 _commonPathComponent = lowercasePath.Substring(PathHelper.PublishedRoot.Length);
-            }
+            }            
             else if (lowercasePath.StartsWith(PathHelper.ContentRoot))
             {
                 _commonPathComponent = lowercasePath.Substring(PathHelper.ContentRoot.Length);
@@ -167,6 +167,10 @@ namespace HOK.Elastic.DAL.Models
             else if (lowercasePath.StartsWith(PathHelper.CrawlRoot))
             {
                 _commonPathComponent = lowercasePath.Substring(PathHelper.CrawlRoot.Length);
+            }
+            else if (lowercasePath.StartsWith(LongPaths.GetLegacyLongPath(PathHelper.PublishedRoot)))//sometimes legacy long paths are passed to this method and currently PublishedRoot is not-legacylongpath...so never matches...
+            {
+                _commonPathComponent = lowercasePath.Substring(LongPaths.GetLegacyLongPath(PathHelper.PublishedRoot).Length);
             }
             else
             {

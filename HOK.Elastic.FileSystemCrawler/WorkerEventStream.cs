@@ -184,7 +184,15 @@ namespace HOK.Elastic.FileSystemCrawler
                             string newPublishedPath = fso.Id.Replace(fromPublishedPath, ToDoc.PublishedPath);
                             fso.Id = newPublishedPath;
                             fso.SetFileSystemInfoFromId();
-                            fso.Acls = SecurityHelper.GetDocACLs(new DirectoryInfo(newPublishedPath));//todo make same change in the movefile region
+                            if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase))
+                            {
+                                fso.Acls = SecurityHelper.GetDocACLs(new DirectoryInfo(fso.PathForCrawling));//todo make same change in the movefile region
+                            }
+                            else
+                            {
+                                fso.Acls = SecurityHelper.GetDocACLs(new FileInfo(fso.PathForCrawling));//todo make same change in the movefile region
+                            }
+                            
                             if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy Child", oldPath, newPublishedPath);
                             fso.Reason = "ActionMoveOrCopy Child";
                             await docReindexTransformBlock.SendAsync(fso).ConfigureAwait(false);
