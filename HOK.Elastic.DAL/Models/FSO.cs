@@ -168,9 +168,9 @@ namespace HOK.Elastic.DAL.Models
             {
                 _commonPathComponent = lowercasePath.Substring(PathHelper.CrawlRoot.Length);
             }
-            else if (lowercasePath.StartsWith(LongPaths.GetLegacyLongPath(PathHelper.PublishedRoot)))//sometimes legacy long paths are passed to this method and currently PublishedRoot is not-legacylongpath...so never matches...
+            else if (lowercasePath.StartsWith(PathHelper.PublishedRootLongPath))//sometimes legacy long paths are passed to this method and currently PublishedRoot is not-legacylongpath...so never matches...
             {
-                _commonPathComponent = lowercasePath.Substring(LongPaths.GetLegacyLongPath(PathHelper.PublishedRoot).Length);
+                _commonPathComponent = lowercasePath.Substring(PathHelper.PublishedRootLongPath.Length);
             }
             else
             {
