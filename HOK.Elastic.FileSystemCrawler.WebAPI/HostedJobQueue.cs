@@ -128,6 +128,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     {
                         foreach (var x in next)
                         {
+                            x.Status = HostedJobInfo.State.started;
                             await buffer.SendAsync(x);
                         }
                     }
@@ -279,7 +280,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         {
             try
             {
-                hostedJobInfo.Status = HostedJobInfo.State.started;
                 hostedJobInfo.CompletionInfo = new CompletionInfo(hostedJobInfo.SettingsJobArgsDTO);
 
                 var workerargs = SettingsJobArgsDTO.UnDTO(hostedJobInfo.SettingsJobArgsDTO);
