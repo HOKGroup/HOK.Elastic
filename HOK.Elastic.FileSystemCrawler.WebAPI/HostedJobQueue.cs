@@ -109,7 +109,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-           // LoadSomeRandomTestJobs(9);
+            // LoadSomeRandomTestJobs(9);
 #endif
             DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
@@ -140,26 +140,23 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public void CleanupOldJobs()
         {
             IEnumerable<HostedJobInfo> oldJobs;
-            if (_jobs.Count > 100)
+            //remove completed jobs older than 7 days.
+            oldJobs = _jobs.Values.Where(x => x.IsCompleted && x.WhenCompleted != null && x.WhenCompleted != DateTime.MinValue && x.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(7)));
+            foreach (var x in oldJobs)
             {
-                oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled).OrderByDescending(x => x.WhenCreated).Skip(10);//leave 10 completed jobs in the queue for casual review
-                if (oldJobs.Any())
-                {
-                    foreach (var job in oldJobs)
-                    {
-                        Remove(job.Id);
-                    }
-                }
+                Remove(x.Id);
             }
-            oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled && (x.WhenCreated == null || DateTime.Now.Subtract(x.WhenCompleted.Value).TotalDays > 7));//leave jobs in the last week in the queue for casual review
-            if (oldJobs.Any())
+            //if there's more than 50 remove some more jobs.
+            if (_jobs.Count > 50)
             {
+                oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled).OrderByDescending(x => x.WhenCreated).Skip(25);
                 foreach (var job in oldJobs)
                 {
                     Remove(job.Id);
                 }
             }
         }
+
 
         public int Enqueue(SettingsJobArgsDTO settingsJobArgsDTO)
         {
@@ -368,7 +365,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 {
                     //todo we should validate the email address before it gets here.
                     var completionInfo = JsonConvert.SerializeObject(hostedJobInfo.CompletionInfo);
-                    var mail = EmailService.MakeMessage(_emailService.DefaultSender, email, $"CrawlJob Complete on {Environment.MachineName} {hostedJobInfo.SettingsJobArgsDTO.JobName}", $"{hostedJobInfo.Status}\r\n\r\n***\r\n\r\n{completionInfo}\r\n\r\nException: {(hostedJobInfo.HasException?hostedJobInfo.GetException().ToString():"No Fatal Exceptions...")}");
+                    var mail = EmailService.MakeMessage(_emailService.DefaultSender, email, $"CrawlJob Complete on {Environment.MachineName} {hostedJobInfo.SettingsJobArgsDTO.JobName}", $"{hostedJobInfo.Status}\r\n\r\n***\r\n\r\n{completionInfo}\r\n\r\nException: {(hostedJobInfo.HasException ? hostedJobInfo.GetException().ToString() : "No Fatal Exceptions...")}");
                     _emailService.Send(mail);
                 }
             }
@@ -428,11 +425,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             return new Tuple<log4net.Repository.ILoggerRepository, log4net.ILog>(repository, log4net.LogManager.GetLogger(repositoryName, name));
         }
         #endregion
-
-
-
-
-
 
 #if DEBUG
         public void LoadSomeRandomTestJobs(int itemsToCreate)
