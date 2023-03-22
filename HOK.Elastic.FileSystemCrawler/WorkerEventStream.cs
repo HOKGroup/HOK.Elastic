@@ -171,8 +171,8 @@ namespace HOK.Elastic.FileSystemCrawler
                             //delete pathfrom doc....
                             string oldPath = fso.Id;
                             if (auditEvent.PresenceAction == ActionPresence.Move)
-                            {
-                                if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase) ? !Directory.Exists(oldPath) : !File.Exists(oldPath))
+                            {                               
+                                if (fso is FSOdirectory ? !Directory.Exists(oldPath) : !File.Exists(oldPath))
                                 {
                                     if (Directory.Exists(PathHelper.ContentRoot))//double-check that the filer is online and available and then delete.
                                     {
@@ -184,7 +184,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             string newPublishedPath = fso.Id.Replace(fromPublishedPath, ToDoc.PublishedPath);
                             fso.Id = newPublishedPath;
                             fso.SetFileSystemInfoFromId();
-                            if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase))
+                            if (fso is FSOdirectory)
                             {
                                 fso.Acls = SecurityHelper.GetDocACLs(new DirectoryInfo(fso.PathForCrawling));//todo make same change in the movefile region
                             }
@@ -192,12 +192,12 @@ namespace HOK.Elastic.FileSystemCrawler
                             {
                                 fso.Acls = SecurityHelper.GetDocACLs(new FileInfo(fso.PathForCrawling));//todo make same change in the movefile region
                             }
-                            
-                            if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy Child", oldPath, newPublishedPath);
+                                                        
                             fso.Reason = "ActionMoveOrCopy Child";
+                            if (ildebug) _il.LogDebugInfo(fso.Reason, oldPath, newPublishedPath);
                             await docReindexTransformBlock.SendAsync(fso).ConfigureAwait(false);
 
-                            if (fso.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase))
+                            if (fso is FSOdirectory)
                             {
                                 Interlocked.Increment(ref _dircount);
                             }
@@ -208,7 +208,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         }
                         catch (Exception ex)
                         {
-                            if (ex is FileNotFoundException)
+                            if (ex is FileNotFoundException || ex is DirectoryNotFoundException)
                             {
                                 if (ilwarn) _il.LogWarn("ActionMoveOrCopy Child NotFound", fso.Id, auditEvent);
                                 Interlocked.Increment(ref _filesnotfound);

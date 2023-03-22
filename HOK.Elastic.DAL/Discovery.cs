@@ -205,7 +205,7 @@ namespace HOK.Elastic.DAL
             {
                 yield return doc;
             }
-       
+
         }
 
         /// <summary>

@@ -33,7 +33,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private readonly DateTime _startTimeUTC;
         private IEmailService _emailService;
         public TimeSpan UpTime => DateTime.UtcNow - _startTimeUTC;
-        public int JobsCompleted { get; private set; }
+        public int JobsCompleted { get => _jobsCompleted; }
+        private int _jobsCompleted;
 
         public int MaxJobs { get; private set; }
         public int JobSlots => (int)(MaxJobs * 1.5);
@@ -262,10 +263,16 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         }
         private void Finish(HostedJobInfo jobInfo)
         {
-            JobsCompleted++;
+            Interlocked.Increment(ref _jobsCompleted);
             if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
             var filename = MakeSafeFileName($"completed{jobInfo.SettingsJobArgsDTO.JobName}.json");
-            System.IO.File.AppendAllText($"logs\\{filename}", jobInfo.ToString());
+            try
+            {
+                System.IO.File.AppendAllText($"logs\\{filename}", jobInfo.ToString());
+            }catch(Exception ex)
+            {
+                if (isError) _logger.LogError($"Couldn't save logs\\{filename} with {jobInfo.ToString()}", ex);
+            }
             OnTaskCompleted(jobInfo.Id);
         }
         private char[] _badChars = System.IO.Path.GetInvalidFileNameChars();
