@@ -149,25 +149,26 @@ namespace HOK.Elastic.ArchiveDiscovery
                 List<JobItem> jobsToBeRemoved = new List<JobItem>();
                 foreach (var job in context.Value.Where(x => x.Status == HostedJobInfo.State.started || x.Status== HostedJobInfo.State.completedWithException ))
                 {
+                    DateTime maxAge = DateTime.Now.Subtract(TimeSpan.FromHours(16));
                     try
                     {
                         var jobInfo = await api.GetJobInfo(job.TaskId);
                         if (jobInfo == null)
                         {
-                            jobsToBeRemoved.Add(job);
+                            jobsToBeRemoved.Add(job);//remove jobs that aren't available(deleted) on the webapi anymore 
                         }
                         else
                         {
-                            if (jobInfo.Status == HostedJobInfo.State.complete && jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
+                            if (jobInfo.Status == HostedJobInfo.State.complete|| jobInfo.Status == HostedJobInfo.State.cancelled)
                             {
-                                if (jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
+                                if (jobInfo.WhenCompleted!=null && jobInfo.WhenCompleted>DateTime.MinValue && jobInfo.WhenCompleted < maxAge)
                                 {
                                     jobsToBeRemoved.Add(job);
                                     await api.DeleteAsync(job.TaskId);
                                 }
                                 else
                                 {
-                                    job.Status = HostedJobInfo.State.complete;
+                                    job.Status = jobInfo.Status;
                                 }
                             }
                             else if (jobInfo.Status == HostedJobInfo.State.completedWithException)
@@ -181,7 +182,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                                     //log warn that it's failing
                                     if (ilWarn) _il.LogWarn($"Failed {job.Retries + 1} times", job.Source, jobInfo);
                                 }
-                                else if (jobInfo.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(1)))
+                                else if (jobInfo.WhenCompleted == null|| jobInfo.WhenCompleted==DateTime.MinValue|| jobInfo.WhenCompleted < maxAge)
                                 {
                                     if (ilError) _il.LogErr("Aborted", job.Source, job);
                                     jobsToBeRemoved.Add(job);
@@ -212,7 +213,7 @@ namespace HOK.Elastic.ArchiveDiscovery
 #if DEBUG
                 await Task.Delay(TimeSpan.FromSeconds(10));
 #else
- await Task.Delay(TimeSpan.FromSeconds(90));
+ await Task.Delay(TimeSpan.FromSeconds(20));
 #endif
                 #endregion
             }

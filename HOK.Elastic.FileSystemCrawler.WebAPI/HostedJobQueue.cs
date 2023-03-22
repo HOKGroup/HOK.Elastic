@@ -312,32 +312,32 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 //
 
                 var customLogger = GetPerProjectLogger(hostedJobInfo.Id + workerargs.JobName, "genericsinglelogger");
-                var logger = new Elastic.Logger.Log4NetLogger("hmm", customLogger.Item1, customLogger.Item2);
-                var index = new HOK.Elastic.DAL.Index(workerargs.ElasticIndexURI.First(), logger);
-                var discovery = new HOK.Elastic.DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), logger);
-                //var logger = new Elastic.Logger.Log4NetLogger($"Worker{hostedJobInfo.Id}");
+                var jobLogger = new Elastic.Logger.Log4NetLogger("hmm", customLogger.Item1, customLogger.Item2);
+                var index = new HOK.Elastic.DAL.Index(workerargs.ElasticIndexURI.First(), jobLogger);
+                var discovery = new HOK.Elastic.DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), jobLogger);
+                //var jobLogger = new Elastic.Logger.Log4NetLogger($"Worker{hostedJobInfo.Id}");
 
-                if (logger.IsEnabled(LogLevel.Information))
+                if (jobLogger.IsEnabled(LogLevel.Information))
                 {
-                    logger.LogInformation("Constructing....");
-                    logger.LogInformation($"Joblocation={workerargs.InputPathLocation}");
+                    jobLogger.LogInformation("Constructing....");
+                    jobLogger.LogInformation($"Joblocation={workerargs.InputPathLocation}");
                 }
-                SecurityHelper sh = new SecurityHelper(logger);
-                DocumentHelper dh = new DocumentHelper(true, sh, index, logger);
+                SecurityHelper sh = new SecurityHelper(jobLogger);
+                DocumentHelper dh = new DocumentHelper(true, sh, index, jobLogger);
                 IWorkerBase iWorker;
                 if (workerargs.CrawlMode == CrawlMode.EventBased)
                 {
-                    iWorker = new WorkerEventStream(index, discovery, sh, dh, logger);
+                    iWorker = new WorkerEventStream(index, discovery, sh, dh, jobLogger);
                 }
                 else
                 {
-                    iWorker = new WorkerCrawler(index, discovery, sh, dh, logger);
+                    iWorker = new WorkerCrawler(index, discovery, sh, dh, jobLogger);
                 }
 
                 if (_logger.IsEnabled(LogLevel.Information)) _logger.LogInfo("Starting....", null, hostedJobInfo.SettingsJobArgsDTO.JobName);
 
                 hostedJobInfo.CompletionInfo = await iWorker.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//we can pass IProgress<T> here later if we want to get progress.
-
+              
                 switch (hostedJobInfo.CompletionInfo.exitCode)
                 {
                     case CompletionInfo.ExitCode.None:
@@ -355,7 +355,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     default:
                         break;
                 }
-                if (_logger.IsEnabled(LogLevel.Information)) _logger.LogInformation("Finished");
+                if (_logger.IsEnabled(LogLevel.Information)) _logger.LogInfo("Finished", null, hostedJobInfo.SettingsJobArgsDTO.JobName);
+                if (jobLogger.IsEnabled(LogLevel.Information))  jobLogger.LogInfo("Completed", hostedJobInfo.SettingsJobArgsDTO.JobName, hostedJobInfo.CompletionInfo.ToString());
             }
             catch (Exception ex)
             {
