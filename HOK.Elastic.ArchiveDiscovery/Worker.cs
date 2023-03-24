@@ -128,7 +128,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                         if (Id >= 0)
                         {
                             item.TaskId = Id;
-                            item.Status = HostedJobInfo.State.started;
+                            item.Status = HostedJobInfo.State.queued;
                             ProjectCompletedCount++;
                         }
                         else
@@ -147,7 +147,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                 #endregion
                 #region MonitorJobsForCompletionAndRemove
                 List<JobItem> jobsToBeRemoved = new List<JobItem>();
-                foreach (var job in context.Value.Where(x => x.Status == HostedJobInfo.State.started || x.Status== HostedJobInfo.State.completedWithException ))
+                foreach (var job in context.Value.Where(x => x.Status > HostedJobInfo.State.unstarted ))
                 {
                     DateTime maxAge = DateTime.Now.Subtract(TimeSpan.FromHours(16));
                     try

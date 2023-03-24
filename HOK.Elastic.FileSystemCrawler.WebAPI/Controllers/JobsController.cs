@@ -23,7 +23,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         private bool isDebug;
         private bool isInfo;
         private bool isErr;
-        public JobsController(ILogger<JobsAPIController> logger, IHostedJobQueue hostedJobQueue)
+        public JobsController(ILogger<JobsController> logger, IHostedJobQueue hostedJobQueue)
         {
             _logger = logger;
             isDebug = _logger.IsEnabled(LogLevel.Debug);

@@ -15,13 +15,15 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models
         private CancellationTokenSource _linkedTokenSource;
         public int Id { get; set; }
         public DateTime? WhenCreated { get; set; }
-        public DateTime? WhenCompleted { get; set; }
+        public DateTime? WhenCompleted => this.CompletionInfo?.EndTime;
+        public long? DocCount => this.CompletionInfo?.FileCount + this.CompletionInfo?.DirCount;
         public SettingsJobArgsDTO SettingsJobArgsDTO { get; set; }
         public CompletionInfo CompletionInfo { get; set; }
         public State Status { get; set; }
         public enum State
         {
             unstarted,
+            queued,
             started,
             cancelled,
             complete,

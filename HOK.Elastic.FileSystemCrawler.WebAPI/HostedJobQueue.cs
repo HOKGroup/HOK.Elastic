@@ -98,8 +98,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         {
             Load();
             buffer = new BufferBlock<HostedJobInfo>(new DataflowBlockOptions() { BoundedCapacity = -1, CancellationToken = cancellationToken });
-            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { BoundedCapacity = MaxJobs, MaxDegreeOfParallelism = MaxJobs });//TODO maxdegreeofparallelism is 1 so we don'customLogger run into conflicts with the static PathHelper class....:(
-            completed = new ActionBlock<HostedJobInfo>(x => Finish(x));
+            action = new TransformBlock<HostedJobInfo, HostedJobInfo>(async x => await RunJobAsync(x), new ExecutionDataflowBlockOptions() { BoundedCapacity = -1, MaxDegreeOfParallelism = MaxJobs });//TODO maxdegreeofparallelism is 1 so we don'customLogger run into conflicts with the static PathHelper class....:(
+            completed = new ActionBlock<HostedJobInfo>(x => Finish(x),new ExecutionDataflowBlockOptions() {BoundedCapacity=JobSlots,MaxDegreeOfParallelism=MaxJobs});
             buffer.LinkTo(action, new DataflowLinkOptions() { PropagateCompletion = true });
             action.LinkTo(completed, new DataflowLinkOptions() { PropagateCompletion = true });
             if (isInfo) _logger.LogInfo($"ExecuteAsync Monitor Starting");
@@ -110,7 +110,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-            // LoadSomeRandomTestJobs(9);
+             LoadSomeRandomTestJobs(16);
 #endif
             DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
@@ -129,14 +129,21 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     {
                         foreach (var x in next)
                         {
-                            x.Status = HostedJobInfo.State.started;
+                            x.Status = HostedJobInfo.State.queued;
                             await buffer.SendAsync(x);
                         }
                     }
                 }
-                await Task.Delay(TimeSpan.FromSeconds(30));//monitor Loop
+#if DEBUG
+                await Task.Delay(TimeSpan.FromSeconds(5));//monitor Loop
+#else
+ await Task.Delay(TimeSpan.FromSeconds(30));//monitor Loop
+#endif
             }
         }
+
+
+
 
         public void CleanupOldJobs()
         {
@@ -248,7 +255,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
                     foreach (var job in jobs.OrderBy(x => x.Id))
                     {
-                        if (job.Status == HostedJobInfo.State.started) job.Status = HostedJobInfo.State.unstarted;//retry completing job that started but hadn't been previously marked as cancelled, completed or otherwise.
+                        if (job.Status < HostedJobInfo.State.cancelled) job.Status = HostedJobInfo.State.unstarted;//retry completing job that started but hadn't been previously marked as cancelled, completed or otherwise.
                         if (!_jobs.TryAdd(job.Id, job))
                         {
                             if (isWarn) _logger.LogWarn($"Couldn't add jobid={job.Id} from '{persistFile}' as it already exists");
@@ -261,31 +268,12 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 }
             }
         }
-        private void Finish(HostedJobInfo jobInfo)
-        {
-            Interlocked.Increment(ref _jobsCompleted);
-            if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
-            var filename = MakeSafeFileName($"completed{jobInfo.SettingsJobArgsDTO.JobName}.json");
-            try
-            {
-                System.IO.File.AppendAllText($"logs\\{filename}", jobInfo.ToString());
-            }catch(Exception ex)
-            {
-                if (isError) _logger.LogError($"Couldn't save logs\\{filename} with {jobInfo.ToString()}", ex);
-            }
-            OnTaskCompleted(jobInfo.Id);
-        }
-        private char[] _badChars = System.IO.Path.GetInvalidFileNameChars();
-        private string MakeSafeFileName(string filename)
-        {
-            return new string(filename.Where(x => !_badChars.Contains(x)).ToArray());
-        }
         public async Task<HostedJobInfo> RunJobAsync(HostedJobInfo hostedJobInfo)
         {
             try
             {
+                hostedJobInfo.Status = HostedJobInfo.State.started;  
                 hostedJobInfo.CompletionInfo = new CompletionInfo(hostedJobInfo.SettingsJobArgsDTO);
-
                 var workerargs = SettingsJobArgsDTO.UnDTO(hostedJobInfo.SettingsJobArgsDTO);
                 //we should add pre-flight check in indexbase or crawlerbase or something to ensure these basics are set.or refactor so we don'customLogger have shared static..
                 if (string.IsNullOrEmpty(workerargs.PublishedPath) || string.IsNullOrEmpty(workerargs.PathForCrawling) || string.IsNullOrEmpty(workerargs.PathForCrawlingContent))
@@ -309,7 +297,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 System.IO.Path.GetInvalidPathChars().Select(x => safepath = safepath.Replace(x, ' '));
                 workerargs.InputPathLocation = System.IO.Path.Combine("webapijobs", safepath + hostedJobInfo.GetHashCode());
                 //end of unchecked requirements stuff that causes problems.
-                //
 
                 var customLogger = GetPerProjectLogger(hostedJobInfo.Id + workerargs.JobName, "genericsinglelogger");
                 var jobLogger = new Elastic.Logger.Log4NetLogger("hmm", customLogger.Item1, customLogger.Item2);
@@ -364,7 +351,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 hostedJobInfo.Exception = ex;
                 hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
             }
-            hostedJobInfo.WhenCompleted = DateTime.Now;
             try
             {
                 //try and notify if set
@@ -384,10 +370,31 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             return hostedJobInfo;
         }
 
+        private void Finish(HostedJobInfo jobInfo)
+        {
+            Interlocked.Increment(ref _jobsCompleted);
+            if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
+            var filename = MakeSafeFileName($"completed{jobInfo.SettingsJobArgsDTO.JobName}.json");
+            try
+            {
+                System.IO.File.AppendAllText($"logs\\{filename}", jobInfo.ToString());
+            }
+            catch (Exception ex)
+            {
+                if (isError) _logger.LogError($"Couldn't save logs\\{filename} with {jobInfo.ToString()}", ex);
+            }
+            OnTaskCompleted(jobInfo.Id);
+        }
+        private char[] _badChars = System.IO.Path.GetInvalidFileNameChars();
+        private string MakeSafeFileName(string filename)
+        {
+            return new string(filename.Where(x => !_badChars.Contains(x)).ToArray());
+        }
+
 
         private Tuple<log4net.Repository.ILoggerRepository, log4net.ILog> GetPerProjectLogger(string projectName, string name)
         {
-            //temporary untile we refactor logging...
+            //temporary until we refactor logging...
             //https://stackoverflow.com/questions/21022467/log4net-different-logs-on-different-file-appenders-at-runtime
             var repositoryName = projectName;
             log4net.Repository.ILoggerRepository repository = null;
