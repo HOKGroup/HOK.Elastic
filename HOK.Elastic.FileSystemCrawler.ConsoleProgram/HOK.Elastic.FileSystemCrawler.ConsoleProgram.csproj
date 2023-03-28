@@ -34,15 +34,6 @@
     <WarningLevel>0</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <None Remove="appsettings.json" />
-    <None Remove="log4net\log4net.config" />
-    <Compile Remove="_CanV3\**" />
-    <EmbeddedResource Remove="_CanV3\**" />
-    <None Remove="_CanV3\**" />
-    <None Remove="_CanArchive\jobSettings.json" />
-    <None Remove="_devJob\jobSettings.json" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\HOK.Elastic.DAL\HOK.Elastic.DAL.csproj" />
     <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler\HOK.Elastic.FileSystemCrawler.csproj" />
     <ProjectReference Include="..\HOK.Elastic.Logger\HOK.Elastic.Logger.csproj" />
