@@ -190,14 +190,13 @@ namespace HOK.Elastic.DAL
             settings.MemoryStreamFactory(Elasticsearch.Net.MemoryStreamFactory.Default); //recycle memorystream linked to mem leakage https://github.com/serilog/serilog-sinks-elasticsearch/issues/368
             ElasticClient apiKeyClient = new ElasticClient(settings);
             List<string> indexNames = new List<string>() { StaticIndexPrefix.Prefix + "*" };
-            //uncomment this when we are ready to delete documents in elastic thru the alias...
-            //var possibleIndexAliasNames = new string[] { DAL.Models.FSOdirectory.indexname, DAL.Models.FSOfile.indexname, DAL.Models.FSOdocument.indexname, DAL.Models.FSOemail.indexname };
-            //foreach(var possibleIndexAlias in possibleIndexAliasNames)
-            //{
-            //    var concreteIndex = apiKeyClient.GetIndicesPointingToAlias(possibleIndexAlias);
-            //    if (concreteIndex.Count > 0) indexNames.AddRange(concreteIndex);
-            //}
-            //end uncomment section
+            var possibleIndexAliasNames = new string[] { DAL.Models.FSOdirectory.indexname, DAL.Models.FSOfile.indexname, DAL.Models.FSOdocument.indexname, DAL.Models.FSOemail.indexname };
+            foreach(var possibleIndexAlias in possibleIndexAliasNames)
+            {
+                var concreteIndex = apiKeyClient.GetIndicesPointingToAlias(possibleIndexAlias);
+                if (concreteIndex.Count > 0) indexNames.AddRange(concreteIndex);
+            }
+
 
             CreateApiKeyResponse keyResponse = apiKeyClient.Security.CreateApiKeyAsync(
                 (_v) => new CreateApiKeyRequest
