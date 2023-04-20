@@ -112,6 +112,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
                         if (settingsJobArgsDTO.ElasticIndexURI == null) settingsJobArgsDTO.ElasticIndexURI = new List<string>();
                         settingsJobArgsDTO.ElasticIndexURI.Add("server:5200");
                     }
+                    else if (command.Equals("addelasticdiscovery"))
+                    {
+                        if (settingsJobArgsDTO.ElasticDiscoveryURI == null) settingsJobArgsDTO.ElasticDiscoveryURI = new List<string>();
+                        settingsJobArgsDTO.ElasticDiscoveryURI.Add("server:5200");
+                    }
                     else if (command.Equals("addelasticcrawl"))
                     {
                         if (settingsJobArgsDTO.ElasticIndexURI == null) settingsJobArgsDTO.ElasticIndexURI = new List<string>();
