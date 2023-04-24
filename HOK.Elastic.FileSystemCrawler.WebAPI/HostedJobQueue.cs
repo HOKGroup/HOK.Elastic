@@ -110,7 +110,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-             LoadSomeRandomTestJobs(16);
+            // LoadSomeRandomTestJobs(16);
 #endif
             DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
@@ -315,6 +315,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 if (workerargs.CrawlMode == CrawlMode.EventBased)
                 {
                     iWorker = new WorkerEventStream(index, discovery, sh, dh, jobLogger);
+                }else if(workerargs.CrawlMode==CrawlMode.QueryBasedReIndex)
+                {
+                    iWorker = new WorkerByQuery(index,discovery,sh, dh, jobLogger);
                 }
                 else
                 {
