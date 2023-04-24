@@ -32,11 +32,11 @@ steps:
   inputs:
     secureFile: 'wwwroot.zip'
 
-- task: ExtractFiles@1
-  inputs:
-    archiveFilePatterns: '$(Agent.TempDirectory)/wwwroot.zip'
-    cleanDestinationFolder: false
-    destinationFolder: '$(Build.ArtifactStagingDirectory)/HOK.Elastic.FileSystemCrawler.WebAPI'
+#- task: ExtractFiles@1
+#  inputs:
+#    archiveFilePatterns: '$(Agent.TempDirectory)/wwwroot.zip'
+#    cleanDestinationFolder: false
+#   destinationFolder: '$(Build.ArtifactStagingDirectory)/HOK.Elastic.FileSystemCrawler.WebAPI'
 
 - task: PublishBuildArtifacts@1
   inputs:
