@@ -435,6 +435,7 @@ namespace HOK.Elastic.DAL
             {
                 searchResponse = client.Search<T>(s => s
                                 .Index(indexName)
+                                .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))
                                 .Scroll(scrolltimeout)
                                 .Size(100)
                                 .Sort(sort => sort.Descending("project.fullName.keyword"))
