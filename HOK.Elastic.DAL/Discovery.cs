@@ -435,7 +435,7 @@ namespace HOK.Elastic.DAL
             {
                 searchResponse = client.Search<T>(s => s
                                 .Index(indexName)
-                                .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))
+                                .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))//added to address Elasticsearch.Net.Utf8Json.JsonParsingException: expected:',', actual:'null' when trying to deserialize null attachment property.
                                 .Scroll(scrolltimeout)
                                 .Size(100)
                                 .Sort(sort => sort.Descending("project.fullName.keyword"))
