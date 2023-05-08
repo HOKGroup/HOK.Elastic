@@ -45,6 +45,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public static AppSettings AppSettings { get; internal set; }
         public static void Main(string[] args)
         {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);//for msgreader
             var appSettingsPath = "appsettings.json";
             if (File.Exists(appSettingsPath))
             {

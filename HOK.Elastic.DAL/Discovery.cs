@@ -570,7 +570,5 @@ namespace HOK.Elastic.DAL
             if (ilerror) _il.LogError("Query Based Missing Content: Query Invalid", jsonQueryString, null);
             return false;
         }
-
-
     }
 }
