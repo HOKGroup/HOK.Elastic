@@ -19,7 +19,7 @@ namespace HOK.Elastic.DAL
         /// <returns></returns>
         T GetById<T>(string id, string indexName) where T : class, IFSO;
         DirectoryContents FindRootAndChildren(string id,bool includefullSource=false);
-        IEnumerable<T> FindDescendentsForMoving<T>(string path) where T : class, IFSO;
+        IEnumerable<T> FindDescendentsForMoving<T>(string path,int pageSize) where T : class, IFSO;
         bool ValidateJsonStringQuery(string jsonQueryString);
     }
 }

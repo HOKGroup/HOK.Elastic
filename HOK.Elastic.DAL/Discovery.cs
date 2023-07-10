@@ -1,8 +1,13 @@
+using Elasticsearch.Net;
 using HOK.Elastic.DAL.Models;
 using Microsoft.Extensions.Logging;
 using Nest;
+using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 
@@ -22,6 +27,7 @@ namespace HOK.Elastic.DAL
         }
 
         private readonly string[] DefaultSourceFieldsFilter = new string[] { "id", "parent", "acls", "last_write_timeUTC", "failureCount" };
+        private readonly string[] JustId = new string[] { "id" };
         protected readonly string AllIndicies = StaticIndexPrefix.Prefix + "*";
         private Type typedir = typeof(FSOdirectory);
         private Type typefsofile = typeof(FSOfile);
@@ -35,7 +41,7 @@ namespace HOK.Elastic.DAL
         /// <param name="path">ensure lowercase</param>
         ///  /// <param name="includeFullSource">set to true to return the full source document (when duplicating a document for example</param>
         /// <returns></returns>
-        public DirectoryContents FindRootAndChildren(string path,bool includeFullSource = false)
+        public DirectoryContents FindRootAndChildren(string path, bool includeFullSource = false)
         {
             SourceFilterDescriptor<FSO> sourceFilter;
             if (includeFullSource)
@@ -189,40 +195,45 @@ namespace HOK.Elastic.DAL
         /// <returns>Fully Populated Model</returns>
         public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
-            foreach (var doc in FindDescendentsForMoving<FSOemail>(path))//move 'most valuable' documents first.
+            foreach (var doc in FindDescendentsForMoving<FSOemail>(path, 1000))//move 'most valuable' documents first.
             {
                 yield return doc;
             }
-            foreach (var doc in FindDescendentsForMoving<FSOdocument>(path))
+            foreach (var doc in FindDescendentsForMoving<FSOdocument>(path,1000))
             {
                 yield return doc;
             }
-            foreach (var doc in FindDescendentsForMoving<FSOdirectory>(path))
+            foreach (var doc in FindDescendentsForMoving<FSOdirectory>(path,1000))
             {
                 yield return doc;
             }
-            foreach (var doc in FindDescendentsForMoving<FSOfile>(path))
+            foreach (var doc in FindDescendentsForMoving<FSOfile>(path,1000))
             {
                 yield return doc;
             }
-
         }
+
+ 
+
+
 
         /// <summary>
         /// Called by Nausni Audit Events - Full path to the directory will match on anything with the same parent. We use this during incremental crawl
         /// </summary>
         /// <param name="pageSize"></param>
         /// <returns>Fully Populated Model</returns>
-        public IEnumerable<T> FindDescendentsForMoving<T>(string path) where T : class, IFSO
-        {
+        public IEnumerable<T> FindDescendentsForMoving<T>(string path, int pageSize) where T : class, IFSO
+        {            
+            int desiredTake = pageSize;
             T doc;
             string scrolltimeout = "10h";
+            string indexName = GetIndexName<T>().ToString();
             ISearchResponse<T> searchResponse = null;
             searchResponse = client.Search<T>(d => d
-                        .Index(GetIndexName<T>())
-                        .Size(500)//in 10m 
+                        .Index(indexName)
+                        .Size(pageSize)//in 10m 
                         .Scroll(scrolltimeout)
-                        .Source(a => a.IncludeAll())
+                        .Source(a => a.Includes(i => i.Fields(JustId)))
                         .Query(q => q
                            .Bool(b => b
                               .Filter(bf => bf
@@ -236,12 +247,42 @@ namespace HOK.Elastic.DAL
 #if DEBUG
                 var scrollTime = DateTime.Now;
 #endif
-
-                foreach (var hit in searchResponse.Hits)
+                var scrollSearchIds = searchResponse.Hits.Select(x => x.Id).ToList();
+                List<T> docs = new List<T>();
+                while (scrollSearchIds.Any())
                 {
-                    doc = hit.Source as T;
-                    doc.IndexName = hit.Index;
-                    yield return doc;
+                    try
+                    {
+                        var results = client.MultiGet(m => m.Index(indexName).GetMany<T>(scrollSearchIds.Take(pageSize), (op, id) => op.Index(indexName)));
+                        foreach (var hit in results.Hits)
+                        {
+                            doc = hit.Source as T;
+                            docs.Add(doc);
+                        }
+                        scrollSearchIds.RemoveRange(0, Math.Min(scrollSearchIds.Count, pageSize));
+                    }
+                    catch (Exception ex)
+                    {
+                        if (pageSize == 1)//we are working with a single document.
+                        {
+                            var id = scrollSearchIds.First();
+                            scrollSearchIds.RemoveRange(0, 1);//we need to remove the actual document!                
+                            if (ex is UnexpectedElasticsearchClientException)
+                            {
+                                if (ex.Message.Contains("expected"))
+                                {
+                                    Delete(id, indexName);
+                                    if (ilwarn) _il.LogWarn("Deleting document because" + ex.Message, id);
+                                }
+                            }
+                            pageSize = desiredTake;
+                        }
+                        pageSize = Math.Max(1, pageSize / 3);
+                    }
+                }
+                foreach (var d in docs)
+                {
+                    yield return d;
                 }
 #if DEBUG
                 if (ildebug)
@@ -265,6 +306,8 @@ namespace HOK.Elastic.DAL
                 client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));
             }
         }
+
+
 
 
 
@@ -402,40 +445,20 @@ namespace HOK.Elastic.DAL
         public IEnumerable<T> GetIFSOsByQuery<T>(string jsonQueryString, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSO
         {
             string scrolltimeout = "30m";//Its value (e.g. 1m, see Time units) does not need to be long enough to process all data-it just needs to be long enough to process the previous batch of results.
-            string indexName;
+            string indexName = GetIndexName<T>();
             DateTime? maximumDate = null;
             if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);
             if (failureCountFilter > 0)
             {
                 //if we are processing items with failureCountFilter greater than zero, it means we are looping through items that were just inserted by an incremental or event crawl(in metadataonly mode). Therefore, we should ignore very recent timestamps as they could be items we have just recently inserted and failed at.
                 maximumDate = DateTime.Now.Subtract(TimeSpan.FromHours(1));
-            }
-            if (typeof(T) == typeof(FSOfile))
-            {
-                indexName = FSOfile.indexname;
-            }
-            else if (typeof(T) == typeof(FSOdirectory))
-            {
-                indexName = FSOdirectory.indexname;
-            }
-            else if (typeof(T) == typeof(FSOemail))
-            {
-                indexName = FSOemail.indexname;
-            }
-            else if (typeof(T) == typeof(FSOdocument))
-            {
-                indexName = FSOdocument.indexname;
-            }
-            else
-            {
-                throw new NotSupportedException(typeof(T) + "is not supported");//won't be caught below should fix that
-            }
+            }    
             ISearchResponse<T> searchResponse;
             try
             {
                 searchResponse = client.Search<T>(s => s
                                 .Index(indexName)
-                                .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))//added to address Elasticsearch.Net.Utf8Json.JsonParsingException: expected:',', actual:'null' when trying to deserialize null attachment property.
+                                .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))//added to address Elasticsearch.Net.Utf8Json.JsonParsingException: expected:',', actual:'null' when trying to deserialize null attachment property. TODO, we could use same as getdescendantsformoving (or something like it).
                                 .Scroll(scrolltimeout)
                                 .Size(100)
                                 .Sort(sort => sort.Descending("project.fullName.keyword"))
@@ -503,7 +526,7 @@ namespace HOK.Elastic.DAL
                             .Size(pageSize)
                             .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))
                             .Query(q => +q
-                                    //.DateRange(d => d.Field(field => field.last_write_timeUTC).GreaterThan(from).LessThanOrEquals(to)) && +q
+                                    //.DateRange(doc => doc.Field(field => field.last_write_timeUTC).GreaterThan(from).LessThanOrEquals(to)) && +q
                                     .Term(t => t.Field(field => field.Acls.GuardianPath).Value(guardianPath.ToLowerInvariant()))
                                     )
                                 );
@@ -569,6 +592,39 @@ namespace HOK.Elastic.DAL
             }
             if (ilerror) _il.LogError("Query Based Missing Content: Query Invalid", jsonQueryString, null);
             return false;
+        }
+
+        //There no longer seems any real need to have separate index and discovery endpoints. In future, we can refactor these together and simplify.
+        public long Delete(string key, string index)
+        {
+            return Delete(new string[] { key }, index);
+        }
+
+        public long Delete(string[] keys, string index)
+        {
+            var ir = this.client.DeleteByQuery<FSO>(d => d
+                .Index(index)
+                .Query(q => +q
+                    .Ids(i => i.Values(keys))
+                    )
+                );
+            if (!ir.IsValid)
+            {
+                var err = ElasticResponseError.GetError(ir);
+                if (ilerror) _il.LogErr("Index.Delete", null, err);//this shouldn't fail normally
+                if (ilwarn)
+                {
+                    for (int i = 0; i < keys.Length; i++)
+                    {
+                        _il.LogWarn("Index.Delete", keys[i], err.ServerErrorReason);
+                    }
+                }
+                return 0;
+            }
+            else
+            {
+                return ir.Deleted;
+            }
         }
     }
 }
