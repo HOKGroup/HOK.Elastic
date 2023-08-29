@@ -21,7 +21,10 @@ using System.Text;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
-
+//todo
+//add 'remove' buttons for input paths (maybe a preview so you can see what's in there too)
+//fatal exception in crawl didn't seem to populate the 'exceptions' section of the results, but the completion status was 'completed with exceptions'
+//add 'logs' button to web page to view job logs...
     public class Program
     {
         public static string AppVersion

@@ -340,7 +340,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                         hostedJobInfo.Status = HostedJobInfo.State.cancelled;
                         break;
                     case CompletionInfo.ExitCode.Fatal:
-                        hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
+                        hostedJobInfo.Status = HostedJobInfo.State.completedWithException;                        
                         break;
                     default:
                         break;

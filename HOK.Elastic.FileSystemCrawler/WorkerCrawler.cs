@@ -121,7 +121,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 catch (Exception ex)
                 {
                     if (ilfatal) _il.LogFatal("Fatal Exception...quiting now", "", null, ex);
-                    completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;
+                    completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;                    
                 }
             }
             else//not crawl

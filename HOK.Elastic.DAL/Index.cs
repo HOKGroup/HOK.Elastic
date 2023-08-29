@@ -35,7 +35,7 @@ namespace HOK.Elastic.DAL
                 .Index(string.Join(",", indicies))
                 .Conflicts(Conflicts.Proceed)                
                 .Query(q => +q
-                    .Term("id.smbtreelower", directoryPublishedPath)));
+                    .Term("parent.smbtreelower", directoryPublishedPath)));
             if (!response.IsValid)
             {
                 if (ilerror) _il.LogErr("Error deleting directory contents", directoryPublishedPath, null, response.OriginalException);
