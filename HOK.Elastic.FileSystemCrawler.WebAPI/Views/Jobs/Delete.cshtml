@@ -1,0 +1,15 @@
+﻿@model HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models.HostedJobInfo
+
+@{
+    ViewData["Title"] = "Delete";
+}
+
+<h1>Delete</h1>
+<h4>Are you sure you want to delete this?</h4>
+<div>   
+    <form asp-action="Delete">
+        @Html.DisplayForModel()
+        <input type="submit" value="Delete" class="btn btn-danger" /> |
+        <a asp-action="Index">Back to List</a>
+    </form>
+</div>

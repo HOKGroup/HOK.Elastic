@@ -1,0 +1,191 @@
+﻿@model HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models.SettingsJobArgsDTO
+
+<div class="row">
+    <div class="col-md-12">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="JobName" class="control-label"></label>
+                    <input asp-for="JobName" class="form-control" />
+                    <span asp-validation-for="JobName" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="JobNotes" class="control-label"></label>
+                    <input asp-for="JobNotes" class="form-control" />
+                    <span asp-validation-for="JobNotes" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="IndexNamePrefix" class="control-label"></label>
+                    <input asp-for="IndexNamePrefix" class="form-control" />
+                    <span asp-validation-for="IndexNamePrefix" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="CrawlMode" class="control-label"></label>
+                    <!--input asp-for="CrawlMode" class="form-control" /-->
+                    @Html.DropDownListFor(m => m.CrawlMode, Html.GetEnumSelectList(typeof(HOK.Elastic.FileSystemCrawler.Models.CrawlMode)))
+                    <span asp-validation-for="CrawlMode" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="ReadFileContents" class="control-label"></label>
+                        @Html.EditorFor(model => model.ReadFileContents)                   
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="card border border-primary rounded-sm px-3">
+                    <div class="card-body">
+                        <h2 class="card-title">Input Path Events</h2>
+                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addevent">Add</button>
+                        @Html.EditorFor(z=>z.InputEvents)
+                    </div>
+                </div>
+                <div class="card border border-primary rounded-sm px-3">
+                    <div class="card-body">
+                        <h2 class="card-title">Input Path Crawls</h2>
+                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addcrawl">Add</button>
+                        @Html.EditorFor(z=>z.InputCrawls)
+                    </div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="card border border-primary rounded-sm px-3">
+                    <div class="card-body">
+                        <h2 class="card-title">Elastic Ingest Nodes</h2>
+                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addelasticindex">Add</button>
+                        @Html.EditorFor(z=>z.ElasticIndexURI)
+                    </div>
+                </div>
+                <div class="card border border-primary rounded-sm px-3">
+                    <div class="card-body">
+                        <h2 class="card-title">Elastic Discovery Nodes</h2>
+                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addelasticdiscovery">Add</button>
+                        @Html.EditorFor(z=>z.ElasticDiscoveryURI)
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label asp-for="PathInclusionRegex" class="control-label"></label>
+                <input asp-for="PathInclusionRegex" class="form-control" />
+                <span asp-validation-for="PathInclusionRegex" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="FileNameExclusionRegex" class="control-label"></label>
+                <input asp-for="FileNameExclusionRegex" class="form-control" />
+                <span asp-validation-for="FileNameExclusionRegex" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="OfficeSiteExtractRegex" class="control-label"></label>
+                <input asp-for="OfficeSiteExtractRegex" class="form-control" />
+                <span asp-validation-for="OfficeSiteExtractRegex" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ProjectExtractRegex" class="control-label"></label>
+                <input asp-for="ProjectExtractRegex" class="form-control" />
+                <span asp-validation-for="ProjectExtractRegex" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PipeCategorizationRegex" class="control-label"></label>
+                <input asp-for="PipeCategorizationRegex" class="form-control" />
+                <span asp-validation-for="PipeCategorizationRegex" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="CrawlThreads" class="control-label"></label>
+                    <input asp-for="CrawlThreads" class="form-control" />
+                    <span asp-validation-for="CrawlThreads" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="DocReadingThreads" class="control-label"></label>
+                    <input asp-for="DocReadingThreads" class="form-control" />
+                    <span asp-validation-for="DocReadingThreads" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="DocInsertionThreads" class="control-label"></label>
+                    <input asp-for="DocInsertionThreads" class="form-control" />
+                    <span asp-validation-for="DocInsertionThreads" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="CPUCoreThreadMultiplier" class="control-label"></label>
+                    <input asp-for="CPUCoreThreadMultiplier" class="form-control" />
+                    <span asp-validation-for="CPUCoreThreadMultiplier" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="form-group form-check">
+                <label class="form-check-label">
+                    <input class="form-check-input" asp-for="RunningInteractively" /> @Html.DisplayNameFor(model => model.RunningInteractively)
+                </label>
+            </div>
+            <div class="form-group">
+                <label asp-for="InputPathLocation" class="control-label"></label>
+                <input asp-for="InputPathLocation" class="form-control" />
+                <span asp-validation-for="InputPathLocation" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="JsonQueryString" class="control-label"></label>
+                <input asp-for="JsonQueryString" class="form-control" />
+                <span asp-validation-for="JsonQueryString" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PathForCrawling" class="control-label"></label>
+                <input asp-for="PathForCrawling" class="form-control" />
+                <span asp-validation-for="PathForCrawling" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PathForCrawlingContent" class="control-label"></label>
+                <input asp-for="PathForCrawlingContent" class="form-control" />
+                <span asp-validation-for="PathForCrawlingContent" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PublishedPath" class="control-label"></label>
+                <input asp-for="PublishedPath" class="form-control" />
+                <span asp-validation-for="PublishedPath" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="ExceptionsPerTenMinuteIntervalLimit" class="control-label"></label>
+                <input asp-for="ExceptionsPerTenMinuteIntervalLimit" class="form-control" />
+                <span asp-validation-for="ExceptionsPerTenMinuteIntervalLimit" class="text-danger"></span>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="ReadContentSizeLimitMB" class="control-label"></label>
+                    <input asp-for="ReadContentSizeLimitMB" class="form-control" />
+                    <span asp-validation-for="ReadContentSizeLimitMB" class="text-danger"></span>
+                </div>
+                <div class="form-group">
+                    <label asp-for="BulkUploadSize" class="control-label"></label>
+                    <input asp-for="BulkUploadSize" class="form-control" />
+                    <span asp-validation-for="BulkUploadSize" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label asp-for="EmailNotification" class="control-label"></label>
+                    <input asp-for="EmailNotification" class="form-control" />
+                    <span asp-validation-for="EmailNotification" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <input type="submit" value="Submit" class="btn btn-primary" />
+                <button class="btn btn-outline-secondary" type="submit" name="command" value="download">Download</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div>
+    <a asp-action="Index">Back to List</a>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+    }
