@@ -213,9 +213,6 @@ namespace HOK.Elastic.DAL
             }
         }
 
- 
-
-
 
         /// <summary>
         /// Called by Nausni Audit Events - Full path to the directory will match on anything with the same parent. We use this during incremental crawl
