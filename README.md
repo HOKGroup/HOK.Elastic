@@ -39,7 +39,7 @@ cd HOK.Elastic
 dotnet build
 ```
 3. Configure the HOK.Elastic.FileSystemCrawler.ConsoleProgram application + create jobs. 
-- Edit the `appsettings.example.json` with your configuration and rename to `appsettigs.json`
+- Edit the `appsettings.example.json` with your configuration and rename to `appsettings.json`
 - Create one or more jobsettings folders and config files that tells the program where to crawl and in what mode. See the `jobsettings.example.json` for a sample.
 
 
