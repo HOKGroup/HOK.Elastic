@@ -1,4 +1,7 @@
-﻿using HOK.Elastic.DAL.Models;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Threading.Tasks.Dataflow;
+using HOK.Elastic.DAL.Models;
 
 namespace HOK.Elastic.DAL
 {
@@ -12,5 +15,6 @@ namespace HOK.Elastic.DAL
         void InsertEmail(FSOemail item);
         void InsertTikaDoc(FSOdocument item);
         void BulkInsert(IFSO[] dws, bool crawlContent = false);
+        Task<long> DeleteExceptAsync<T>(string path, List<string> currentItems, ActionBlock<T> actionBlock) where T : class, IFSO;
     }
 }

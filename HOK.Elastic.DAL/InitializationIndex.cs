@@ -42,7 +42,7 @@ namespace HOK.Elastic.DAL
                 }
             }
 #if DEBUG
-            PromptToDelete();
+          //  PromptToDelete();
 #endif
             return fail;
         }

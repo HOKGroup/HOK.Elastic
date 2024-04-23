@@ -441,7 +441,9 @@ namespace HOK.Elastic.DAL
         /// <returns></returns>
         public IEnumerable<T> GetIFSOsByQuery<T>(string jsonQueryString, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSO
         {
-            string scrolltimeout = "30m";//Its value (e.g. 1m, see Time units) does not need to be long enough to process all data-it just needs to be long enough to process the previous batch of results.
+            string scrolltimeout = "30m";
+            //Its value (e.g. 1m, see Time units) does not need to be long enough to process all data
+            //it just needs to be long enough to process the previous batch of results.
             string indexName = GetIndexName<T>();
             DateTime? maximumDate = null;
             if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);

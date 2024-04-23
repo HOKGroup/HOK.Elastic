@@ -2,6 +2,7 @@
 using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -42,6 +43,7 @@ namespace HOK.Elastic.FileSystemCrawler
         internal ActionBlock<IFSO> docInsertReindex;
         internal ActionBlock<IFSO[]> docInsertArray;
         internal ActionBlock<IFSO> docUpdate;
+        internal ActionBlock<FSO> docDeleteBlock;
         public SecurityHelper SecurityHelper => _securityHelper;
         public DocumentHelper DocumentHelper => _documentHelper;
 

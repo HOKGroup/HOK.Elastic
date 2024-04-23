@@ -17,6 +17,8 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 {
     partial class Program
     {
+
+
         private static HOK.Elastic.Logger.Log4NetLogger _il;
         private static CancellationTokenSource _ct = new CancellationTokenSource();
         public static SettingsApp AppSettings { get; private set; }
@@ -26,6 +28,8 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
         //Main Entry Point
         static async Task<int> Main(string[] args)
         {
+
+        
             ///not sure if this is actually needed here or in the msgreader library but it's all working currently...
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             int exitcode = 1;
@@ -160,16 +164,16 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                 {
                     throw new ArgumentException($"Incorrect number of arguments passed to the application; instead, received {args.Length} arguments.\r\n\r\n " +
                         $"Argument format is {{Path to executable}} {{job folder}} {{notes}}\r\n" +
-                        $"Example: {System.Reflection.Assembly.GetExecutingAssembly().CodeBase} \"d:\\elastic crawl job definitions\\europe\"\r\n" +
-                        $"Example: {System.Reflection.Assembly.GetExecutingAssembly().CodeBase} .\\myjob\r\n" +
-                        $"Example: {System.Reflection.Assembly.GetExecutingAssembly().CodeBase} myjob \"my notes about the job\""
+                        $"Example: {System.Reflection.Assembly.GetExecutingAssembly().Location} \"d:\\elastic crawl job definitions\\europe\"\r\n" +
+                        $"Example: {System.Reflection.Assembly.GetExecutingAssembly().Location} .\\myjob\r\n" +
+                        $"Example: {System.Reflection.Assembly.GetExecutingAssembly().Location} myjob \"my notes about the job\""
                         );
                 }
             }
             catch (Exception ex)
             {
                 //todo we should ensure this gets written out somewhere in case the logger never got setup and this is running headless
-                if (ilerror) _il.LogErr("program.main", null, null, ex);
+                if (ilfatal) _il.LogErr("program.main", null, null, ex);
                 if (runningInteractively)
                 {
                     Console.WriteLine(ex.ToString());
