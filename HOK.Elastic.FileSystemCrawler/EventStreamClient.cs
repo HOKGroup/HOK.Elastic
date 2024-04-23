@@ -94,9 +94,11 @@ namespace HOK.Elastic.FileSystemCrawler
             //var samplepath = @"\now\Internal\site\DEPTS\department\Software Development\Elastic";
             //samplepath = samplepath.Replace(find, replace);
             IEnumerable<InputPathEventStream> httpResponsePaths = null;
-            var client = new RestSharp.RestClient(this.EventStreamEndPoint);
-            client.Authenticator = new NtlmAuthenticator(System.Net.CredentialCache.DefaultNetworkCredentials);
-            RestRequest request = new RestRequest("auditevents?$top=75", Method.GET);//we can adjust how many items to take, the less items the more likely the paths will be 'more' accurate/timely...
+            var options = new RestClientOptions();
+            options.UseDefaultCredentials = true;
+            options.BaseUrl = this.EventStreamEndPoint;
+            var client = new RestSharp.RestClient(options);
+            RestRequest request = new RestRequest("auditevents?$top=75", Method.Get);//we can adjust how many items to take, the less items the more likely the paths will be 'more' accurate/timely...
             request.OnBeforeDeserialization = resp => { resp.ContentType = "application/json"; };
             try
             {
