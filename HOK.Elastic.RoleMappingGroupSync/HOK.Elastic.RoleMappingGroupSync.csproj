@@ -1,24 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Elasticsearch.Net" Version="7.17.0" />
     <PackageReference Include="log4net" Version="2.0.14" />
     <PackageReference Include="NEST" Version="7.17.0" />
-    <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
-    <PackageReference Include="System.DirectoryServices" Version="6.0.0" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0" />
+    <PackageReference Include="System.DirectoryServices" Version="8.0.0" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\HOK.Elastic.DAL\HOK.Elastic.DAL.csproj" />
     <ProjectReference Include="..\HOK.Elastic.Logger\HOK.Elastic.Logger.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <None Update="App.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -27,5 +23,4 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
 </Project>
