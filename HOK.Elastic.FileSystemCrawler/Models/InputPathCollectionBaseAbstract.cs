@@ -10,7 +10,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
     /// <summary>
     /// Common properties
     /// </summary>
-    public abstract class InputPathCollectionBaseAbstract<T>:DAL.Models.IFSOPathBase,IInputPathCollectionBase where T : IInputPathBase
+    public abstract class InputPathCollectionBaseAbstract:DAL.Models.IFSOPathBase
     {
         public string PathForCrawling { get; set; }
         public string PathForCrawlingContent { get; set; }

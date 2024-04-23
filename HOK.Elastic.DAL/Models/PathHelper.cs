@@ -16,6 +16,7 @@ namespace HOK.Elastic.DAL.Models
         public static void Set(string DFSorUNCakaPublishedRoot, string contentRoot, string crawlRoot)
         {
             PublishedRoot = DFSorUNCakaPublishedRoot.ToLowerInvariant();
+            PublishedRootLongPath = LongPaths.GetLegacyLongPath(PublishedRoot);
             ContentRoot = LongPaths.GetLegacyLongPath(contentRoot).ToLowerInvariant();
             CrawlRoot = LongPaths.GetLegacyLongPath(crawlRoot).ToLowerInvariant();
         }
@@ -23,6 +24,10 @@ namespace HOK.Elastic.DAL.Models
         /// dfs path component;always returned as lowercase
         /// </summary>
         public static string PublishedRoot { get; internal set; }
+        /// <summary>
+        /// dfs path component;always returned as lowercase
+        /// </summary>
+        public static string PublishedRootLongPath { get; internal set; }
         /// <summary>
         /// Root path for crawling filesystem content (reading file contents)
         /// </summary>
@@ -49,6 +54,10 @@ namespace HOK.Elastic.DAL.Models
             else if (path.StartsWith(PublishedRoot, StringComparison.OrdinalIgnoreCase))
             {
                 return path;
+            }
+            else if (path.StartsWith(PublishedRootLongPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return path.Replace(PublishedRootLongPath, PublishedRoot);
             }
             else
             {

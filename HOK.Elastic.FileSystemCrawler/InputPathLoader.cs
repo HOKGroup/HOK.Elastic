@@ -25,7 +25,8 @@ namespace HOK.Elastic.FileSystemCrawler
             {
                 entries.Add(directory.Office + "\t" + directory.PathForCrawling);
             }
-            File.WriteAllLines(Path.Combine(filepath, UNFINISHEDPATHS), entries);
+            Directory.CreateDirectory(filepath);
+            File.WriteAllLines(Path.Combine(filepath, UNFINISHEDPATHS), entries);        
         }
 
         public static void ClearUnfinishedPaths(string filepath)
@@ -43,7 +44,7 @@ namespace HOK.Elastic.FileSystemCrawler
         /// </summary>
         /// <param name="filepath"></param>
         /// <param name="jobSettings"></param>
-        public static void LoadUnfinishedPaths(string filepath,  ref InputPathCollectionCrawl<InputPathBase> paths)
+        public static void LoadUnfinishedPaths(string filepath,  ref InputPathCollectionCrawl paths)
         {
             if (HasUnfinishedPaths(filepath) && paths != null)
             {

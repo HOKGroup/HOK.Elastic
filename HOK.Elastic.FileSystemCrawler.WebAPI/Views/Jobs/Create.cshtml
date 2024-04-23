@@ -1,0 +1,31 @@
+﻿@model HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models.SettingsJobArgsDTO
+@{
+    ViewData["Title"] = "Create";
+}
+<h1>Create</h1>
+<h4>SettingsJobArgsDTO</h4>
+
+<div class="row">
+    <div class="card border border-primary rounded-sm px-3">
+        <div class="card-body">
+            <h5 class="card-title">Import</h5>
+            <p class="card-text">Load properties from json template file</p>
+            <form asp-action="Upload" enctype="multipart/form-data" class="col-md-12 p-2">
+                <input type="file" name="file">
+                <button type="submit" class="btn btn-primary">Load</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <form asp-action="Create">
+            @Html.EditorForModel()
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

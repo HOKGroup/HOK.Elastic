@@ -10,11 +10,12 @@ namespace HOK.Elastic.FileSystemCrawler.Models
     /// <summary>
     /// Collection of inputpaths for the Crawler but only used in the nasuniapi as well as an associated PathSubstitution object that can be used to build alternate paths (DFS/UNC path, alternate Nasuni filer source)
     /// </summary>
-    public class InputPathCollectionEventStream : InputPathCollectionBase<InputPathEventStream>
+    public class InputPathCollectionEventStream : InputPathCollectionBase
     {
 
         private int _duplicates = 0;
         public int DuplicatesCount { get { return _duplicates; } }
+        internal new Dictionary<string, InputPathEventStream> _items = new Dictionary<string, InputPathEventStream>();//we'll use dictionary for events for fast lookup
         public IQueryable<InputPathEventStream> Query { get { return _items.Values.AsQueryable(); } }
 
         public InputPathCollectionEventStream() : base()

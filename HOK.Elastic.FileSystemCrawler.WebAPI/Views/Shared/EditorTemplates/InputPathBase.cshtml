@@ -1,0 +1,30 @@
+﻿@model HOK.Elastic.FileSystemCrawler.Models.InputPathBase
+@{
+    ViewData["Title"] = "InputPathBase";
+}
+    <div class="row">
+    <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#collapseInputPathBase" aria-expanded="false" aria-controls="collapseInputPathBase">
+            InputPathBase...
+        </button>
+    </div>
+<div class="row collapse" id="collapseInputPathBase">
+    <div class="col-md-12 border border-primary rounded-sm">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="form-group">
+                <label asp-for="Path" class="control-label"></label>
+                <input asp-for="Path" class="form-control" />
+                <span asp-validation-for="Path" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="Office" class="control-label"></label>
+                <input asp-for="Office" class="form-control" />
+                <span asp-validation-for="Office" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PathStatus" class="control-label"></label>
+            @Html.DropDownListFor(m => m.PathStatus, Html.GetEnumSelectList(typeof(HOK.Elastic.FileSystemCrawler.Models.PathStatus)))
+                <span asp-validation-for="PathStatus" class="text-danger"></span>
+            </div>
+    </div>
+</div>
+

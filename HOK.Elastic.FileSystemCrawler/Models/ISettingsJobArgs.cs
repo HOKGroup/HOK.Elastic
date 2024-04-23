@@ -8,5 +8,6 @@
         string InputPathLocation { get; set; }
         bool RunningInteractively { get; set; }
         string JsonQueryString { get; set; }
+        //InputPathCollectionBase InputPathCollection { get; set; }
     }
 }

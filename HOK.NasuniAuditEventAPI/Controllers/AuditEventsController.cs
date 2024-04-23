@@ -81,5 +81,12 @@ namespace HOK.NasuniAuditEventAPI.Controllers
             }
             return events;
         }
+
+        [HttpPut]
+        public ActionResult PutPriorityEvent(InputPathEventStream inputPathEventStream)
+        {
+            _auditLogHostedService.PutPriorityEvent(inputPathEventStream);
+            return null;
+        }
     }
 }

@@ -7,6 +7,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Collections.Generic;
+using HOK.Elastic.DAL.Models;
 
 namespace HOK.Elastic.DAL
 {
@@ -28,7 +29,7 @@ namespace HOK.Elastic.DAL
         {
         }
 
-        public Base(Uri[] elastiSearchServerUrls, Logger.Log4NetLogger logger) : this(new StaticConnectionPool(elastiSearchServerUrls), logger)
+        public Base(IEnumerable<Uri> elastiSearchServerUrls, Logger.Log4NetLogger logger) : this(new StaticConnectionPool(elastiSearchServerUrls), logger)
         {
         }
         public Base(IConnectionPool connectionPool, Logger.Log4NetLogger logger)
@@ -51,6 +52,7 @@ namespace HOK.Elastic.DAL
 #endif
             settings.RequestTimeout(TimeSpan.FromMinutes(5));//todo change this to a setting             
             this.client = new ElasticClient(settings);
+           
         }
         /// <summary>
         /// https://www.elastic.co/guide/en/elasticsearch/client/net-api/current/modifying-default-connection.html
@@ -81,6 +83,9 @@ namespace HOK.Elastic.DAL
                 handler.UseDefaultCredentials = true;
                 handler.PreAuthenticate = true;
                 handler.ClientCertificateOptions = ClientCertificateOption.Automatic;
+                handler.AllowAutoRedirect = true;//true by default
+                handler.UseProxy = true;//true by default
+                handler.UseCookies = true;//true by default
                 return handler;
             }
         }
@@ -185,14 +190,13 @@ namespace HOK.Elastic.DAL
             settings.MemoryStreamFactory(Elasticsearch.Net.MemoryStreamFactory.Default); //recycle memorystream linked to mem leakage https://github.com/serilog/serilog-sinks-elasticsearch/issues/368
             ElasticClient apiKeyClient = new ElasticClient(settings);
             List<string> indexNames = new List<string>() { StaticIndexPrefix.Prefix + "*" };
-            //uncomment this when we are ready to delete documents in elastic thru the alias...
-            //var possibleIndexAliasNames = new string[] { DAL.Models.FSOdirectory.indexname, DAL.Models.FSOfile.indexname, DAL.Models.FSOdocument.indexname, DAL.Models.FSOemail.indexname };
-            //foreach(var possibleIndexAlias in possibleIndexAliasNames)
-            //{
-            //    var concreteIndex = apiKeyClient.GetIndicesPointingToAlias(possibleIndexAlias);
-            //    if (concreteIndex.Count > 0) indexNames.AddRange(concreteIndex);
-            //}
-            //end uncomment section
+            var possibleIndexAliasNames = new string[] { DAL.Models.FSOdirectory.indexname, DAL.Models.FSOfile.indexname, DAL.Models.FSOdocument.indexname, DAL.Models.FSOemail.indexname };
+            foreach(var possibleIndexAlias in possibleIndexAliasNames)
+            {
+                var concreteIndex = apiKeyClient.GetIndicesPointingToAlias(possibleIndexAlias);
+                if (concreteIndex.Count > 0) indexNames.AddRange(concreteIndex);
+            }
+
 
             CreateApiKeyResponse keyResponse = apiKeyClient.Security.CreateApiKeyAsync(
                 (_v) => new CreateApiKeyRequest
@@ -221,6 +225,7 @@ namespace HOK.Elastic.DAL
 
             if (keyResponse.IsValid)
             {
+                if (ildebug) _il.LogDebugInfo("API Key generated for:" + String.Join(",",indexNames));
                 return new ApiKey
                 {
                     Id = keyResponse.Id,
@@ -303,7 +308,6 @@ namespace HOK.Elastic.DAL
                     InvalidateApiKey(apiKeyGuid);
                     client.ConnectionSettings.Connection.Dispose();
                 }
-
                 disposedValue = true;
             }
         }

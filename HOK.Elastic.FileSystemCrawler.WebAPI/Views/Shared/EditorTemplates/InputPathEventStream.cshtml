@@ -1,0 +1,58 @@
+﻿@model HOK.Elastic.FileSystemCrawler.Models.InputPathEventStream
+@{
+    ViewData["Title"] = "InputPathEventStream";
+}
+<div class="row">
+    <button class="btn btn-primary" type="button" data-toggle="collapse" data-target="#collapseInputPathEvent" aria-expanded="false" aria-controls="collapseInputPathEvent">
+        InputPathEvents...
+    </button>
+</div>
+<div class="row collapse" id="collapseInputPathEvent">
+    <div class="col-md-12 border border-primary rounded-sm">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+        <div class="form-group">
+            <label asp-for="Path" class="control-label"></label>
+            <input asp-for="Path" class="form-control" />
+            <span asp-validation-for="Path" class="text-danger"></span>
+        </div>
+            <div class="form-group">
+                <label asp-for="PathFrom" class="control-label"></label>
+                <input asp-for="PathFrom" class="form-control" />
+                <span asp-validation-for="PathFrom" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="ContentAction" class="control-label"></label>
+                <!--input asp-for="ContentAction" class="form-control" /-->
+                @Html.DropDownListFor(m => m.ContentAction, Html.GetEnumSelectList(typeof(HOK.Elastic.FileSystemCrawler.Models.ActionContent)))
+                <span asp-validation-for="ContentAction" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PresenceAction" class="control-label"></label>
+                <!--input asp-for="PresenceAction" class="form-control" /-->
+                @Html.DropDownListFor(m => m.PresenceAction, Html.GetEnumSelectList(typeof(HOK.Elastic.FileSystemCrawler.Models.ActionPresence)))
+                <span asp-validation-for="PresenceAction" class="text-danger"></span>
+            </div>
+        <div class="form-group">
+            <label asp-for="Office" class="control-label"></label>
+            <input asp-for="Office" class="form-control" />
+            <span asp-validation-for="Office" class="text-danger"></span>
+        </div>
+            <!--div class="form-group">
+                <label asp-for="TimeStampUtc" class="control-label"></label>
+                <input asp-for="TimeStampUtc" class="form-control" />
+                <span asp-validation-for="TimeStampUtc" class="text-danger"></span>
+            </!--div-->
+            <div class="form-group form-check">
+                <label class="form-check-label">
+                    <input class="form-check-input" asp-for="IsDir" />@Html.DisplayNameFor(model => model.IsDir)
+                </label>
+            </div>     
+            <!--div-- class="form-group">
+                <label asp-for="PathStatus" class="control-label"></label>
+                <input asp-for="PathStatus" class="form-control" />
+                <span asp-validation-for="PathStatus" class="text-danger"></span>
+            </!--div-->
+    </div>
+</div>
+
+

@@ -11,10 +11,10 @@
     <PackageReference Include="Elasticsearch.Net" Version="7.17.0" />
     <PackageReference Include="log4net" Version="2.0.14" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="6.0.0" />
-    <PackageReference Include="MsgReader" Version="4.4.8" />
+    <PackageReference Include="MsgReader" Version="5.2.0" />
     <PackageReference Include="NEST" Version="7.17.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-    <PackageReference Include="OpenMcdf" Version="2.2.1.9" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="OpenMcdf" Version="2.3.0" />
     <PackageReference Include="RestSharp" Version="106.11.3" />
     <PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="6.0.0" />
@@ -25,6 +25,7 @@
     <PackageReference Include="System.Net.Primitives" Version="4.3.1" />
     <PackageReference Include="System.Net.Sockets" Version="4.3.0" />
     <PackageReference Include="System.Runtime.Caching" Version="5.0.0" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="7.0.0" />
     <PackageReference Include="System.Text.Json" Version="6.0.0" />
     <PackageReference Include="System.Threading.Tasks.Dataflow" Version="4.11.1" />
   </ItemGroup>

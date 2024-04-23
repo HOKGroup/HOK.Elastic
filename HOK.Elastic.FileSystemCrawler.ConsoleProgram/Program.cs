@@ -107,7 +107,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     
                     if (workerargs.CrawlMode == CrawlMode.Incremental || workerargs.CrawlMode == CrawlMode.Full)
                     {
-                        var inputPathWorkerCollection = new InputPathCollectionCrawl<InputPathBase>(jobSettings.InputPaths);
+                        var inputPathWorkerCollection = new InputPathCollectionCrawl(jobSettings.InputPaths);
                         if (InputPathLoader.HasUnfinishedPaths(jobDirectoryInfo.FullName))
                         {
                             InputPathLoader.LoadUnfinishedPaths(jobDirectoryInfo.FullName, ref inputPathWorkerCollection);
@@ -268,7 +268,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                 }
             }
             catch (Exception ex)
-            {
+            {   
                 if (_il.IsEnabled(LogLevel.Error)) _il.LogErr("Error in program.main", "", null, ex);
             }
             finally

@@ -41,6 +41,13 @@ namespace HOK.Elastic.Logger
                 Assembly.GetEntryAssembly(), typeof(log4net.Repository.Hierarchy.Hierarchy));
             _log = LogManager.GetLogger(_loggerRepository.Name, name);
         }
+
+        public Log4NetLogger(string name,ILoggerRepository repository,ILog log)
+        {
+            _name = name;
+            _loggerRepository= repository;
+            _log= log;
+        }
         public IDisposable BeginScope<TState>(TState state)
         {
             return null;
