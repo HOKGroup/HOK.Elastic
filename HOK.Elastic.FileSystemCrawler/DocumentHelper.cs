@@ -4,6 +4,7 @@ using HOK.Elastic.Logger;
 using Microsoft.Extensions.Logging;
 using Nest;
 using System;
+using System.Buffers.Text;
 using System.IO;
 using System.Linq;
 
@@ -11,6 +12,8 @@ namespace HOK.Elastic.FileSystemCrawler
 {
     public class DocumentHelper
     {
+        private string _version;
+        public string DocVersion => _version;
         private bool ildebug, ilinfo, ilwarn, ilerror;
         private bool readFileContents;
         private readonly string MachineName;
@@ -23,8 +26,11 @@ namespace HOK.Elastic.FileSystemCrawler
         //       if (fsodoc.LengthKB > 275000)//175MB....250MB PDF results in 1GB http payload which is beyond capacity
         private readonly int _readLimitKBTika = 275000;
 
-        public DocumentHelper(bool ReadFileContents, SecurityHelper securityHelper, IIndex indexNode, Log4NetLogger logger = null)
+
+        public DocumentHelper(bool ReadFileContents, SecurityHelper securityHelper, IIndex indexNode,  Log4NetLogger logger = null)
         {
+            _version = "V3";
+           // _indexNameHelper = indexNameHelper;
             _il = logger;
             ildebug = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
             ilinfo = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information);
@@ -140,14 +146,14 @@ namespace HOK.Elastic.FileSystemCrawler
         {
             ifso.Timestamp = DateTime.UtcNow;
             ifso.MachineName = MachineName;
-            ifso.Version = StaticIndexPrefix.Version;
+            ifso.Version = this.DocVersion;
             if (ifso is FSOfile)
             {
                 return InsertTransformFile(ifso as FSOfile);
             }
             else
-            { 
-                ifso.IndexName = FSOdirectory.indexname;
+            {
+                ifso.IndexName = _indexNode.IndexHelper.GetNameFor<FSOdirectory>(); ;
                 return ifso;
             }
         }
@@ -159,7 +165,7 @@ namespace HOK.Elastic.FileSystemCrawler
             if (FSOemail.CanBeMadeFrom(fi))
             {
                 var fsoEmail = new FSOemail(fsofile);
-                fsoEmail.IndexName = FSOemail.indexname;
+                fsoEmail.IndexName = _indexNode.IndexHelper.IndexNameFsoMsg;
                 if (!readFileContents)
                 {
                     return fsoEmail;
@@ -199,7 +205,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             var recipientsCc = eml.GetEmailRecipients(MsgReader.Outlook.RecipientType.Cc, false, false);
                             var recipientsList = recipientsTo.Split(';').Select(x => x.Trim().ToLowerInvariant()).ToList();
                             fsoEmail.To = recipientsList;
-                            recipientsList.AddRange(recipientsCc.Split(';').Where(x=>!string.IsNullOrEmpty(x)).Select(x => x.Trim().ToLowerInvariant()));
+                            recipientsList.AddRange(recipientsCc.Split(';').Where(x => !string.IsNullOrEmpty(x)).Select(x => x.Trim().ToLowerInvariant()));
                             fsoEmail.AllRecipients = recipientsList.Distinct().ToList();
                             fsoEmail.SentUTC = eml.SentOn;
                             fsoEmail.ConversationIndex = eml.ConversationIndex;
@@ -248,7 +254,7 @@ namespace HOK.Elastic.FileSystemCrawler
             else if (FSOdocument.CanBeMadeFrom(fi))
             {
                 var fsodoc = new FSOdocument(fsofile);
-                fsodoc.IndexName = FSOdocument.indexname;
+                fsodoc.IndexName = _indexNode.IndexHelper.GetNameFor<FSOdocument>();
                 if (fsodoc.LengthKB > _readLimitKBTika)
                 {
                     fsodoc.FailureReason = "Content too large";
@@ -277,7 +283,7 @@ namespace HOK.Elastic.FileSystemCrawler
             }
             else
             {
-                fsofile.IndexName = FSOfile.indexname;
+                fsofile.IndexName = _indexNode.IndexHelper.GetNameFor<FSOfile>();
                 return fsofile;
             }
         }
@@ -293,7 +299,7 @@ namespace HOK.Elastic.FileSystemCrawler
             //TODO do we want to update version when reindexing....I don't think so.        
             if (ifso is FSOdirectory)
             {
-                ifso.IndexName = FSOdirectory.indexname;
+                ifso.IndexName = _indexNode.IndexHelper.IndexNameDir;
                 //In future, maybe we just want the document object to tell us the indexname instead of setting it.
                 //But maybe not in case we want to have different index by office (although we could do that inside the object as well)
             }
@@ -302,15 +308,15 @@ namespace HOK.Elastic.FileSystemCrawler
                 var fi = new FileInfo(ifso.PathForCrawling);
                 if (FSOemail.CanBeMadeFrom(fi))
                 {
-                    ifso.IndexName = FSOemail.indexname;
+                    ifso.IndexName = _indexNode.IndexHelper.IndexNameFsoMsg;
                 }
                 else if (FSOdocument.CanBeMadeFrom(fi))
                 {
-                    ifso.IndexName = FSOdocument.indexname;
+                    ifso.IndexName = _indexNode.IndexHelper.IndexNameFsoDoc;
                 }
                 else
                 {
-                    ifso.IndexName = FSOfile.indexname;
+                    ifso.IndexName = _indexNode.IndexHelper.IndexNameFsoFile;
                 }
             }
             else

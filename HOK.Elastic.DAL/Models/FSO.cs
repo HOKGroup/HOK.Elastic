@@ -7,7 +7,6 @@ namespace HOK.Elastic.DAL.Models
 {
     public class FSO : IFSO
     {
-        public static string indexname = StaticIndexPrefix.Prefix + "fso";
         private string _Id, _name, _parent;
         private string _contentPath, _crawlPath, _dfsPath;
         private string _commonPathComponent;

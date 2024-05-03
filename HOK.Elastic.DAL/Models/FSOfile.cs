@@ -6,7 +6,6 @@ namespace HOK.Elastic.DAL.Models
 {
     public class FSOfile : FSO, IFSO, IFSOfile
     {
-        public static new string indexname = StaticIndexPrefix.Prefix + "fsofile";
         /// <summary>
         /// stored as lowercase
         /// </summary>

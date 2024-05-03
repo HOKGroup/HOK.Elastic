@@ -10,7 +10,7 @@ namespace HOK.Elastic.DAL.Models
     {
         private static readonly HashSet<string> _supportedExtensions = new HashSet<string> { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".ppt", ".pptx", ".wpd", ".rtf", ".txt" };//excluded .log file per teams converstation 2021-02-08
 
-        public new static string indexname = StaticIndexPrefix.Prefix + "fsodoc";
+        //public new static string indexname = StaticIndexPrefix.Prefix + "fsodoc";
         [Text(Ignore = true)]
         public static HashSet<string> SupportedExts { get { return _supportedExtensions; } }
         public byte[] Content { get; set; }

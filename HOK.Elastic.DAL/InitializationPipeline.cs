@@ -6,46 +6,47 @@ using System.Linq;
 
 namespace HOK.Elastic.DAL
 {
-    public class InitializationPipeline : Initialization
-    {        
-        public static string PIPEEmail 
-        { 
-            get 
-            { 
-                return StaticIndexPrefix.Prefix + "pipe_email"; 
-            } 
-        }
-        /// <summary>
-        /// Conditional Pipeline that decides sends document to categorization pipeline if category is unpopulated.
-        /// </summary>
-        public static string PIPEvalidate
-        {
-            get
-            {
-                return StaticIndexPrefix.Prefix + "pipe_validate";
-            }
-        }
-        public string PIPECategorizationProjectExtractRgx { get; set; } = "(^$)";
-        public static string PIPECategorizationProject
-        {
-            get
-            {
-                return StaticIndexPrefix.Prefix + "pipe_categoryproject";
-            }
-        }
-        public static string PIPEDocument
-        {
-            get
-            {
-                return StaticIndexPrefix.Prefix + "pipe_document";
-            }
-        }
+    public class InitializationPipeline : InitializationBase
+    {  
+        
+        //public string PIPEEmail 
+        //{ 
+        //    get 
+        //    { 
+        //        return IndexHelper.Prefix + "pipe_email"; 
+        //    } 
+        //}
+        ///// <summary>
+        ///// Conditional Pipeline that decides sends document to categorization pipeline if category is unpopulated.
+        ///// </summary>
+        //public string PIPEvalidate
+        //{
+        //    get
+        //    {
+        //        return IndexHelper.Prefix + "pipe_validate";
+        //    }
+        //}
+       //public string PIPECategorizationProjectExtractRgx { get; set; } = "(^$)";
+        //public string PIPECategorizationProject
+        //{
+        //    get
+        //    {
+        //        return IndexHelper.Prefix + "pipe_categoryproject";
+        //    }
+        //}
+        //public string PIPEDocument
+        //{
+        //    get
+        //    {
+        //        return IndexHelper.Prefix + "pipe_document";
+        //    }
+        //}
 
         private const int pipelinecharacterlimit = 100000;//-1 can possibly leave us open to this was set to 1000....which would limit how much text to extract.
         private const string regexPatternToFindMultipleLinebreaks = @"[\r\n]{1}[\s]+";
-        public string[] PipeLines { get { return new string[] { PIPEEmail, PIPEDocument, PIPEvalidate, PIPECategorizationProject }; } }
+        public string[] PipeLines { get { return new string[] { PipeLineNameHelper.PIPEEmail, PipeLineNameHelper.PIPEDocument, PipeLineNameHelper.PIPEvalidate, PipeLineNameHelper.PIPECategorizationProject }; } }
 
-        public InitializationPipeline(Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : base(elastiSearchServerUrl, logger)
+        public InitializationPipeline(PipeLineNameHelper pipeLineHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : base(pipeLineHelper, indexNameHelper, elastiSearchServerUrl, logger)
         {
         }
 
@@ -101,11 +102,10 @@ namespace HOK.Elastic.DAL
         public void PromptToDelete(bool throwOnError = false)
         {
 #if DEBUG
-            if (ilwarn) _il.LogWarn($"About to Delete {StaticIndexPrefix.Prefix} pipelines....type {{yes}} and {{enter}} to delete...or just {{enter}} to skip.");
+            if (ilwarn) _il.LogWarn($"About to Delete {IndexHelper.PrefixWildcard} pipelines....type {{yes}} and {{enter}} to delete...or just {{enter}} to skip.");
             if (string.Equals(Console.ReadLine(), "yes", StringComparison.OrdinalIgnoreCase))
             {
-                var pipelinesToDelete = new string[] { PIPEvalidate, PIPEEmail, PIPEDocument,PIPECategorizationProject };
-                foreach (var p in pipelinesToDelete)
+                foreach (var p in PipeLines)
                 {
                     var response = this.client.Ingest.DeletePipeline(p);
                     WriteResponse(response, throwOnError);
@@ -121,7 +121,7 @@ namespace HOK.Elastic.DAL
         private PutPipelineResponse PutPipeMsg()
         {
             PutPipelineResponse response = client.Ingest
-            .PutPipeline(PIPEEmail, p => p
+            .PutPipeline(PipeLineNameHelper.PIPEEmail, p => p
                 .Description("Email msg pipeline, removes multiple linebreaks")
                 .Processors(pr => pr
                     .Gsub<FSOemail>(gk => gk//condense multiple linebreaks in the body content
@@ -130,7 +130,7 @@ namespace HOK.Elastic.DAL
                             .Replacement("\r\n")
                             .IgnoreMissing(true)
                             )
-                    .Pipeline(p1 => p1.ProcessorName(PIPEvalidate)
+                    .Pipeline(p1 => p1.ProcessorName(PipeLineNameHelper.PIPEvalidate)
                         )
                 )
             );
@@ -144,7 +144,7 @@ namespace HOK.Elastic.DAL
         {
             ////https://www.elastic.co/guide/en/elasticsearch/client/net-api/current/pipelines.html
             PutPipelineResponse response = client.Ingest
-            .PutPipeline(PIPEDocument, p => p
+            .PutPipeline(PipeLineNameHelper.PIPEDocument, p => p
                 .Description("Document attachment pipeline")
                 .Processors(pr => pr
                     .Attachment<FSOdocument>(a => a
@@ -175,7 +175,7 @@ namespace HOK.Elastic.DAL
                             .Replacement("\r\n")
                             .IgnoreFailure(true)
                     )
-                    .Pipeline(p1 => p1.ProcessorName(PIPEvalidate)//daisychain another pipeline.
+                    .Pipeline(p1 => p1.ProcessorName(PipeLineNameHelper.PIPEvalidate)//daisychain another pipeline.
                     )
                 )
             );
@@ -188,12 +188,12 @@ namespace HOK.Elastic.DAL
         private PutPipelineResponse PutPipeValidator()
         {
             PutPipelineResponse response = client.Ingest
-            .PutPipeline(PIPEvalidate, p => p
+            .PutPipeline(PipeLineNameHelper.PIPEvalidate, p => p
                 .Description("Conditional pipeline to determine if we need to do any additional processing or populate missing fields")
                 .Processors(pr => pr
                     .Pipeline(pi => pi
                         //.If("ctx.category == null")//we might try and pre-process the category in code.
-                        .ProcessorName(PIPECategorizationProject)
+                        .ProcessorName(PipeLineNameHelper.PIPECategorizationProject)
                         )
                     )
                 );
@@ -208,12 +208,12 @@ namespace HOK.Elastic.DAL
         private PutPipelineResponse PutPipeCategoryProject()
         {   
             PutPipelineResponse response = client.Ingest
-            .PutPipeline(PIPECategorizationProject, p => p
+            .PutPipeline(PipeLineNameHelper.PIPECategorizationProject, p => p
                 .Description("Pipeline to assign Category based on filepath.")
                     .Processors(pr => pr
                         .Grok<FSO>(g=> g
                             .Field(f=>f.Id)
-                            .PatternDefinitions(pd => pd.Add("CATEGORYPATTERN", PIPECategorizationProjectExtractRgx))
+                            .PatternDefinitions(pd => pd.Add("CATEGORYPATTERN", PipeLineNameHelper.PIPECategorizationProjectExtractRgx))
                             .Patterns("%{CATEGORYPATTERN:category}")
                             .IgnoreFailure(true)
                             .IgnoreMissing(true)
