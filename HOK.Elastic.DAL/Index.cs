@@ -372,7 +372,6 @@ namespace HOK.Elastic.DAL
             }
         }
 #endregion
-
     }
 }
 

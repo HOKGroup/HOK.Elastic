@@ -28,11 +28,6 @@ namespace HOK.Elastic.DAL
 
         private readonly string[] DefaultSourceFieldsFilter = new string[] { "id", "parent", "acls", "last_write_timeUTC", "failureCount" };
         private readonly string[] JustId = new string[] { "id" };
-        //protected readonly string AllIndicies = Index + "*";
-        //private Type typedir = typeof(FSOdirectory);
-        //private Type typefsofile = typeof(FSOfile);
-        //private Type typefsodoc = typeof(FSOdocument);
-        //private Type typefsoemail = typeof(FSOemail);
 
 
         /// <summary>
@@ -305,33 +300,6 @@ namespace HOK.Elastic.DAL
             }
         }
 
-
-
-
-
-        //private string GetIndexName<T>()
-        //{
-        //    if (typeof(T) == typedir)
-        //    {
-        //        return FSOdirectory.indexname;
-        //    }
-        //    else if (typeof(T) == typefsofile)
-        //    {
-        //        return FSOfile.indexname;
-        //    }
-        //    else if (typeof(T) == typefsoemail)
-        //    {
-        //        return FSOemail.indexname;
-        //    }
-        //    else if (typeof(T) == typefsodoc)
-        //    {
-        //        return FSOdocument.indexname;
-        //    }
-        //    else
-        //    {
-        //        throw new NotSupportedException(typeof(T) + "is not supported");//won't be caught below should fix that
-        //    }
-        //}
 
         /// <summary>
         /// Called by WorkerCrawler's Missing Content.
