@@ -210,7 +210,7 @@ namespace HOK.Elastic.DAL
                                   //.RefreshOnCompleted(true)
                                   .MaxDegreeOfParallelism(_maxbulkthreads)
                                   .Size(50)
-                                  //.ContinueAfterDroppedDocuments(true)
+                                 .ContinueAfterDroppedDocuments(true)
                                   .BulkResponseCallback(response =>
                                   {
                                       if (!response.IsValid && ilwarn)
@@ -312,6 +312,17 @@ namespace HOK.Elastic.DAL
         #endregion
 
         #region Deletes
+
+        public long DeleteGroup(FSO[] docs)
+        {
+            long count = 0;
+            var d = docs.GroupBy(x => x.IndexName);
+            foreach(var d2 in d)
+            {
+             count =+ Delete(d2.Select(x=>x.Id).ToArray(), d2.Key);
+            }
+            return count;
+        }
         public long Delete(string key, string index)//should we specify only a single, targeted index?//TODO change this to a FILTER query for performance.
         {
             return Delete(new string[] { key }, index);
@@ -376,7 +387,7 @@ namespace HOK.Elastic.DAL
         }
  
 
-        public async Task<long> DeleteExceptAsync<T>(string directoryPath, List<string> goodChildren, ActionBlock<T> deleteBlock) where T : class, IFSO
+        public async Task<long> DeleteExceptAsync<T>(string directoryPath, List<string> goodChildren, BatchBlock<T> deleteBlock) where T : class, IFSO
         {
             //ActionBlock<string> actionBlock = new ActionBlock<string>(x => File.AppendAllText(".\\abandons.txt", x + "\r\n"), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1 });
             // ActionBlock<IFSO> deleteBlock = new ActionBlock<IFSO>(x => Delete(x.Id,x.IndexName), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1 });
@@ -394,45 +405,49 @@ namespace HOK.Elastic.DAL
                 {
                     foreach (var group in docGroup)
                     {
-                        if (totalDeletedCount -lastCheck>1000)
+                        if (group!=null && group.Any())
                         {
-                            lastCheck = totalDeletedCount;
-                            if (!Directory.Exists(directoryPath))
+                            if (totalDeletedCount - lastCheck > 1000)
                             {
-                                throw new DirectoryNotFoundException($"Verification path doesn't exist '{directoryPath}' but should...we will abort deleting abandoned documents.");
+                                lastCheck = totalDeletedCount;
+                                if (!Directory.Exists(directoryPath))
+                                {
+                                    throw new DirectoryNotFoundException($"Verification path doesn't exist '{directoryPath}' but should...we will abort deleting abandoned documents.");
+                                }
                             }
-                        }
-                        
-                        Parallel.ForEach(group, parallelOptions, () => 0,  (doc, loopState, localCount) =>
-                        {
-                            var di = new DirectoryInfo(doc.Id);
-                            var x = di.Attributes.HasFlag(FileAttributes.Directory) && di.Exists;
-                            bool exists = false;
-                            if (di.Attributes.HasFlag(FileAttributes.Directory))
+
+                            Parallel.ForEach(group, parallelOptions, () => 0, (doc, loopState, localCount) =>
                             {
-                                if (di.Exists)
+                                var di = new DirectoryInfo(doc.Id);
+                                var x = di.Attributes.HasFlag(FileAttributes.Directory) && di.Exists;
+                                bool exists = false;
+                                if (di.Attributes.HasFlag(FileAttributes.Directory))
+                                {
+                                    if (di.Exists)
+                                    {
+                                        exists = true;
+                                    }
+                                }
+                                else if (File.Exists(doc.Id))
                                 {
                                     exists = true;
                                 }
-                            }
-                            else if (File.Exists(doc.Id))
-                            {
-                                exists = true;
-                            }
-                            if (exists)
-                            {
-                                throw new Exception($"Unexpected Query failure.....'{doc.Id}' shouldn't exist but does.");
-                            }
-                            else
-                            {
-                                //Console.WriteLine("posting" + doc.Id);
-                                localCount++;
-                                if (deleteBlock.Post(doc))_il.LogDebug("Deleting abandonded '{0}'",doc.Id);                                
-                            }
-                            
-                            return localCount;
+                                if (exists)
+                                {
+                                    throw new Exception($"Unexpected Query failure.....'{doc.Id}' shouldn't exist but does.");
+                                }
+                                else
+                                {
+                                    //Console.WriteLine("posting" + doc.Id);
+                                    localCount++;
 
-                        }, localCount => Interlocked.Add(ref totalDeletedCount, localCount));
+                                    if (deleteBlock.Post(doc)) _il.LogDebug("Deleting abandonded '{0}'", doc.Id);
+                                }
+
+                                return localCount;
+
+                            }, localCount => Interlocked.Add(ref totalDeletedCount, localCount));
+                        }
                     }
                 }
                 catch (Exception ex)

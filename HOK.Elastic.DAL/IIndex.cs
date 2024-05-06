@@ -10,11 +10,12 @@ namespace HOK.Elastic.DAL
         long DeleteDirectoryDescendants(string directoryPublishedPath, string[] indicies);
         long Delete(string key, string index);
         long Delete(string[] key, string index);
+        long DeleteGroup(FSO[] docs);
         void Insert<T>(T item) where T : class, IFSO;
         void Update<T>(T item) where T : class, IFSO;
         void InsertEmail(FSOemail item);
         void InsertTikaDoc(FSOdocument item);
         void BulkInsert(IFSO[] dws, bool crawlContent = false);
-        Task<long> DeleteExceptAsync<T>(string path, List<string> currentItems, ActionBlock<T> actionBlock) where T : class, IFSO;
+        Task<long> DeleteExceptAsync<T>(string path, List<string> currentItems, BatchBlock<T> actionBlock) where T : class, IFSO;
     }
 }

@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -82,7 +83,13 @@ namespace HOK.Elastic.FileSystemCrawler
             docInsertTranformBlock.LinkTo(docInsertBatch, linkOptions, item => DocumentHelper.IsBatchable(item));
             docInsertTranformBlock.LinkTo(docInsert, linkOptions, item => !DocumentHelper.IsBatchable(item));
             docInsertTranformBlock.LinkTo(DataflowBlock.NullTarget<IFSO>(), linkOptions);
-            docDeleteBlock = new ActionBlock<FSO>(x => _indexEndPoint.Delete(x.Id,x.IndexName), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1 });
+            docDeleteAction = new ActionBlock<FSO[]>(v => completionInfo.Deleted=+ _indexEndPoint.DeleteGroup(v), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = insertBoundedCapacity });
+ 
+            long totalDeletes = 0;
+            //ActionBlock<long> deleteCounter = new ActionBlock<long>(x => totalDeletes = +x);
+        
+            docDeleteBatchBlock = new BatchBlock<FSO>(10);
+            docDeleteBatchBlock.LinkTo(docDeleteAction, linkOptions);
 
             if (args.CrawlMode == CrawlMode.Full|| args.CrawlMode==CrawlMode.Incremental)
             {               
@@ -103,8 +110,10 @@ namespace HOK.Elastic.FileSystemCrawler
                     }
                     docInsertTranformBlock.Complete();
                     docReindexTransformBlock.Complete();
-                    docDeleteBlock.Complete();
-                    await Task.WhenAll(docInsert.Completion, docUpdate.Completion, docInsertArray.Completion,docDeleteBlock.Completion).ConfigureAwait(false);
+                    docDeleteBatchBlock.Complete();
+                    await Task.WhenAll(docInsert.Completion, docUpdate.Completion, docInsertArray.Completion,docDeleteAction.Completion).ConfigureAwait(false);
+                    completionInfo.Deleted = +totalDeletes;
+
                     completionInfo.exitCode = CompletionInfo.ExitCode.OK;
                 }
                 catch (AggregateException ae)
@@ -542,8 +551,8 @@ namespace HOK.Elastic.FileSystemCrawler
                 {
                     if (abandonedItem.Item2 == FSOdirectory.indexname)
                     {
-                        if (ilwarn) _il.LogWarn("DeleteDescendants", abandonedItem.Item1);
-                        itemsDeleted += _indexEndPoint.DeleteDirectoryDescendants(abandonedItem.Item1.ToLowerInvariant(), new string[] { FSOdirectory.indexname, FSOfile.indexname, FSOemail.indexname, FSOdocument.indexname });
+                 //       if (ilwarn) _il.LogWarn("DeleteDescendants", abandonedItem.Item1);
+                 //       itemsDeleted += _indexEndPoint.DeleteDirectoryDescendants(abandonedItem.Item1.ToLowerInvariant(), new string[] { FSOdirectory.indexname, FSOfile.indexname, FSOemail.indexname, FSOdocument.indexname });
                     }
                     else
                     {
@@ -596,7 +605,7 @@ namespace HOK.Elastic.FileSystemCrawler
             //look for any abandoned items that have no path
             var goodChildren = currentItemsAsPublishedPaths.ToList();
             var directoryPath = directory.PublishedPath;
-            itemsDeleted += await _indexEndPoint.DeleteExceptAsync<FSO>(directoryPath, goodChildren, docDeleteBlock);
+            itemsDeleted += await _indexEndPoint.DeleteExceptAsync<FSO>(directoryPath, goodChildren, docDeleteBatchBlock);
             return itemsDeleted;
         }
     }
