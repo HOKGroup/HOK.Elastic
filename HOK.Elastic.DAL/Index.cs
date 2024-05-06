@@ -12,6 +12,8 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using System.IO;
+using System.Text;
+using static System.Net.WebRequestMethods;
 
 namespace HOK.Elastic.DAL
 {
@@ -316,10 +318,18 @@ namespace HOK.Elastic.DAL
         public long DeleteGroup(FSO[] docs)
         {
             long count = 0;
-            var d = docs.GroupBy(x => x.IndexName);
-            foreach(var d2 in d)
-            {
-             count =+ Delete(d2.Select(x=>x.Id).ToArray(), d2.Key);
+            var docGroupedByIndex = docs.GroupBy(x => x.IndexName);
+            foreach(var docsByIndex in docGroupedByIndex)
+            {              
+                count =+ Delete(docsByIndex.Select(x=>x.Id).ToArray(), docsByIndex.Key);
+                if (ildebug)
+                {
+                    var logPathGroupings = docsByIndex.GroupBy(files => Path.GetDirectoryName(files.Id), x => Path.GetFileName(x.Id));
+                    foreach (var group in logPathGroupings)
+                    {
+                        _il.LogDebug($"{nameof(DeleteGroup)} {docsByIndex.Key} items from {group.Key}{string.Join(",", group.ToList())}");
+                    }
+                }
             }
             return count;
         }
@@ -342,10 +352,12 @@ namespace HOK.Elastic.DAL
                 if (ilerror) _il.LogErr("Index.Delete", null, err);//this shouldn't fail normally
                 if (ilwarn)
                 {
+                    StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < keys.Length; i++)
                     {
-                        _il.LogWarn("Index.Delete", keys[i], err.ServerErrorReason);
+                        sb.AppendLine(keys[i] + ";");                      
                     }
+                    _il.LogWarn("Index.Delete + " +  sb.ToString(), err.ServerErrorReason);
                 }
                 return 0;
             }
@@ -428,7 +440,7 @@ namespace HOK.Elastic.DAL
                                         exists = true;
                                     }
                                 }
-                                else if (File.Exists(doc.Id))
+                                else if (System.IO.File.Exists(doc.Id))
                                 {
                                     exists = true;
                                 }
@@ -438,10 +450,12 @@ namespace HOK.Elastic.DAL
                                 }
                                 else
                                 {
-                                    //Console.WriteLine("posting" + doc.Id);
                                     localCount++;
-
-                                    if (deleteBlock.Post(doc)) _il.LogDebug("Deleting abandonded '{0}'", doc.Id);
+                                    if (!deleteBlock.Post(doc))
+                                    {
+                                        _il.LogWarn("Couldn't POST...shouldn't be possible");
+                                       // _il.LogTrace("Deleting abandonded '{0}'", doc.Id);
+                                    }
                                 }
 
                                 return localCount;
@@ -471,6 +485,7 @@ namespace HOK.Elastic.DAL
         public IEnumerable<List<T>> GetAbandonedSearchAsync<T>(string directoryPath, List<string> goodChildren, int pageSize = 100, bool withPIT = true) where T : class, IFSO
         {
             int counter = 0;
+            long docCount = 0;
             string pitID = null;
             IHit<T> lastHit = null;
 
@@ -528,18 +543,19 @@ namespace HOK.Elastic.DAL
                         return doc;
                     }
                     );
-
-                    yield return docs.ToList();
+                    var doclist = docs.ToList();
+                    docCount =+ doclist.Count;
+                    yield return doclist;
                     lastHit = search.Hits.LastOrDefault();
                     pitID = search.PointInTimeId;
                 }
-
+                _il.LogDebug(nameof(GetAbandonedSearchAsync) + " returing documents in {0}", directoryPath);
             } while (withPIT && lastHit != null);
             if (pitID != null)
             {
                 var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
             }
-            _il.LogInformation("Returned aprox {0} documents in {1}", counter * pageSize, directoryPath);
+            _il.LogInformation(nameof(GetAbandonedSearchAsync) +  " returned aprox {0} documents in {1}", docCount, directoryPath);
         }
         #endregion
     }

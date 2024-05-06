@@ -85,10 +85,9 @@ namespace HOK.Elastic.FileSystemCrawler
             docInsertTranformBlock.LinkTo(DataflowBlock.NullTarget<IFSO>(), linkOptions);
             docDeleteAction = new ActionBlock<FSO[]>(v => completionInfo.Deleted=+ _indexEndPoint.DeleteGroup(v), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = insertBoundedCapacity });
  
-            long totalDeletes = 0;
-            //ActionBlock<long> deleteCounter = new ActionBlock<long>(x => totalDeletes = +x);
+
         
-            docDeleteBatchBlock = new BatchBlock<FSO>(10);
+            docDeleteBatchBlock = new BatchBlock<FSO>(100);
             docDeleteBatchBlock.LinkTo(docDeleteAction, linkOptions);
 
             if (args.CrawlMode == CrawlMode.Full|| args.CrawlMode==CrawlMode.Incremental)
@@ -112,7 +111,6 @@ namespace HOK.Elastic.FileSystemCrawler
                     docReindexTransformBlock.Complete();
                     docDeleteBatchBlock.Complete();
                     await Task.WhenAll(docInsert.Completion, docUpdate.Completion, docInsertArray.Completion,docDeleteAction.Completion).ConfigureAwait(false);
-                    completionInfo.Deleted = +totalDeletes;
 
                     completionInfo.exitCode = CompletionInfo.ExitCode.OK;
                 }
@@ -551,8 +549,8 @@ namespace HOK.Elastic.FileSystemCrawler
                 {
                     if (abandonedItem.Item2 == FSOdirectory.indexname)
                     {
-                 //       if (ilwarn) _il.LogWarn("DeleteDescendants", abandonedItem.Item1);
-                 //       itemsDeleted += _indexEndPoint.DeleteDirectoryDescendants(abandonedItem.Item1.ToLowerInvariant(), new string[] { FSOdirectory.indexname, FSOfile.indexname, FSOemail.indexname, FSOdocument.indexname });
+                        if (ilwarn) _il.LogWarn("DeleteDescendants", abandonedItem.Item1);
+                        itemsDeleted += _indexEndPoint.DeleteDirectoryDescendants(abandonedItem.Item1.ToLowerInvariant(), new string[] { FSOdirectory.indexname, FSOfile.indexname, FSOemail.indexname, FSOdocument.indexname });
                     }
                     else
                     {
