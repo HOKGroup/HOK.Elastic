@@ -433,6 +433,7 @@ namespace HOK.Elastic.DAL
                                 var di = new DirectoryInfo(doc.Id);
                                 var x = di.Attributes.HasFlag(FileAttributes.Directory) && di.Exists;
                                 bool exists = false;
+                    
                                 if (di.Attributes.HasFlag(FileAttributes.Directory))
                                 {
                                     if (di.Exists)
@@ -537,7 +538,9 @@ namespace HOK.Elastic.DAL
 
                 if (search != null && search.IsValid)
                 {
-                    var docs = search.Hits.Select(x => {
+                    //For paths with derived folder names (not necessarily children folders) the id field matchphrase query used above will return superfluous documents. For example when the documents should be within the path '.\\a\\', elastic matchphrase will also return  '.\\a nother folder\\..' as well as '.\\a big folder\\' as abandoned items and comparing to known,good children.
+                    //To resolved this, rather than use wildcard query filtering for a '\\' delimiter...which is expensive, we just filter the results client-side based on string value of id.
+                    var docs = search.Hits.Where(x => x.Id.Length > directoryPath.Length  && x.Id[directoryPath.Length]=='\\').Select(x => {
                         var doc = x.Source as T;
                         doc.IndexName = x.Index;
                         return doc;
