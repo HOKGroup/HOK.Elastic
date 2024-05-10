@@ -48,7 +48,6 @@ namespace HOK.Elastic.DAL
             settings.DisablePing();//we don't want to do this. But for some reason it seems to fail when connecting to HOK-395 if it's enabled.
             settings.EnableDebugMode();
             settings.DisableDirectStreaming();
-
 #endif
             settings.RequestTimeout(TimeSpan.FromMinutes(5));//todo change this to a setting             
             this.client = new ElasticClient(settings);
@@ -145,8 +144,6 @@ namespace HOK.Elastic.DAL
                 throw iresponse.OriginalException;
             }
         }
-
-
 
         public string GetClientStatus()
         {
