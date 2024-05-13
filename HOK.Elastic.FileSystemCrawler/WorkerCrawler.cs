@@ -7,6 +7,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -82,6 +83,13 @@ namespace HOK.Elastic.FileSystemCrawler
             docInsertTranformBlock.LinkTo(docInsertBatch, linkOptions, item => DocumentHelper.IsBatchable(item));
             docInsertTranformBlock.LinkTo(docInsert, linkOptions, item => !DocumentHelper.IsBatchable(item));
             docInsertTranformBlock.LinkTo(DataflowBlock.NullTarget<IFSO>(), linkOptions);
+            docDeleteAction = new ActionBlock<FSO[]>(v => completionInfo.Deleted=+ _indexEndPoint.DeleteGroup(v), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = insertBoundedCapacity });
+ 
+
+        
+            docDeleteBatchBlock = new BatchBlock<FSO>(100);
+            docDeleteBatchBlock.LinkTo(docDeleteAction, linkOptions);
+
             if (args.CrawlMode == CrawlMode.Full|| args.CrawlMode==CrawlMode.Incremental)
             {               
                 try
@@ -101,7 +109,9 @@ namespace HOK.Elastic.FileSystemCrawler
                     }
                     docInsertTranformBlock.Complete();
                     docReindexTransformBlock.Complete();
-                    await Task.WhenAll(docInsert.Completion, docUpdate.Completion, docInsertArray.Completion).ConfigureAwait(false);
+                    docDeleteBatchBlock.Complete();
+                    await Task.WhenAll(docInsert.Completion, docUpdate.Completion, docInsertArray.Completion,docDeleteAction.Completion).ConfigureAwait(false);
+
                     completionInfo.exitCode = CompletionInfo.ExitCode.OK;
                 }
                 catch (AggregateException ae)
@@ -314,9 +324,9 @@ namespace HOK.Elastic.FileSystemCrawler
                             }
                             else
                             {
-                                if (elasticContents.Count > currentItemsAsPublishedPaths.Count)
+                                if (elasticContents.Count > currentItemsAsPublishedPaths.Count||true==true)
                                 {
-                                    var deletedItems = DeleteAbandonedItems(elasticContents, directory, currentItemsAsPublishedPaths);
+                                    var deletedItems = await DeleteAbandonedItemsAsync(elasticContents, directory, currentItemsAsPublishedPaths);
                                     Interlocked.Add(ref _deleted, deletedItems);
                                 }
                             }
@@ -528,7 +538,7 @@ namespace HOK.Elastic.FileSystemCrawler
             return false;
         }
 
-        private long DeleteAbandonedItems(HashSet<DirectoryContents.Content> elasticContents, FSOdirectory directory, ConcurrentBag<string> currentItemsAsPublishedPaths)
+        private long DeleteAbandonedItemsOld(HashSet<DirectoryContents.Content> elasticContents, FSOdirectory directory, ConcurrentBag<string> currentItemsAsPublishedPaths)
         {
            List<DirectoryContents.Content> abandonedItems = elasticContents.Where(x => !currentItemsAsPublishedPaths.Where(a => x.Item1.Equals(a) || x.Item1.StartsWith(a)).Any()).ToList();
 
@@ -557,6 +567,43 @@ namespace HOK.Elastic.FileSystemCrawler
                     return 0;
                 }
             }
+            return itemsDeleted;
+        }
+
+
+        private async Task<long> DeleteAbandonedItemsAsync(HashSet<DirectoryContents.Content> elasticContents, FSOdirectory directory, ConcurrentBag<string> currentItemsAsPublishedPaths)
+        {
+            List<DirectoryContents.Content> abandonedItems = elasticContents.Where(x => !currentItemsAsPublishedPaths.Where(a => x.Item1.Equals(a) || x.Item1.StartsWith(a)).Any()).ToList();
+
+            long itemsDeleted = 0;
+            foreach (DirectoryContents.Content abandonedItem in abandonedItems)
+            {
+                try
+                {
+                    if (abandonedItem.Item2 == FSOdirectory.indexname)
+                    {
+                        if (ilwarn) _il.LogWarn("DeleteDescendants", abandonedItem.Item1);
+                        itemsDeleted += _indexEndPoint.DeleteDirectoryDescendants(abandonedItem.Item1.ToLowerInvariant(), new string[] { FSOdirectory.indexname, FSOfile.indexname, FSOemail.indexname, FSOdocument.indexname });
+                    }
+                    else
+                    {
+                        if (ilwarn) _il.LogWarn("DeleteSingle", abandonedItem.Item1);
+                        itemsDeleted += _indexEndPoint.Delete(abandonedItem.Item1.ToLowerInvariant(), abandonedItem.Item2);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (ilerror)
+                    {
+                        _il.LogErr("Error cleaning records from index", directory.PublishedPath, null, ex);
+                    }
+                    return 0;
+                }
+            }
+            //look for any abandoned items that have no path
+            var goodChildren = currentItemsAsPublishedPaths.ToList();
+            var directoryPath = directory.PublishedPath;
+            itemsDeleted += await _indexEndPoint.DeleteExceptAsync<FSO>(directoryPath, goodChildren, docDeleteBatchBlock);
             return itemsDeleted;
         }
     }

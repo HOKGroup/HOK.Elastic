@@ -43,6 +43,8 @@ namespace HOK.Elastic.FileSystemCrawler
         internal ActionBlock<IFSO> docInsertReindex;
         internal ActionBlock<IFSO[]> docInsertArray;
         internal ActionBlock<IFSO> docUpdate;
+        internal ActionBlock<FSO[]> docDeleteAction;
+        internal BatchBlock<FSO> docDeleteBatchBlock;
         public SecurityHelper SecurityHelper => _securityHelper;
         public DocumentHelper DocumentHelper => _documentHelper;
 

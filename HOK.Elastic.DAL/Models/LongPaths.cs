@@ -4,7 +4,6 @@ namespace HOK.Elastic.DAL.Models
 {
     public class LongPaths
     {
-        private static bool? _isSupported;
         private const string LEGACYUNC = @"\\?\unc\";
         private const string LEGACYLOCALPATH = @"\\?\";
 
