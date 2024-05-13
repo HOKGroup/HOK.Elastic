@@ -16,7 +16,7 @@ namespace HOK.Elastic.FileSystemCrawler
         private bool readFileContents;
         private readonly string MachineName;
         private HOK.Elastic.Logger.Log4NetLogger _il;
-        private DAL.IIndex _indexNode;
+        private DAL.Index _indexNode;
         private SecurityHelper sh;
         private readonly int _readLimitKBEmail = 200000;///<200MB is generally a reasonable size...there is one email in the Shire that is 300MB...but it says 'invalid structured storage' when opened.
         //if((fsodoc.Extension==".pdf"||fsodoc.Extension==".pptx")&&fsodoc.LengthKB>175000)//175MB....250MB PDF results in 1GB http payload which is beyond capacity
@@ -25,9 +25,8 @@ namespace HOK.Elastic.FileSystemCrawler
         private readonly int _readLimitKBTika = 275000;
 
 
-        public DocumentHelper(bool ReadFileContents, SecurityHelper securityHelper, IIndex indexNode,  Log4NetLogger logger = null)
+        public DocumentHelper(bool ReadFileContents, SecurityHelper securityHelper, DAL.Index indexNode,  Log4NetLogger logger = null)
         {
-           // _indexNameHelper = indexNameHelper;
             _il = logger;
             ildebug = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
             ilinfo = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information);

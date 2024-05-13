@@ -538,39 +538,6 @@ namespace HOK.Elastic.FileSystemCrawler
             return false;
         }
 
-        private long DeleteAbandonedItemsOld(HashSet<DirectoryContents.Content> elasticContents, FSOdirectory directory, ConcurrentBag<string> currentItemsAsPublishedPaths)
-        {
-           List<DirectoryContents.Content> abandonedItems = elasticContents.Where(x => !currentItemsAsPublishedPaths.Where(a => x.Item1.Equals(a) || x.Item1.StartsWith(a)).Any()).ToList();
-
-            long itemsDeleted = 0;
-            foreach (DirectoryContents.Content abandonedItem in abandonedItems)
-            {
-                try
-                {
-                    if (abandonedItem.Item2 == _indexEndPoint.IndexHelper.IndexNameDir)
-                    {
-                        if (ilwarn) _il.LogWarn("DeleteDescendants", abandonedItem.Item1);
-                        itemsDeleted += _indexEndPoint.DeleteDirectoryDescendants(abandonedItem.Item1.ToLowerInvariant(),_indexEndPoint.IndexHelper.AllIndexNames);
-                    }
-                    else
-                    {
-                        if (ilwarn) _il.LogWarn("DeleteSingle", abandonedItem.Item1);
-                        itemsDeleted += _indexEndPoint.Delete(abandonedItem.Item1.ToLowerInvariant(), abandonedItem.Item2);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (ilerror)
-                    {
-                        _il.LogErr("Error cleaning records from index", directory.PublishedPath, null, ex);
-                    }
-                    return 0;
-                }
-            }
-            return itemsDeleted;
-        }
-
-
         private async Task<long> DeleteAbandonedItemsAsync(HashSet<DirectoryContents.Content> elasticContents, FSOdirectory directory, ConcurrentBag<string> currentItemsAsPublishedPaths)
         {
             List<DirectoryContents.Content> abandonedItems = elasticContents.Where(x => !currentItemsAsPublishedPaths.Where(a => x.Item1.Equals(a) || x.Item1.StartsWith(a)).Any()).ToList();

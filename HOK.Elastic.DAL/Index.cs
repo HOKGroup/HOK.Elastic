@@ -502,7 +502,7 @@ namespace HOK.Elastic.DAL
                 mustNots.Add(q => q.MatchPhrase(w => w.Field(f => f.Id).Query(x)));
             }
             mustNots.Add(a => a.Term(new Field("id.keyword"), directoryPath));
-            string indexFilter = AllIndicies;
+            string indexFilter = IndexHelper.PrefixWildcard;
             PointInTimeDescriptor pointInTime = null;
             if (withPIT)
             {

@@ -215,7 +215,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             {
                 PipeLineNameHelper pipeLineHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
 
-                using (var initializationPipeline = new DAL.InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
+                using (var initializationPipeline = new InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
                 {
                     if (!initializationPipeline.CheckForPipeLines())
                     {
@@ -229,7 +229,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     }
 
 
-                    using (var initializationIndex = new DAL.InitializationIndex(pipeLineNameHelper, indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
+                    using (var initializationIndex = new InitializationIndex(pipeLineNameHelper, indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
                     {
 #if DEBUG
                         //initializationIndex.PromptToDelete();
