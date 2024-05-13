@@ -26,7 +26,6 @@ namespace HOK.Elastic.DAL.Models
         public bool HasAttachments { get { return string.IsNullOrEmpty(AttachmentNames) == false; } }
 
         public DateTime? SentUTC { get; set; }
-        public new static string indexname = StaticIndexPrefix.Prefix + "fsomsg";
 
         [Text(Ignore = true)]
         public new static HashSet<string> SupportedExts { get { return _supportedExtensions; } }

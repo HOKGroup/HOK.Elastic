@@ -40,9 +40,10 @@ namespace HOK.Elastic.ArchiveDiscovery
 
         internal async Task RunAsync(SettingsJobArgsDTO settingsJobArgsDTO,string pathPrefix,string pathProdSuffix,string pathArchiveSuffix,Regex officeMatch=null)
         {
-            StaticIndexPrefix.Prefix = settingsJobArgsDTO.IndexNamePrefix;
+            IndexNameHelper indexNameHelper = new IndexNameHelper(settingsJobArgsDTO.IndexNamePrefix);
+            PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(settingsJobArgsDTO.IndexNamePrefix);
             var discoveryuris = settingsJobArgsDTO.ElasticDiscoveryURI.Select(x => new Uri(x)).ToList();
-            DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(discoveryuris, new Logger.Log4NetLogger(nameof(Worker)));
+            DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(pipeLineNameHelper, indexNameHelper, discoveryuris, new Logger.Log4NetLogger(nameof(Worker)));
             var clientStatus = discoveryArchive.GetClientStatus();
             if (ilDebug) _il.LogDebugInfo("Status", null, clientStatus);
             var offices = (await discoveryArchive.FindOffices());

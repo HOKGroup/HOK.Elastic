@@ -21,15 +21,15 @@ namespace HOK.Elastic.DAL
     public partial class Index : Discovery, IIndex
     {
         private readonly int _maxbulkthreads = Convert.ToInt32(Environment.ProcessorCount * 0.75);
-        private readonly TimeSpan defaultQueryTimeout = TimeSpan.FromSeconds(120);
-      
+        private readonly TimeSpan defaultQueryTimeout = TimeSpan.FromSeconds(240);
+        
 
-        public Index(Uri uri, Logger.Log4NetLogger logger) : base(uri, logger)
+        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, Logger.Log4NetLogger logger) : base (pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }
 
-        public Index(IEnumerable<Uri> uri, Logger.Log4NetLogger logger)
-            : base(uri, logger)
+        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, Logger.Log4NetLogger logger)
+            : base(pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }
 
@@ -111,7 +111,7 @@ namespace HOK.Elastic.DAL
         {
             IndexResponse ir = new IndexResponse();
             ir = this.client.Index(item, i => i
-                .Index(FSOemail.indexname)
+                .Index(IndexHelper.IndexNameFsoMsg)
                 .Timeout(defaultQueryTimeout)
                 );
             if (!ir.IsValid)
@@ -142,7 +142,7 @@ namespace HOK.Elastic.DAL
             {
                 IndexResponse ir = new IndexResponse();
                 ir = this.client.Index(item, i => i
-                        .Index(FSOdocument.indexname)
+                        .Index(IndexHelper.IndexNameFsoDoc)
                         .Timeout(TimeSpan.FromMinutes(5))//todo decide on how to handle timeouts
                         );
                 if (!ir.IsValid)
@@ -177,8 +177,8 @@ namespace HOK.Elastic.DAL
             var temp = DateTime.Now;
             IndexResponse ir = new IndexResponse();
             ir = this.client.Index(item, i => i
-                                .Pipeline(InitializationPipeline.PIPEvalidate)//override
-                                .Index(FSOdocument.indexname)
+                                .Pipeline(PipeLineNameHelper.PIPEvalidate)//override
+                                .Index(IndexHelper.IndexNameFsoDoc)
                                 .Timeout(defaultQueryTimeout)//todo decide on how to handle timeouts
                                 );
             if (!ir.IsValid)
@@ -206,13 +206,13 @@ namespace HOK.Elastic.DAL
             {
                 var bulk = client.BulkAll(group, b => b
                                   .Index(group.Key)
-                                  .BackOffTime("60s")
-                                  .BackOffRetries(2)
-                                  .Timeout(defaultQueryTimeout)
+                                  .BackOffTime("20s")
+                                  .BackOffRetries(3)
+                                  .Timeout(defaultQueryTimeout)                                  
                                   //.RefreshOnCompleted(true)
                                   .MaxDegreeOfParallelism(_maxbulkthreads)
                                   .Size(50)
-                                 .ContinueAfterDroppedDocuments(true)
+                                  .ContinueAfterDroppedDocuments(true)
                                   .BulkResponseCallback(response =>
                                   {
                                       if (!response.IsValid && ilwarn)
@@ -235,11 +235,18 @@ namespace HOK.Elastic.DAL
                                   .DroppedDocumentCallback((response, o) =>
                                   {
                                       //this doesn't seem to get called for failed documents but it's here just in case
-                                      failures.Add(o);
-                                      if (ilwarn)
+                                      if(response.Status==201)
                                       {
-                                          _il.LogWarn("Bulk fail", response.Id, response.Error?.Reason);
+                                          if(ildebug) { _il.LogDebug("Bulk dropped document but had a 201 created." + o.Id.ToString()); };
                                       }
+                                      else
+                                      {
+                                          failures.Add(o);
+                                          if (ilwarn)
+                                          {
+                                              _il.LogWarn("Bulk fail", response.Id, response.Error?.Reason);
+                                          }
+                                      }                                     
                                   })
                                   );
                 try
@@ -285,9 +292,9 @@ namespace HOK.Elastic.DAL
                     if (err.HttpStatusCode == 404)
                     {
                         IFSO exist;
-                        if (doc.IndexName == FSOdocument.indexname || doc.IndexName == FSOemail.indexname)
+                        if (doc.IndexName == IndexHelper.IndexNameFsoDoc || doc.IndexName == IndexHelper.IndexNameFsoMsg)
                         {
-                            exist = GetById<FSOfile>(doc.Id, FSOfile.indexname);
+                            exist = GetById<FSOfile>(doc.Id, IndexHelper.IndexNameFsoFile);
                         }
                         else
                         {
@@ -297,7 +304,7 @@ namespace HOK.Elastic.DAL
 
                         if (exist != null)
                         {
-                            Delete(exist.Id, FSOfile.indexname);
+                            Delete(exist.Id, IndexHelper.IndexNameFsoFile);
                             doc.Reason += " relocate from fsofile.";
                             Insert(doc);//because of the 404 above, this would never be an update.
                         }
@@ -309,7 +316,6 @@ namespace HOK.Elastic.DAL
                 }
             }
         }
-
 
         #endregion
 

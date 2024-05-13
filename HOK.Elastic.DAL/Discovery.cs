@@ -19,20 +19,15 @@ namespace HOK.Elastic.DAL
     public class Discovery : Base, IDiscovery
     {
 
-        public Discovery(Uri uri, Logger.Log4NetLogger logger) : base(uri, logger)
+        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper,uri, logger)
         {
         }
-        public Discovery(IEnumerable<Uri> uri, Logger.Log4NetLogger logger) : base(uri, logger)
+        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper,uri, logger)
         {
         }
 
         private readonly string[] DefaultSourceFieldsFilter = new string[] { "id", "parent", "acls", "last_write_timeUTC", "failureCount" };
         private readonly string[] JustId = new string[] { "id" };
-        protected readonly string AllIndicies = StaticIndexPrefix.Prefix + "*";
-        private Type typedir = typeof(FSOdirectory);
-        private Type typefsofile = typeof(FSOfile);
-        private Type typefsodoc = typeof(FSOdocument);
-        private Type typefsoemail = typeof(FSOemail);
 
 
         /// <summary>
@@ -43,6 +38,7 @@ namespace HOK.Elastic.DAL
         /// <returns></returns>
         public DirectoryContents FindRootAndChildren(string path, bool includeFullSource = false)
         {
+            
             SourceFilterDescriptor<FSO> sourceFilter;
             if (includeFullSource)
             {
@@ -57,7 +53,7 @@ namespace HOK.Elastic.DAL
 
 
             var response = client.Search<FSO>(d => d
-                        .Index(AllIndicies)
+                        .Index(IndexHelper.AllIndexNames)
                         .Size(1000)//if we get results at size limit we will scroll the query.
                         .Sort(sort => sort.Ascending("id.keyword"))//added to ensure the root/parent/'path we are searching for' is actually found
                         .Source(s => sourceFilter)//we could sort here if we really wanted to ensure we get the 'root' document but it's highly likely to be returned in the sub 1000 query.
@@ -92,7 +88,7 @@ namespace HOK.Elastic.DAL
                         directoryContents = new DirectoryContents()
                         {
                             Id = path,
-                            IndexName = FSOdirectory.indexname
+                            IndexName = IndexHelper.IndexNameDir
                         };
                     }
                     else//root and children were both null...
@@ -153,7 +149,7 @@ namespace HOK.Elastic.DAL
             string scrolltimeout = "10h";
             ISearchResponse<FSO> searchResponse = null;
             searchResponse = client.Search<FSO>(d => d
-                        .Index(AllIndicies)
+                        .Index(IndexHelper.AllIndexNames)
                         .Size(500)
                         .Scroll(scrolltimeout)
                         .Source(a => sourceFilter)
@@ -224,7 +220,7 @@ namespace HOK.Elastic.DAL
             int desiredTake = pageSize;
             T doc;
             string scrolltimeout = "10h";
-            string indexName = GetIndexName<T>().ToString();
+            string indexName = IndexHelper.GetNameFor<T>().ToString();
             ISearchResponse<T> searchResponse = null;
             searchResponse = client.Search<T>(d => d
                         .Index(indexName)
@@ -305,33 +301,6 @@ namespace HOK.Elastic.DAL
         }
 
 
-
-
-
-        private string GetIndexName<T>()
-        {
-            if (typeof(T) == typedir)
-            {
-                return FSOdirectory.indexname;
-            }
-            else if (typeof(T) == typefsofile)
-            {
-                return FSOfile.indexname;
-            }
-            else if (typeof(T) == typefsoemail)
-            {
-                return FSOemail.indexname;
-            }
-            else if (typeof(T) == typefsodoc)
-            {
-                return FSOdocument.indexname;
-            }
-            else
-            {
-                throw new NotSupportedException(typeof(T) + "is not supported");//won't be caught below should fix that
-            }
-        }
-
         /// <summary>
         /// Called by WorkerCrawler's Missing Content.
         /// We want to be careful not to do deep paging. So we can't just query and say let's page through all the result in Elastic. Maybe we could look at find all>aggregate on some fields and then choose those as the filter for paging through the results. or something like that.
@@ -357,11 +326,11 @@ namespace HOK.Elastic.DAL
             }
             if (typeof(T) == typeof(FSOdocument))
             {
-                indexName = FSOdocument.indexname;
+                indexName = IndexHelper.IndexNameFsoDoc;
             }
             else if (typeof(T) == typeof(FSOemail))
             {
-                indexName = FSOemail.indexname;
+                indexName = IndexHelper.IndexNameFsoMsg;
             }
             else
             {
@@ -441,10 +410,8 @@ namespace HOK.Elastic.DAL
         /// <returns></returns>
         public IEnumerable<T> GetIFSOsByQuery<T>(string jsonQueryString, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSO
         {
-            string scrolltimeout = "30m";
-            //Its value (e.g. 1m, see Time units) does not need to be long enough to process all data
-            //it just needs to be long enough to process the previous batch of results.
-            string indexName = GetIndexName<T>();
+            string scrolltimeout = "30m";//Its value (e.g. 1m, see Time units) does not need to be long enough to process all data-it just needs to be long enough to process the previous batch of results.
+            string indexName = IndexHelper.GetNameFor<T>();
             DateTime? maximumDate = null;
             if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);
             if (failureCountFilter > 0)
@@ -520,7 +487,7 @@ namespace HOK.Elastic.DAL
             {
                 var resp = client.Search<T>
                         (search => search
-                            .Index(AllIndicies)
+                            .Index(IndexHelper.AllIndexNames)
                             .From(i * pageSize)
                             .Size(pageSize)
                             .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))
@@ -583,7 +550,7 @@ namespace HOK.Elastic.DAL
         public bool ValidateJsonStringQuery(string jsonQueryString)
         {
             var resp = client.Indices.ValidateQuery<IFSO>(v => v
-                .Index(AllIndicies)
+                .Index(IndexHelper.AllIndexNames)
                 .Query(q => q.Raw(jsonQueryString)));
             if (resp.IsValid)
             {

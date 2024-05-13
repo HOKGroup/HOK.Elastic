@@ -8,7 +8,7 @@ using System.Reflection;
 
 namespace HOK.Elastic.DAL
 {
-    public class InitializationIndex : Initialization
+    public class InitializationIndex : InitializationBase
     {
         public const string SMB_PATH_H = "SMBpath_h";
         public const string SMB_PATH_H_REVERSE = "SMBpath_h_reverse";
@@ -24,14 +24,14 @@ namespace HOK.Elastic.DAL
         public const string TRUNCATE10 = "truncate10";
         public readonly Nest.Time RefreshInterval = new Time(TimeSpan.FromSeconds(30));
 
-        public InitializationIndex(Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : base(elastiSearchServerUrl, logger)
+        public InitializationIndex(PipeLineNameHelper pipeLineHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : base(pipeLineHelper, indexNameHelper, elastiSearchServerUrl, logger)
         {
         }
 
         public bool PreFlightFail()
         {            
             bool fail = false;
-            string[] indicies = new string[] { FSOdirectory.indexname, FSOfile.indexname, FSOdocument.indexname, FSOemail.indexname };
+            string[] indicies = IndexHelper.AllIndexNames;
             for (int i = 0; i < indicies.Length; i++)
             {
                 bool exists = client.Indices.Exists(indicies[i]).Exists;
@@ -62,10 +62,10 @@ namespace HOK.Elastic.DAL
         public void PromptToDelete()
         {
 #if DEBUG
-            if (ilwarn) _il.LogWarn($"Delete {StaticIndexPrefix.Prefix}* indicies?....type {{yes}} and {{enter}} to delete...or just {{enter}} to skip.");
+            if (ilwarn) _il.LogWarn($"Delete {IndexHelper.PrefixWildcard} indicies?....type {{yes}} and {{enter}} to delete...or just {{enter}} to skip.");
             if (string.Equals(Console.ReadLine(), "yes", StringComparison.OrdinalIgnoreCase))
             {
-                string[] indiciesToDelete = new string[] { FSOdirectory.indexname, FSOdocument.indexname, FSOemail.indexname, FSOfile.indexname };
+                string[] indiciesToDelete = IndexHelper.AllIndexNames;
                 foreach (string index in indiciesToDelete)
                 {
                     DeleteIndexResponse response = client.Indices.Delete(Indices.Index(index));
@@ -105,13 +105,13 @@ namespace HOK.Elastic.DAL
    
         public void BuildIndexFSODirectory()
         {
-            CreateIndexResponse createFileResponse = client.Indices.Create(FSOdirectory.indexname, i => i
+            CreateIndexResponse createFileResponse = client.Indices.Create(IndexHelper.IndexNameDir, i => i
                 .Settings(s => s
                    .NumberOfReplicas(0)
                    .NumberOfShards(1)//maybe we should either check how many nodes and calculate or prompt?
                    .RefreshInterval(RefreshInterval)//default is 1s refresh rate
                    .Analysis(a => a = GetCommonAnalysisDescriptor())
-                   .FinalPipeline(InitializationPipeline.PIPEvalidate)
+                   .FinalPipeline(PipeLineNameHelper.PIPEvalidate)
                     )
                 .Map<FSOdirectory>(map => map
                     .Properties(property => property = GetDefaultPropertyMappingDescriptor<FSOdirectory>())
@@ -139,14 +139,14 @@ namespace HOK.Elastic.DAL
                      .Tokenizer(EMAILADDRESS).Filters(LOWERCASE,TRUNCATE10))
                 );
 
-            CreateIndexResponse createFileResponse = client.Indices.Create(FSOemail.indexname, i => i
+            CreateIndexResponse createFileResponse = client.Indices.Create(IndexHelper.IndexNameFsoMsg, i => i
             .Settings(s => s
                 .NumberOfReplicas(0)
                 .NumberOfShards(shards)
                 .RefreshInterval(RefreshInterval)
                 .Analysis(analysis => analysis = emailAnalysisDescriptor)
-                .DefaultPipeline(InitializationPipeline.PIPEEmail)
-                .FinalPipeline(InitializationPipeline.PIPEvalidate)
+                .DefaultPipeline(PipeLineNameHelper.PIPEEmail)
+                .FinalPipeline(PipeLineNameHelper.PIPEvalidate)
                 )                
             .Map<FSOemail>(map => map      
                 .Properties(
@@ -168,13 +168,13 @@ namespace HOK.Elastic.DAL
 
         private void BuildIndexFsoFile()
         {
-            CreateIndexResponse createFileResponse = client.Indices.Create(FSOfile.indexname, i => i
+            CreateIndexResponse createFileResponse = client.Indices.Create(IndexHelper.IndexNameFsoFile, i => i
                 .Settings(s => s
                     .NumberOfReplicas(0)//Increase replicas once in production and bulk indexing is complete.
                     .NumberOfShards(1)// It's an option to increase shards later as required.
                     .RefreshInterval(RefreshInterval)//Default is 1s refresh rate
                     .Analysis(a => a = GetCommonAnalysisDescriptor())
-                    .FinalPipeline(InitializationPipeline.PIPEvalidate)
+                    .FinalPipeline(PipeLineNameHelper.PIPEvalidate)
                     )
                 .Map<FSOfile>(map => map
                     .Properties(property => property = GetDefaultPropertyMappingDescriptor<FSOfile>())
@@ -188,14 +188,14 @@ namespace HOK.Elastic.DAL
         public void BuildIndexFSODocument(bool runningInteractively)
         {
             int shards = runningInteractively ? GetUserInteractiveInput("How many shards for document index?", 1, 64) : 1;
-            CreateIndexResponse createFileResponse = client.Indices.Create(FSOdocument.indexname, i => i
+            CreateIndexResponse createFileResponse = client.Indices.Create(IndexHelper.IndexNameFsoDoc, i => i
                 .Settings(s => s
                    .NumberOfReplicas(0)
                    .NumberOfShards(shards)//maybe we should either check how many nodes and calculate or prompt?
                    .RefreshInterval(RefreshInterval)//default is 1s refresh rate
                    .Analysis(a => a = GetCommonAnalysisDescriptor())
-                   .DefaultPipeline(InitializationPipeline.PIPEDocument)
-                   .FinalPipeline(InitializationPipeline.PIPEvalidate)
+                   .DefaultPipeline(PipeLineNameHelper.PIPEDocument)
+                   .FinalPipeline(PipeLineNameHelper.PIPEvalidate)
                     )
                 .Map<FSOdocument>(map => map                    
                     .Properties(property => property = GetDefaultPropertyMappingDescriptor<FSOdocument>())
@@ -327,8 +327,9 @@ namespace HOK.Elastic.DAL
                 Reverse = true
             };
             var smb_path_text = new PatternTokenizer()
-            {//is this a SimplePattern...no so we have to use Pattern but specify to capture the group?
-             // Pattern = @"([+]|([a-zA-Z0-9]+))",
+            {
+                //is this a SimplePattern...no so we have to use Pattern but specify to capture the group?
+                //Pattern = @"([+]|([a-zA-Z0-9]+))",
                 Pattern = @"([+]|[\w\.\'\-]+)",
                 Group = 1
             };

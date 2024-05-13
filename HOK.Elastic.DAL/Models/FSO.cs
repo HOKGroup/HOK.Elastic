@@ -7,7 +7,6 @@ namespace HOK.Elastic.DAL.Models
 {
     public class FSO : IFSO
     {
-        public static string indexname = StaticIndexPrefix.Prefix + "fso";
         private string _Id, _name, _parent;
         private string _contentPath, _crawlPath, _dfsPath;
         private string _commonPathComponent;
@@ -36,7 +35,7 @@ namespace HOK.Elastic.DAL.Models
         /// </summary>
         public ACLs Acls { get; set; }
         [Keyword]
-        public string Version { get; set; }//we will store the version, to support recrawls when processing engine changes? 
+        public string Version { get; set; } = "V3"; //we will store the version, to support recrawls when processing engine changes? 
         public DateTime Last_write_timeUTC { get; set; }
         public DateTime Create_write_timeUTC { get; set; }
         public DateTime Timestamp { get; set; }

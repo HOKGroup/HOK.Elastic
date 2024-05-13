@@ -442,7 +442,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 if (item is FSOdirectory)
                 {
                     if (ildebug) _il.LogDebugInfo("Directory Not Found", item.Id);
-                    _deleted += _indexEndPoint.DeleteDirectoryDescendants(item.Id, new string[] { FSOdirectory.indexname, FSOfile.indexname, FSOdocument.indexname, FSOemail.indexname });
+                    _deleted += _indexEndPoint.DeleteDirectoryDescendants(item.Id,_indexEndPoint.IndexHelper.AllIndexNames);
                 }
                 else
                 {
@@ -451,47 +451,6 @@ namespace HOK.Elastic.FileSystemCrawler
             }
         }
 
-        //later, we can also look at making a custom dataflowblock based on filesize.
-        private async Task WaitForMemory(double desiredFreeMemoryKB)
-        {
-            bool GCCollectCalled = false;
-            int count = 0;
-            ulong availableSizeKB;
-            NativeMethods.MEMORYSTATUSEX memStatus;
-            do
-            {
-                memStatus = new NativeMethods.MEMORYSTATUSEX();
-                if (NativeMethods.GlobalMemoryStatusEx(memStatus))
-                {
-                    availableSizeKB = memStatus.ullAvailPhys / 1024;
-                }
-                else
-                {
-                    availableSizeKB = ulong.MaxValue;//if we can't get the available memory just let it continue..
-                }
-                if (availableSizeKB < desiredFreeMemoryKB)
-                {
-                    count++;
-                    if (count > 5)
-                    {
-                        count = 0;
-                        docInsertBatch.TriggerBatch();
-                        this._indexEndPoint = new DAL.Index(_args.ElasticIndexURI.ToArray(), new Elastic.Logger.Log4NetLogger("Index"));
-                        this._discoveryEndPoint = new DAL.Discovery(_args.ElasticDiscoveryURI.ToArray(), new Elastic.Logger.Log4NetLogger("Discovery"));
-                        if (ilwarn) _il.LogWarn($"Almost out of memory...cleared elastic");
-                    }
 
-                    if (ilwarn) _il.LogWarn($"Almost out of memory...will wait. Insert={docInsert.InputCount},Array={docInsertArray.InputCount},InsertTransform={docInsertTranformBlock.InputCount}", "", availableSizeKB);
-                    if (ilwarn) _il.LogWarn($"Almost out of memory...will wait. Desired={desiredFreeMemoryKB}KB Available={availableSizeKB}", "", availableSizeKB);
-                    if (!GCCollectCalled)
-                    {
-                        GCCollectCalled = true;
-                        GC.Collect();
-                    }
-                    //we could also trigger batch blocks to clear their queues.                    
-                    await Task.Delay(1000).ConfigureAwait(false);
-                }
-            } while (availableSizeKB < desiredFreeMemoryKB);
-        }
     }
 }

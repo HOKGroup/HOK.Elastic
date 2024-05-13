@@ -1,4 +1,5 @@
-﻿using HOK.Elastic.DAL.Models;
+﻿using HOK.Elastic.DAL;
+using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
 using HOK.Elastic.Logger;
 using Microsoft.Extensions.Configuration;
@@ -186,7 +187,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
         static async Task<int> Start(ISettingsJobArgs workerargs, string configFilePath)
         {
             CompletionInfo completionInfo = null;
-            DAL.StaticIndexPrefix.Prefix = workerargs.IndexNamePrefix;
+
             if (ilinfo)
             {
                 _il.LogInfo("Read config file from:", configFilePath);
@@ -201,37 +202,21 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             }
 
             // TODO: Retry Discovery a few times if connection failed
-            var discovery = new DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), new Log4NetLogger($"{workerargs.JobName}.Discovery"));
-            var index = new DAL.Index(workerargs.ElasticIndexURI.First(), new Log4NetLogger($"{workerargs.JobName}.Index"));
-
+            IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
+            PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
+           
+            var discovery = new DAL.Discovery(pipeLineNameHelper,indexNameHelper, workerargs.ElasticDiscoveryURI.First(), new Log4NetLogger($"{workerargs.JobName}.Discovery"));
+            var index = new DAL.Index(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Log4NetLogger($"{workerargs.JobName}.Index"));
+       
 
             var securityHelper = new SecurityHelper(new Log4NetLogger($"{workerargs.JobName}.SecurityHelper"));
             var documentHelper = new DocumentHelper(workerargs.ReadFileContents ?? false, securityHelper, index, new Log4NetLogger($"{workerargs.JobName}.DocumentHelper"));
             try
             {
-                using (var initializationIndex = new DAL.InitializationIndex(workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
+                PipeLineNameHelper pipeLineHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
+
+                using (var initializationPipeline = new DAL.InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
                 {
-                    initializationIndex.Prefix = Program.AppSettings.IndexNamePrefix;
-#if DEBUG
-                    //initializationIndex.PromptToDelete();
-#endif
-                    if (initializationIndex.PreFlightFail())
-                    {
-                        if (!workerargs.RunningInteractively)
-                        {
-                            if (ilerror) _il.LogErr("Indicies Check failed...please relaunch this application interactively to setup indicies.");
-                            return 1;
-                        }
-                        else
-                        {
-                            initializationIndex.Put(workerargs.RunningInteractively);
-                        }
-                    }
-                }
-                using (var initializationPipeline = new DAL.InitializationPipeline(workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
-                {
-                    initializationPipeline.PIPECategorizationProjectExtractRgx = workerargs.PipeCategorizationRegex;
-                    initializationPipeline.Prefix = Program.AppSettings.IndexNamePrefix;
                     if (!initializationPipeline.CheckForPipeLines())
                     {
                         initializationPipeline.Put(true);
@@ -242,6 +227,27 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                         //initializationPipeline.PromptToDelete();
 #endif
                     }
+
+
+                    using (var initializationIndex = new DAL.InitializationIndex(pipeLineNameHelper, indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
+                    {
+#if DEBUG
+                        //initializationIndex.PromptToDelete();
+#endif
+                        if (initializationIndex.PreFlightFail())
+                        {
+                            if (!workerargs.RunningInteractively)
+                            {
+                                if (ilerror) _il.LogErr("Indicies Check failed...please relaunch this application interactively to setup indicies.");
+                                return 1;
+                            }
+                            else
+                            {
+                                initializationIndex.Put(workerargs.RunningInteractively);
+                            }
+                        }
+                    }
+
                 }
 
                 if (workerargs.CrawlMode == CrawlMode.EventBased)

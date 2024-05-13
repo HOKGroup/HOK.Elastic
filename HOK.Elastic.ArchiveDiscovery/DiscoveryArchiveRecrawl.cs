@@ -8,14 +8,14 @@ namespace HOK.Elastic.ArchiveDiscovery
 {
     internal class DiscoveryArchiveRecrawl : HOK.Elastic.DAL.Discovery
     {
-        public DiscoveryArchiveRecrawl(IEnumerable<Uri> elasticHost, HOK.Elastic.Logger.Log4NetLogger logger) : base(elasticHost, logger)
+        public DiscoveryArchiveRecrawl(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper,IEnumerable<Uri> elasticHost, HOK.Elastic.Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper,elasticHost, logger)
         {
         }
         public async Task<IEnumerable<string>> FindOffices()
         {
             List<string> offices = new List<string>();
             var aggs = TermsAggregationBuilder(nameof(HOK.Elastic.DAL.Models.FSOdirectory.Office));
-            var search = client.SearchAsync<DAL.Models.FSOdirectory>(s => s.Index(DAL.Models.FSOdirectory.indexname)
+            var search = client.SearchAsync<DAL.Models.FSOdirectory>(s => s.Index(IndexHelper.IndexNameDir)
             .Size(0)
             .Query(q => q.Bool(x => x.Filter(f => f.Term(t => t.IsProjectRoot, true))))
             .Aggregations(x => x.Terms("officesagg", o => o.Field(f => f.Office).Size(1000)))//todo I can't recall why is this size 1000
@@ -46,7 +46,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             // string officepath = @$"\\group\hok\{office}\projects";
 
             searchResponse = client.Search<DAL.Models.FSOdirectory>(s => s
-                .Index(DAL.Models.FSOdirectory.indexname)
+                .Index(IndexHelper.IndexNameDir)
                 .Source(s => s.Includes(x => x.Fields(new string[] { "last_write_timeUTC", "id", "name", "parent", "project" })))
                 .Size(500)
                 .Scroll(scrolltimeout)
@@ -98,7 +98,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             Dictionary<string, FSOdirectory> keyValuePairs = new Dictionary<string, FSOdirectory>();
             string officepath = Path.Combine(pathprefix, office, pathprodsuffix);
             var search = client.SearchAsync<DAL.Models.FSOdirectory>(s => s
-                .Index(DAL.Models.FSOdirectory.indexname)
+                .Index(IndexHelper.IndexNameDir)
                 .Source(s => s.Includes(x => x.Fields(new string[] { "last_write_timeUTC", "id", "name", "parent", "project" })))
                 .Size(10)//if more than one result we have improper filing. 
                 .Query(q =>                

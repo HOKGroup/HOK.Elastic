@@ -349,7 +349,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             {
                                 _ct.ThrowIfCancellationRequested();
                                 counter++;
-                                newIfso = DocumentHelper.MakeBasicDoc(item.Id, item.IndexName.Equals(FSOdirectory.indexname, StringComparison.OrdinalIgnoreCase));
+                                newIfso = DocumentHelper.MakeBasicDoc(item.Id, item.IndexName.Equals(_discoveryEndPoint.IndexHelper.IndexNameDir, StringComparison.OrdinalIgnoreCase));
                                 if (newIfso != null)
                                 {
                                     newIfso.Reason = "ActionUpdateOrNew affected child doc";//TODO no evidence of these documents as .dir indicies...
@@ -389,7 +389,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         {
                             if (ildebug) _il.LogDebugInfo("Deleting directory contents", existingdoc.Id, null);
                             //changed this method call to include all indicies so it deletes files and folders that don't exist.
-                            var deletedCount = _indexEndPoint.DeleteDirectoryDescendants(existingdoc.Id, new string[] { FSOdirectory.indexname, FSOfile.indexname, FSOdocument.indexname, FSOemail.indexname });
+                            var deletedCount = _indexEndPoint.DeleteDirectoryDescendants(existingdoc.Id, _discoveryEndPoint.IndexHelper.AllIndexNames);
                             Interlocked.Add(ref _deleted, deletedCount);
                         }
                     }
@@ -422,22 +422,22 @@ namespace HOK.Elastic.FileSystemCrawler
                 var existingDocPath = PathHelper.GetPublishedPath(auditEvent.PathFrom?.ToLowerInvariant() ?? auditEvent.Path.ToLowerInvariant());
                 if (auditEvent.IsDir)
                 {
-                    existingdoc = _discoveryEndPoint.GetById<FSOdirectory>(existingDocPath, FSOdirectory.indexname);
+                    existingdoc = _discoveryEndPoint.GetById<FSOdirectory>(existingDocPath, _discoveryEndPoint.IndexHelper.IndexNameDir);
                 }
                 else
                 {
                     var fi = new FileInfo(existingDocPath);
                     if (FSOemail.CanBeMadeFrom(fi))
                     {
-                        existingdoc = _discoveryEndPoint.GetById<FSOemail>(existingDocPath, FSOemail.indexname);
+                        existingdoc = _discoveryEndPoint.GetById<FSOemail>(existingDocPath, _discoveryEndPoint.IndexHelper.IndexNameFsoMsg);
                     }
                     else if (FSOdocument.CanBeMadeFrom(fi))
                     {
-                        existingdoc = _discoveryEndPoint.GetById<FSOdocument>(existingDocPath, FSOdocument.indexname);
+                        existingdoc = _discoveryEndPoint.GetById<FSOdocument>(existingDocPath, _discoveryEndPoint.IndexHelper.IndexNameFsoDoc);
                     }
                     else
                     {
-                        existingdoc = _discoveryEndPoint.GetById<FSOfile>(existingDocPath, FSOfile.indexname);
+                        existingdoc = _discoveryEndPoint.GetById<FSOfile>(existingDocPath, _discoveryEndPoint.IndexHelper.IndexNameFsoFile);
                     }
                 }
             }

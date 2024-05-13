@@ -4,7 +4,6 @@ namespace HOK.Elastic.DAL.Models
 {
     public class FSOdirectory : FSO, IFSO
     {
-        public static new string indexname = StaticIndexPrefix.Prefix + "dir";
         /// <summary>
         /// in V# possibly change this name to ProjectRoot
         /// </summary>
