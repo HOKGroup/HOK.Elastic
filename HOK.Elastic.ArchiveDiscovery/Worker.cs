@@ -40,7 +40,6 @@ namespace HOK.Elastic.ArchiveDiscovery
 
         internal async Task RunAsync(SettingsJobArgsDTO settingsJobArgsDTO,string pathPrefix,string pathProdSuffix,string pathArchiveSuffix,Regex officeMatch=null)
         {
-            //StaticIndexPrefix.Prefix = settingsJobArgsDTO.IndexNamePrefix;
             IndexNameHelper indexNameHelper = new IndexNameHelper(settingsJobArgsDTO.IndexNamePrefix);
             PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(settingsJobArgsDTO.IndexNamePrefix);
             var discoveryuris = settingsJobArgsDTO.ElasticDiscoveryURI.Select(x => new Uri(x)).ToList();

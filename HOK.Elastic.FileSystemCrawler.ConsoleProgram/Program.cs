@@ -183,7 +183,6 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
         static async Task<int> Start(ISettingsJobArgs workerargs, string configFilePath)
         {
             CompletionInfo completionInfo = null;
-           // DAL.StaticIndexPrefix.Prefix = workerargs.IndexNamePrefix;
 
             if (ilinfo)
             {
@@ -214,7 +213,6 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 
                 using (var initializationPipeline = new DAL.InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
                 {
-                    //initializationPipeline.PIPECategorizationProjectExtractRgx = workerargs.PipeCategorizationRegex;
                     if (!initializationPipeline.CheckForPipeLines())
                     {
                         initializationPipeline.Put(true);

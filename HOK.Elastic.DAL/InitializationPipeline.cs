@@ -8,39 +8,7 @@ namespace HOK.Elastic.DAL
 {
     public class InitializationPipeline : InitializationBase
     {  
-        
-        //public string PIPEEmail 
-        //{ 
-        //    get 
-        //    { 
-        //        return IndexHelper.Prefix + "pipe_email"; 
-        //    } 
-        //}
-        ///// <summary>
-        ///// Conditional Pipeline that decides sends document to categorization pipeline if category is unpopulated.
-        ///// </summary>
-        //public string PIPEvalidate
-        //{
-        //    get
-        //    {
-        //        return IndexHelper.Prefix + "pipe_validate";
-        //    }
-        //}
-       //public string PIPECategorizationProjectExtractRgx { get; set; } = "(^$)";
-        //public string PIPECategorizationProject
-        //{
-        //    get
-        //    {
-        //        return IndexHelper.Prefix + "pipe_categoryproject";
-        //    }
-        //}
-        //public string PIPEDocument
-        //{
-        //    get
-        //    {
-        //        return IndexHelper.Prefix + "pipe_document";
-        //    }
-        //}
+
 
         private const int pipelinecharacterlimit = 100000;//-1 can possibly leave us open to this was set to 1000....which would limit how much text to extract.
         private const string regexPatternToFindMultipleLinebreaks = @"[\r\n]{1}[\s]+";

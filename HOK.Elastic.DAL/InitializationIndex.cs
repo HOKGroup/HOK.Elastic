@@ -23,7 +23,6 @@ namespace HOK.Elastic.DAL
         public const string EDGENGRAM10 = "edgengram10";
         public const string TRUNCATE10 = "truncate10";
         public readonly Nest.Time RefreshInterval = new Time(TimeSpan.FromSeconds(30));
-       // private InitializationPipeline _initializationPipeline;
 
         public InitializationIndex(PipeLineNameHelper pipeLineHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : base(pipeLineHelper, indexNameHelper, elastiSearchServerUrl, logger)
         {

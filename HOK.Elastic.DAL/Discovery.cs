@@ -88,7 +88,7 @@ namespace HOK.Elastic.DAL
                         directoryContents = new DirectoryContents()
                         {
                             Id = path,
-                            IndexName = IndexHelper.IndexNameDir// FSOdirectory.indexname
+                            IndexName = IndexHelper.IndexNameDir
                         };
                     }
                     else//root and children were both null...
