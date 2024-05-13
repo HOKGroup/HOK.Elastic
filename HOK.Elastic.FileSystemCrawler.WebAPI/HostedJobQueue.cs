@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using System.Text;
 using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
+using HOK.Elastic.DAL;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -292,7 +293,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 HOK.Elastic.DAL.Models.PathHelper.SetOfficeExtractRgx(workerargs.OfficeSiteExtractRegex);
                 HOK.Elastic.DAL.Models.PathHelper.SetProjectExtractRgx(workerargs.ProjectExtractRegex);
                 HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
-                HOK.Elastic.DAL.StaticIndexPrefix.Prefix = workerargs.IndexNamePrefix;
                 string safepath = workerargs.JobName + workerargs.JobNotes;
                 System.IO.Path.GetInvalidPathChars().Select(x => safepath = safepath.Replace(x, ' '));
                 workerargs.InputPathLocation = System.IO.Path.Combine("webapijobs", safepath + hostedJobInfo.GetHashCode());
@@ -300,9 +300,10 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
                 var customLogger = GetPerProjectLogger(hostedJobInfo.Id + workerargs.JobName, "genericsinglelogger");
                 var jobLogger = new Elastic.Logger.Log4NetLogger("hmm", customLogger.Item1, customLogger.Item2);
-                var index = new HOK.Elastic.DAL.Index(workerargs.ElasticIndexURI.First(), jobLogger);
-                var discovery = new HOK.Elastic.DAL.Discovery(workerargs.ElasticDiscoveryURI.First(), jobLogger);
-                //var jobLogger = new Elastic.Logger.Log4NetLogger($"Worker{hostedJobInfo.Id}");
+                IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
+                PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
+                var index = new HOK.Elastic.DAL.Index(pipeLineNameHelper, indexNameHelper,workerargs.ElasticIndexURI.First(), jobLogger);
+                var discovery = new HOK.Elastic.DAL.Discovery(pipeLineNameHelper, indexNameHelper,workerargs.ElasticDiscoveryURI.First(), jobLogger);
 
                 if (jobLogger.IsEnabled(LogLevel.Information))
                 {

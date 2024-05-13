@@ -2,6 +2,7 @@
 using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -42,6 +43,8 @@ namespace HOK.Elastic.FileSystemCrawler
         internal ActionBlock<IFSO> docInsertReindex;
         internal ActionBlock<IFSO[]> docInsertArray;
         internal ActionBlock<IFSO> docUpdate;
+        internal ActionBlock<FSO[]> docDeleteAction;
+        internal BatchBlock<FSO> docDeleteBatchBlock;
         public SecurityHelper SecurityHelper => _securityHelper;
         public DocumentHelper DocumentHelper => _documentHelper;
 
@@ -142,6 +145,51 @@ namespace HOK.Elastic.FileSystemCrawler
                 if (ilwarn) _il.LogWarn("Offline file server; Won't delete", PathHelper.ContentRoot, path);
                 return false;
             }
+        }
+
+        //later, we can also look at making a custom dataflowblock based on filesize.
+        internal async Task WaitForMemory(double desiredFreeMemoryKB)
+        {
+            bool GCCollectCalled = false;
+            int count = 0;
+            ulong availableSizeKB;
+            NativeMethods.MEMORYSTATUSEX memStatus;
+            do
+            {
+                memStatus = new NativeMethods.MEMORYSTATUSEX();
+                if (NativeMethods.GlobalMemoryStatusEx(memStatus))
+                {
+                    availableSizeKB = memStatus.ullAvailPhys / 1024;
+                }
+                else
+                {
+                    availableSizeKB = ulong.MaxValue;//if we can't get the available memory just let it continue..
+                }
+                if (availableSizeKB < desiredFreeMemoryKB)
+                {
+                    count++;
+                    if (count > 5)
+                    {
+                        count = 0;
+                        docInsertBatch.TriggerBatch();
+                        IndexNameHelper indexNameHelper = new IndexNameHelper(_args.IndexNamePrefix);
+                        PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(_args.IndexNamePrefix);
+                        this._indexEndPoint = new DAL.Index(pipeLineNameHelper, indexNameHelper, _args.ElasticIndexURI.ToArray(), new Elastic.Logger.Log4NetLogger("Index"));
+                        this._discoveryEndPoint = new DAL.Discovery(pipeLineNameHelper, indexNameHelper, _args.ElasticDiscoveryURI.ToArray(), new Elastic.Logger.Log4NetLogger("Discovery"));
+                        if (ilwarn) _il.LogWarn($"Almost out of memory...cleared elastic");
+                    }
+
+                    if (ilwarn) _il.LogWarn($"Almost out of memory...will wait. Insert={docInsert.InputCount},Array={docInsertArray.InputCount},InsertTransform={docInsertTranformBlock.InputCount}", "", availableSizeKB);
+                    if (ilwarn) _il.LogWarn($"Almost out of memory...will wait. Desired={desiredFreeMemoryKB}KB Available={availableSizeKB}", "", availableSizeKB);
+                    if (!GCCollectCalled)
+                    {
+                        GCCollectCalled = true;
+                        GC.Collect();
+                    }
+                    //we could also trigger batch blocks to clear their queues.                    
+                    await Task.Delay(1000).ConfigureAwait(false);
+                }
+            } while (availableSizeKB < desiredFreeMemoryKB);
         }
     }
 }

@@ -16,23 +16,22 @@ namespace HOK.Elastic.DAL
         protected ElasticClient client;
         protected IConnectionPool connectionPool;
         protected Logger.Log4NetLogger _il;
-        protected bool ildebug;
-        protected bool ilerror;
-        protected bool ilwarn;
-        protected bool ilinfo;
+        protected bool ildebug,ilinfo,ilwarn,ilerror;
         protected Random _random = new Random(DateTime.Now.Second);
         protected ApiKey apiKey;
         protected string apiKeyGuid;
         private bool disposedValue;
+        public IndexNameHelper IndexHelper { get;  set; }
+        public PipeLineNameHelper PipeLineNameHelper { get; set; }
 
-        public Base(Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : this(new SingleNodeConnectionPool(elastiSearchServerUrl), logger)
+        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : this(pipeLineNameHelper, indexNameHelper, new SingleNodeConnectionPool(elastiSearchServerUrl), logger)
         {
         }
 
-        public Base(IEnumerable<Uri> elastiSearchServerUrls, Logger.Log4NetLogger logger) : this(new StaticConnectionPool(elastiSearchServerUrls), logger)
+        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> elastiSearchServerUrls, Logger.Log4NetLogger logger) : this(pipeLineNameHelper, indexNameHelper,new StaticConnectionPool(elastiSearchServerUrls), logger)
         {
         }
-        public Base(IConnectionPool connectionPool, Logger.Log4NetLogger logger)
+        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IConnectionPool connectionPool, Logger.Log4NetLogger logger)
         {
             this.connectionPool = connectionPool;
             _il = logger;
@@ -40,6 +39,8 @@ namespace HOK.Elastic.DAL
             ilinfo = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information);
             ilwarn = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
             ilerror = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error);
+            IndexHelper = indexNameHelper;
+            PipeLineNameHelper = pipeLineNameHelper;
             apiKeyGuid = Guid.NewGuid().ToString() + " - " + this.GetType().Name;
             apiKey = GetApiKey();
             var settings = new ConnectionSettings(connectionPool, new ApiKeyCredentialsHttpConnection(apiKey, GetApiKey));
@@ -48,11 +49,10 @@ namespace HOK.Elastic.DAL
             settings.DisablePing();//we don't want to do this. But for some reason it seems to fail when connecting to HOK-395 if it's enabled.
             settings.EnableDebugMode();
             settings.DisableDirectStreaming();
-
 #endif
             settings.RequestTimeout(TimeSpan.FromMinutes(5));//todo change this to a setting             
             this.client = new ElasticClient(settings);
-           
+     
         }
         /// <summary>
         /// https://www.elastic.co/guide/en/elasticsearch/client/net-api/current/modifying-default-connection.html
@@ -70,7 +70,6 @@ namespace HOK.Elastic.DAL
                 return message;
             }
         }
-
 
         /// <summary>
         /// NetworkCredential Handler to allow passing the process' default credentials to the elastic service
@@ -130,11 +129,11 @@ namespace HOK.Elastic.DAL
             {
                 if (iresponse.IsValid)
                 {
-                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug)) _il.LogDebugInfo($"call: '{iresponse.ApiCall.Uri.AbsoluteUri}'");
+                    if (ildebug) _il.LogDebugInfo($"call: '{iresponse.ApiCall.Uri.AbsoluteUri}'");
                 }
                 else
                 {
-                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning))
+                    if (ilwarn)
                     {
                         _il.LogWarn($"call: '{iresponse.ApiCall.Uri.AbsoluteUri}' status:'{iresponse.ServerError?.Status.ToString() ?? "N/A"}' reason: '{iresponse.ServerError?.Error?.Reason ?? iresponse.OriginalException?.Message ?? "N/A"}'", "", iresponse.OriginalException);
                     }
@@ -145,8 +144,6 @@ namespace HOK.Elastic.DAL
                 throw iresponse.OriginalException;
             }
         }
-
-
 
         public string GetClientStatus()
         {
@@ -169,7 +166,7 @@ namespace HOK.Elastic.DAL
             }
             catch (Exception ex)
             {
-                if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogErr("failed to get elastic client status", null, null, ex);
+                if (ilerror) _il.LogErr("Failed to get elastic client status", null, null, ex);
                 return "Fail" + ex.Message;
             }
         }
@@ -189,8 +186,8 @@ namespace HOK.Elastic.DAL
             var settings = new ConnectionSettings(connectionPool, new NetworkCredentialsHttpConnection());
             settings.MemoryStreamFactory(Elasticsearch.Net.MemoryStreamFactory.Default); //recycle memorystream linked to mem leakage https://github.com/serilog/serilog-sinks-elasticsearch/issues/368
             ElasticClient apiKeyClient = new ElasticClient(settings);
-            List<string> indexNames = new List<string>() { StaticIndexPrefix.Prefix + "*" };
-            var possibleIndexAliasNames = new string[] { DAL.Models.FSOdirectory.indexname, DAL.Models.FSOfile.indexname, DAL.Models.FSOdocument.indexname, DAL.Models.FSOemail.indexname };
+            List<string> indexNames = new List<string>() { IndexHelper.PrefixWildcard };//TODO think about this later.
+            var possibleIndexAliasNames = IndexHelper.AllIndexNames;
             foreach(var possibleIndexAlias in possibleIndexAliasNames)
             {
                 var concreteIndex = apiKeyClient.GetIndicesPointingToAlias(possibleIndexAlias);
@@ -241,52 +238,6 @@ namespace HOK.Elastic.DAL
             }
         }
 
-
-        public ApiKey GetApiKeyOld()
-        {
-            var settings = new ConnectionSettings(connectionPool, new NetworkCredentialsHttpConnection());
-            settings.MemoryStreamFactory(Elasticsearch.Net.MemoryStreamFactory.Default); //recycle memorystream linked to mem leakage https://github.com/serilog/serilog-sinks-elasticsearch/issues/368
-            ElasticClient apiKeyClient = new ElasticClient(settings);
-            CreateApiKeyResponse keyResponse = apiKeyClient.Security.CreateApiKeyAsync(
-                (_v) => new CreateApiKeyRequest
-                {
-                    Name = apiKeyGuid,
-                    Expiration = "1h",
-                    Roles = new ApiKeyRoles
-                           {
-                               {
-                                   "read-write-only", new ApiKeyRole
-                                               {
-                                                   Cluster = new [] { "all" },
-                                                   Index = new []
-                                                   {
-                                                       new ApiKeyPrivileges
-                                                       {
-                                                           Names = new [] { StaticIndexPrefix.Prefix + "*" },
-                                                           //Privileges = new[] { "read", "write", "manage" }
-                                                           Privileges = new []{ "all" }
-                                                       }
-                                                   }
-                                               }
-                               },
-                           }
-                }).GetAwaiter().GetResult();
-            if (keyResponse.IsValid)
-            {
-                return new ApiKey
-                {
-                    Id = keyResponse.Id,
-                    Secret = keyResponse.ApiKey,
-                    Expiration = keyResponse.Expiration.Value,
-                    ExpirationSunset = keyResponse.Expiration.Value.AddMinutes(-1)
-                };
-            }
-            else
-            {
-                var err = ElasticResponseError.GetError(keyResponse);
-                throw new HttpRequestException("Failed to generate token" + err.HttpStatusCode + err.ServerErrorReason + err.OriginalMessage + err.InnerMessage);
-            }
-        }
         public bool InvalidateApiKey(string apiGuid)
         {
             var invalidateResponse = client.Security.InvalidateApiKeyAsync(new InvalidateApiKeyRequest { Name = apiGuid }).GetAwaiter().GetResult();

@@ -7,5 +7,7 @@ namespace HOK.Elastic.DAL
     {
         string GetClientStatus();
         ApiKey GetApiKey();
+       IndexNameHelper IndexHelper { get;  set; }
+        PipeLineNameHelper PipeLineNameHelper { get; set; }
     }
 }
