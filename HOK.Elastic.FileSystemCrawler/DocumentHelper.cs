@@ -153,7 +153,7 @@ namespace HOK.Elastic.FileSystemCrawler
             }
             else
             {
-                ifso.IndexName = _indexNode.IndexHelper.GetNameFor<FSOdirectory>(); ;
+                ifso.IndexName = _indexNode.IndexHelper.IndexNameDir;
                 return ifso;
             }
         }
@@ -254,7 +254,7 @@ namespace HOK.Elastic.FileSystemCrawler
             else if (FSOdocument.CanBeMadeFrom(fi))
             {
                 var fsodoc = new FSOdocument(fsofile);
-                fsodoc.IndexName = _indexNode.IndexHelper.GetNameFor<FSOdocument>();
+                fsodoc.IndexName = _indexNode.IndexHelper.IndexNameFsoDoc;
                 if (fsodoc.LengthKB > _readLimitKBTika)
                 {
                     fsodoc.FailureReason = "Content too large";
@@ -283,7 +283,7 @@ namespace HOK.Elastic.FileSystemCrawler
             }
             else
             {
-                fsofile.IndexName = _indexNode.IndexHelper.GetNameFor<FSOfile>();
+                fsofile.IndexName = _indexNode.IndexHelper.IndexNameFsoFile;
                 return fsofile;
             }
         }
