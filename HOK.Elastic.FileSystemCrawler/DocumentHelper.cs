@@ -12,8 +12,6 @@ namespace HOK.Elastic.FileSystemCrawler
 {
     public class DocumentHelper
     {
-        private string _version;
-        public string DocVersion => _version;
         private bool ildebug, ilinfo, ilwarn, ilerror;
         private bool readFileContents;
         private readonly string MachineName;
@@ -29,7 +27,6 @@ namespace HOK.Elastic.FileSystemCrawler
 
         public DocumentHelper(bool ReadFileContents, SecurityHelper securityHelper, IIndex indexNode,  Log4NetLogger logger = null)
         {
-            _version = "V3";
            // _indexNameHelper = indexNameHelper;
             _il = logger;
             ildebug = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
@@ -146,7 +143,6 @@ namespace HOK.Elastic.FileSystemCrawler
         {
             ifso.Timestamp = DateTime.UtcNow;
             ifso.MachineName = MachineName;
-            ifso.Version = this.DocVersion;
             if (ifso is FSOfile)
             {
                 return InsertTransformFile(ifso as FSOfile);

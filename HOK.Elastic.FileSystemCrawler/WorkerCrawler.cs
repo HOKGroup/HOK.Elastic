@@ -537,7 +537,7 @@ namespace HOK.Elastic.FileSystemCrawler
             {
                 try
                 {
-                    if (abandonedItem.Item2 == _indexEndPoint.IndexHelper.IndexNameDir))
+                    if (abandonedItem.Item2 == _indexEndPoint.IndexHelper.IndexNameDir)
                     {
                         if (ilwarn) _il.LogWarn("DeleteDescendants", abandonedItem.Item1);
                         itemsDeleted += _indexEndPoint.DeleteDirectoryDescendants(abandonedItem.Item1.ToLowerInvariant(),_indexEndPoint.IndexHelper.AllIndexNames);
