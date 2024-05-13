@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <Platforms>AnyCPU;x64</Platforms>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
