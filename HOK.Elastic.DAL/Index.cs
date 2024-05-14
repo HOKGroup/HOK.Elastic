@@ -24,11 +24,11 @@ namespace HOK.Elastic.DAL
         private readonly TimeSpan defaultQueryTimeout = TimeSpan.FromSeconds(240);
         
 
-        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, Logger.Log4NetLogger logger) : base (pipeLineNameHelper, indexNameHelper, uri, logger)
+        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, ILogger logger) : base (pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }
 
-        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, Logger.Log4NetLogger logger)
+        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, ILogger logger)
             : base(pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }

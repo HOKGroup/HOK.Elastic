@@ -15,13 +15,13 @@ namespace HOK.Elastic.FileSystemCrawler
 {
     public class EventStreamClient
     {
-        private HOK.Elastic.Logger.Log4NetLogger _il;
+        private ILogger _il;
 
         protected class ODataCollectionWrapper<T> where T : class
         {
             public IEnumerable<T> Value { get; set; }
         }
-        public EventStreamClient(Uri eventStreamAPIEndPoint, Log4NetLogger logger)
+        public EventStreamClient(Uri eventStreamAPIEndPoint, ILogger logger)
         {
             _il = logger;
             this.EventStreamEndPoint = eventStreamAPIEndPoint;

@@ -8,7 +8,7 @@ namespace HOK.Elastic.DAL
     public partial class InitializationBase : Base
     {
 
-        public InitializationBase(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper,elastiSearchServerUrl, logger)
+        public InitializationBase(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, ILogger logger) : base(pipeLineNameHelper, indexNameHelper,elastiSearchServerUrl, logger)
         {
 
         }

@@ -15,7 +15,7 @@ namespace HOK.Elastic.DAL
     {
         protected ElasticClient client;
         protected IConnectionPool connectionPool;
-        protected Logger.Log4NetLogger _il;
+        protected ILogger _il;
         protected bool ildebug,ilinfo,ilwarn,ilerror;
         protected Random _random = new Random(DateTime.Now.Second);
         protected ApiKey apiKey;
@@ -24,14 +24,14 @@ namespace HOK.Elastic.DAL
         public IndexNameHelper IndexHelper { get;  set; }
         public PipeLineNameHelper PipeLineNameHelper { get; set; }
 
-        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : this(pipeLineNameHelper, indexNameHelper, new SingleNodeConnectionPool(elastiSearchServerUrl), logger)
+        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, ILogger logger) : this(pipeLineNameHelper, indexNameHelper, new SingleNodeConnectionPool(elastiSearchServerUrl), logger)
         {
         }
 
-        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> elastiSearchServerUrls, Logger.Log4NetLogger logger) : this(pipeLineNameHelper, indexNameHelper,new StaticConnectionPool(elastiSearchServerUrls), logger)
+        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> elastiSearchServerUrls, ILogger logger) : this(pipeLineNameHelper, indexNameHelper,new StaticConnectionPool(elastiSearchServerUrls), logger)
         {
         }
-        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IConnectionPool connectionPool, Logger.Log4NetLogger logger)
+        public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IConnectionPool connectionPool, ILogger logger)
         {
             this.connectionPool = connectionPool;
             _il = logger;

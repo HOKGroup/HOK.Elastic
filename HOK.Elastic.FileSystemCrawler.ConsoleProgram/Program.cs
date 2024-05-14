@@ -2,8 +2,10 @@
 using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
 using HOK.Elastic.Logger;
+using log4net.Repository.Hierarchy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -18,9 +20,8 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 {
     partial class Program
     {
+        private static NLog.Logger _il = NLog.LogManager.GetCurrentClassLogger();
 
-
-        private static HOK.Elastic.Logger.Log4NetLogger _il;
         private static CancellationTokenSource _ct = new CancellationTokenSource();
         public static SettingsApp AppSettings { get; private set; }
         private static bool ildebug, ilinfo, ilwarn, ilerror, ilfatal;
@@ -66,16 +67,13 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 #if DEBUG
                     ConfigFileHelper.MakeJsonSchemaFileForAppSettings();
 #endif
-                    _il = new Logger.Log4NetLogger($"{jobDirectoryInfo.Name}.ConsoleProgram", Logger.Log4NetProvider.Parselog4NetConfigFile(configFilePath));
-                    ildebug = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
-                    ilinfo = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information);
-                    ilwarn = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
-                    ilerror = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error);
-                    ilfatal = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Critical);
-                    using (var loggerLifecycle = new Logger.LifecycleManagement(_il))
-                    {
-                        loggerLifecycle.Purge(Path.Combine(logfilepath), DateTime.Now.Subtract(TimeSpan.FromDays(15)), 15);
-                    }
+                    // TODO
+                    //_il = loggerFactory.CreateLogger($"{jobDirectoryInfo.Name}.ConsoleProgram", Logger.Log4NetProvider.Parselog4NetConfigFile(configFilePath));
+                    ildebug = _il != null && _il.IsDebugEnabled;
+                    ilinfo = _il != null && _il.IsInfoEnabled;
+                    ilwarn = _il != null && _il.IsWarnEnabled;
+                    ilerror = _il != null && _il.IsErrorEnabled;
+                    ilfatal = _il != null && _il.IsFatalEnabled;
                     #region PopulateWorkerArgs
                     var workerargs = new SettingsJobArgs()
                     {
@@ -174,7 +172,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             catch (Exception ex)
             {
                 //todo we should ensure this gets written out somewhere in case the logger never got setup and this is running headless
-                if (ilfatal) _il.LogErr("program.main", null, null, ex);
+                if (ilerror) _il.Error("program.main", null, null, ex);
                 if (runningInteractively)
                 {
                     Console.WriteLine(ex.ToString());
@@ -190,9 +188,9 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 
             if (ilinfo)
             {
-                _il.LogInfo("Read config file from:", configFilePath);
-                _il.LogInfo("Assembly Informational Version", "N/a", FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion);
-                _il.LogInfo("Verify Starting Arguments", "N/a", workerargs);
+                _il.Info("Read config file from:", configFilePath);
+                _il.Info("Assembly Informational Version", "N/a", FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion);
+                _il.Info("Verify Starting Arguments", "N/a", workerargs);
             }
             if (workerargs.RunningInteractively)
             {
@@ -209,13 +207,14 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             var index = new DAL.Index(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Log4NetLogger($"{workerargs.JobName}.Index"));
        
 
-            var securityHelper = new SecurityHelper(new Log4NetLogger($"{workerargs.JobName}.SecurityHelper"));
-            var documentHelper = new DocumentHelper(workerargs.ReadFileContents ?? false, securityHelper, index, new Log4NetLogger($"{workerargs.JobName}.DocumentHelper"));
+            var loggerFactory = LoggerFactory.Create(builder => builder.AddNLog());
+            var securityHelper = new SecurityHelper(loggerFactory.CreateLogger($"{workerargs.JobName}.SecurityHelper"));
+            var documentHelper = new DocumentHelper(workerargs.ReadFileContents ?? false, securityHelper, index, loggerFactory.CreateLogger($"{workerargs.JobName}.SecurityHelper"));
             try
             {
                 PipeLineNameHelper pipeLineHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
 
-                using (var initializationPipeline = new InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
+                using (var initializationPipeline = new InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), loggerFactory.CreateLogger($"{workerargs.JobName}.Setup")))
                 {
                     if (!initializationPipeline.CheckForPipeLines())
                     {
@@ -238,7 +237,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                         {
                             if (!workerargs.RunningInteractively)
                             {
-                                if (ilerror) _il.LogErr("Indicies Check failed...please relaunch this application interactively to setup indicies.");
+                                if (ilerror) _il.Error("Indicies Check failed...please relaunch this application interactively to setup indicies.");
                                 return 1;
                             }
                             else
@@ -253,14 +252,14 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                 if (workerargs.CrawlMode == CrawlMode.EventBased)
                 {
                     //we will eventually need to check that all the indicies and pipelines are setup
-                    WorkerEventStream worker = new WorkerEventStream(index, discovery, securityHelper, documentHelper, new Logger.Log4NetLogger($"{workerargs.JobName}.WorkerEvents"));
+                    WorkerEventStream worker = new WorkerEventStream(index, discovery, securityHelper, documentHelper, loggerFactory.CreateLogger($"{workerargs.JobName}.WorkerEvents"));
                     var fileSystemEventsAPI = Program.AppSettings.FileSystemEventsAPI;
-                    EventStreamClient eventStreamClient = new EventStreamClient(fileSystemEventsAPI, new Logger.Log4NetLogger($"{workerargs.JobName}.EventStreamClient"));
+                    EventStreamClient eventStreamClient = new EventStreamClient(fileSystemEventsAPI, loggerFactory.CreateLogger($"{workerargs.JobName}.EventStreamClient"));
                     completionInfo = await eventStreamClient.ProcessEventsAsync(workerargs, worker, _ct.Token);
                 }
                 else if (workerargs.CrawlMode == CrawlMode.Full || workerargs.CrawlMode == CrawlMode.Incremental)
                 {
-                    WorkerCrawler worker = new WorkerCrawler(index, discovery, securityHelper, documentHelper, new Logger.Log4NetLogger($"{workerargs.JobName}.WorkerCrawler"));
+                    WorkerCrawler worker = new WorkerCrawler(index, discovery, securityHelper, documentHelper, loggerFactory.CreateLogger($"{workerargs.JobName}.WorkerCrawler"));
                     completionInfo = await worker.RunAsync(workerargs, _ct.Token);
                 }
                 else if (workerargs.CrawlMode == CrawlMode.FindMissingContent || workerargs.CrawlMode == CrawlMode.EmailOnlyMissingContent || workerargs.CrawlMode == CrawlMode.QueryBasedReIndex)
@@ -269,23 +268,23 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     {
                         if (!workerargs.ReadFileContents ?? false)
                         {
-                            if (ilwarn) _il.LogWarn("CrawlMetadata was set to true but shouldn't be when crawling for missing content...Changing to false.");
+                            if (ilwarn) _il.Warn("CrawlMetadata was set to true but shouldn't be when crawling for missing content...Changing to false.");
                             workerargs.ReadFileContents = true;
                         }
                     }
-                    WorkerByQuery worker = new WorkerByQuery(index, discovery, securityHelper, documentHelper, new Logger.Log4NetLogger($"{workerargs.JobName}.WorkerByQuery"));
+                    WorkerByQuery worker = new WorkerByQuery(index, discovery, securityHelper, documentHelper, loggerFactory.CreateLogger($"{workerargs.JobName}.WorkerByQuery"));
                     completionInfo = await worker.RunAsync(workerargs, _ct.Token);
                 }
             }
             catch (Exception ex)
             {   
-                if (_il.IsEnabled(LogLevel.Error)) _il.LogErr("Error in program.main", "", null, ex);
+                if (_il.IsErrorEnabled) _il.Error("Error in program.main", "", null, ex);
             }
             finally
             {
                 index.Dispose();
                 discovery.Dispose();
-                if (ilinfo) _il.LogInfo("Complete!", null, completionInfo);
+                if (ilinfo) _il.Info("Complete!", null, completionInfo);
             }
 
             if (workerargs.RunningInteractively)
@@ -301,14 +300,14 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             if (!_ct.IsCancellationRequested)
             {
                 _ct.Cancel();
-                if (_il.IsEnabled(LogLevel.Critical))
+                if (_il.IsFatalEnabled)
                 {
-                    _il.LogFatal($"Error Threshold Event was triggered...cancelling limit reached  {AppSettings.ExceptionsPerTenMinuteIntervalLimit}/10 minutes", "", null);
+                    _il.Fatal($"Error Threshold Event was triggered...cancelling limit reached  {AppSettings.ExceptionsPerTenMinuteIntervalLimit}/10 minutes", "", null);
                 }
             }
             else if (ildebug)
             {
-                _il.LogDebugInfo("Cancellation already requested.");
+                _il.Debug("Cancellation already requested.");
             }
         }
 

@@ -8,7 +8,7 @@ namespace HOK.Elastic.ArchiveDiscovery
 {
     internal class DiscoveryArchiveRecrawl : HOK.Elastic.DAL.Discovery
     {
-        public DiscoveryArchiveRecrawl(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper,IEnumerable<Uri> elasticHost, HOK.Elastic.Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper,elasticHost, logger)
+        public DiscoveryArchiveRecrawl(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper,IEnumerable<Uri> elasticHost, ILogger logger) : base(pipeLineNameHelper, indexNameHelper,elasticHost, logger)
         {
         }
         public async Task<IEnumerable<string>> FindOffices()

@@ -27,7 +27,7 @@ namespace HOK.Elastic.FileSystemCrawler
         ////do not set size requirement on cache as the cache is shared and in future should we need to use the cache with Dependency Injection or EF, that cache implementation doesn't use the size parameter.
         private readonly MemoryCache _cache = new MemoryCache(new MemoryCacheOptions() { CompactionPercentage = 0.2 });
         private const System.Security.AccessControl.FileSystemRights ReadAccessFlag = System.Security.AccessControl.FileSystemRights.Read;
-        private readonly HOK.Elastic.Logger.Log4NetLogger _il;
+        private readonly ILogger _il;
         private readonly bool isDebugEnabled;
         private bool disposedValue;
 #if DEBUG
@@ -35,7 +35,7 @@ namespace HOK.Elastic.FileSystemCrawler
         private int _misses = 0;
 #endif
 
-        public SecurityHelper(Log4NetLogger logger)
+        public SecurityHelper(ILogger logger)
         {       
             if(logger !=null)
             {

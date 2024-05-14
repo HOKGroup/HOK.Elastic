@@ -14,7 +14,7 @@ namespace HOK.Elastic.FileSystemCrawler
 {
     public class WorkerEventStream : WorkerBase
     {
-        public WorkerEventStream(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, Logger.Log4NetLogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
+        public WorkerEventStream(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, ILogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
         {
         }
 

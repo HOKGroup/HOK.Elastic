@@ -19,10 +19,10 @@ namespace HOK.Elastic.DAL
     public class Discovery : Base, IDiscovery
     {
 
-        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper,uri, logger)
+        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, ILogger logger) : base(pipeLineNameHelper, indexNameHelper,uri, logger)
         {
         }
-        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper,uri, logger)
+        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, ILogger logger) : base(pipeLineNameHelper, indexNameHelper,uri, logger)
         {
         }
 

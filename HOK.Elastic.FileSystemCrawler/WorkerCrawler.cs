@@ -22,7 +22,7 @@ namespace HOK.Elastic.FileSystemCrawler
         /// we might want to remove this constructor to ensure we always populate path substitutions from here.
         /// </summary>
         /// <param name="logger"></param>
-        public WorkerCrawler(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, HOK.Elastic.Logger.Log4NetLogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
+        public WorkerCrawler(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, ILogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
         {
         }
         /// <summary>
