@@ -35,6 +35,7 @@ namespace HOK.Elastic.DAL
                 WriteResponse(PutPipeCategoryProject(), throwOnError);
                 WriteResponse(PutPipeTikaDoc(), throwOnError);
                 WriteResponse(PutPipeMsg(), throwOnError);
+                WriteResponse(PutPipeExtractOfficeProjectCategory(), throwOnError);
             //}
         }
         /// <summary>
@@ -161,7 +162,7 @@ namespace HOK.Elastic.DAL
                 .Processors(pr => pr
                     .Pipeline(pi => pi
                         //.If("ctx.category == null")//we might try and pre-process the category in code.
-                        .ProcessorName(PipeLineNameHelper.PIPECategorizationProject)
+                        .ProcessorName(PipeLineNameHelper.PIPEofficecatproject)
                         )
                     )
                 );
@@ -216,5 +217,68 @@ namespace HOK.Elastic.DAL
                     );
             return response;
         }
+
+        private PutPipelineResponse PutPipeExtractOfficeProjectCategory()
+        {
+            //temp pipeline to test out extraction of office, project and category
+            /*
+ * 
+ * 
+ * ^\\\\group\\hok\\(?<exoffice>[a-zA-Z]{2,3})\\(PROJECTS|ARCHIVE\\PROJECTS)\\?(\d{4}|\dx\\x\d+|Other|360[^\\]*|NDIA)?\\(?<expnum>\d{2}[\d|\.\-]*)+\s*(\+|_|\-)?\s*(?<expname>[^\|$|\r|\n\\]*)?(\\(?<excategory>\w\-[^\\]*))?
+ * 
+ * Test strings:
+ * 
+\\group\hok\TOR\PROJECTS\2024\24.62011.00 RBC Project Emerald Toronto\D-Communications\D4-MeetingNotes
+\\group\hok\TOR\ARCHIVE\PROJECTS\7x\x10\70.32391.10 AlgonquinCollege_StudentCommons\F-Specifications\F2-Archive
+\\group\hok\TOR\DEPTS\IT\HomeFolders\Aengus.Mostacci
+\\group\hok\KC\ARCHIVE\PROJECTS\7x\x00\70.70028.00 Louisville Soccer
+\\group\hok\KC\ARCHIVE\PROJECTS\360_Archive\044002 - DST 4900 Main BOMA Calcs
+\\group\hok\NY\ARCHIVE\PROJECTS\Other\222East41St_99-0523-101
+\\group\hok\NY\ARCHIVE\PROJECTS\5x\x00\55.12345.00
+\\group\hok\SF\PROJECTS\NDIA\07.04040.01 NDIA Furniture
+\\group\hok\SF\PROJECTS\360 Architecture-SF\125900 San Jose Earthquakes Soccer\07-2D Drawings
+\\group\hok\VAN\ARCHIVE\PROJECTS\2010\10.32603.00 FourSeasonsHotel-Vancouver-5thFloor\G-Research&Reports
+
+
+^\\group\hok\[a-z]{2,3}\projects\(\d\d\d\d\(\d{2}[\d|\.\-]*)+\s*(\+|_|\-)?\s*([^\|$|\r|\n]*)|(interiors\|planning\|architecture\|hospitality\)?([^\]*)?)
+"^\\\\group\\hok\\(?<office>[a-zA-Z]{2,3})\\(PROJECTS|ARCHIVE\\PROJECTS)\\?(\d{4}|\dx\\x\d+|Other|360[^\\]*|NDIA)?\\(?<project.FullName>(?<project.Number>\d{2}[\d|\.\-]*)+\s*(\+|_|\-)?\s*(?<project.Name>[^\|$|\r|\n\\]*)?)(\\\w\-(?<Category>[^\\]*))?"
+ */
+            var regex = @"^\\\\group\\hok\\(?<office>[a-zA-Z]{2,3})\\(PROJECTS|ARCHIVE\\PROJECTS)\\?(\d{4}|\dx\\x\d+|Other|360[^\\]*|NDIA)?\\(?<project.FullName>(?<project.Number>\d{2}[\d|\.\-]*)+\s*(\+|_|\-)?\s*(?<project.Name>[^\|$|\r|\n\\]*)?)(\\\w\-(?<Category>[^\\]*))?";
+            PutPipelineResponse response = client.Ingest
+            .PutPipeline(PipeLineNameHelper.PIPEofficecatproject, p => p
+                .Description("Pipeline to assign Office,Project and Category based on filepath.")
+                    .Processors(pr => pr
+                        .Grok<FSO>(g => g
+                            .Field(f => f.Id)
+                            //.PatternDefinitions(pd => pd.Add("CATEGORYPATTERN", regex))
+                            .Patterns(regex)
+                            .IgnoreFailure(true)
+                            .IgnoreMissing(true)
+                            )
+                        .Gsub<FSO>(g => g
+                            .Field(f => f.Category)
+                            .Pattern(@"\sand\s")
+                            .Replacement(@"&")
+                            .IgnoreMissing(true)
+                            .IgnoreFailure(true)
+                            )
+                         .Gsub<FSO>(g => g
+                            .Field(f => f.Category)
+                            .Pattern(@"\s|\)|\(")
+                            .Replacement(@"")
+                            .IgnoreMissing(true)
+                            .IgnoreFailure(true)
+                            )                          
+                        .Uppercase<FSO>
+                            (u => u.Field(f => f.Category)
+                            .IgnoreMissing(true)
+                            .IgnoreFailure(true)
+                            )
+                        )
+                    );
+            return response;
+        }
+
+
     }
 }

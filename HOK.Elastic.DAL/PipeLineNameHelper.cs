@@ -43,5 +43,13 @@
                 return _prefix + "pipe_document";
             }
         }
+
+        public string PIPEofficecatproject
+        {
+            get
+            {
+                return _prefix + "pipe_officeprojectcategory";
+            }
+        }
     }
 }

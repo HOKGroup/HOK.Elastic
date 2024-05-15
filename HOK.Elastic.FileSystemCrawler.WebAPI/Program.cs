@@ -27,7 +27,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 //add 'logs' button to web page to view job logs...
     public class Program
     {
-        public static string AppVersion
+        public static string AppVersionInfo
         {
             get
             {
