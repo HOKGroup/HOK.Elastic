@@ -13,6 +13,9 @@ using System.Text;
 using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using HOK.Elastic.DAL;
+using System.IO;
+using NLog.Extensions.Logging;
+using NLog.Config;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -22,20 +25,20 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         CancellationTokenSource _cts = new CancellationTokenSource();
         private Task _taskLoop = null;
         private ILogger _logger;
-        private bool isDebug;
-        private bool isInfo;
-        private bool isWarn;
-        private bool isError;
+        private bool isDebug, isInfo,isWarn,isError;
         private BufferBlock<HostedJobInfo> buffer;
         private TransformBlock<HostedJobInfo, HostedJobInfo> action;
         private ActionBlock<HostedJobInfo> completed;
         public event EventHandler<int> ProcessCompleted;
-        private readonly string persistFile = @"logs\jobs.json";
+        private string _persistFile = null;
+        private string _jobsFolder = null;
+        private string _logsFolder = null; 
         private readonly DateTime _startTimeUTC;
         private IEmailService _emailService;
+
+        private int _jobsCompleted;
         public TimeSpan UpTime => DateTime.UtcNow - _startTimeUTC;
         public int JobsCompleted { get => _jobsCompleted; }
-        private int _jobsCompleted;
 
         public int MaxJobs { get; private set; }
         public int JobSlots => (int)(MaxJobs * 1.5);
@@ -70,6 +73,12 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             _emailService = emailService;
             MaxJobs = maxJobs;
             _startTimeUTC = DateTime.UtcNow;
+            var appFolder = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            _logsFolder = System.IO.Path.Combine(appFolder, "logs");
+            Directory.CreateDirectory(_logsFolder);
+            _persistFile = Path.Combine(_logsFolder, "jobs.json");
+            _jobsFolder = Path.Combine(appFolder,"webapijobs");
+            Directory.CreateDirectory(_jobsFolder);
         }
 
         protected virtual void OnTaskCompleted(int Id)
@@ -79,7 +88,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            // Store the IHostedJobQueue task
             if (isInfo) _logger.LogInfo("Starting...");
             if (_taskLoop == null)
             {
@@ -111,7 +119,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-            // LoadSomeRandomTestJobs(16);
+            if (Jobs.Count() < 20)
+            {
+                LoadSomeRandomTestJobs(13);
+            }
+
 #endif
             DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
@@ -143,25 +155,52 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
         }
 
-
-
-
         public void CleanupOldJobs()
         {
+            int leaveSomeOldJobs =10;
             IEnumerable<HostedJobInfo> oldJobs;
             //remove completed jobs older than 7 days.
-            oldJobs = _jobs.Values.Where(x => x.IsCompleted && x.WhenCompleted != null && x.WhenCompleted != DateTime.MinValue && x.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(7)));
-            foreach (var x in oldJobs)
+            oldJobs = _jobs.Values.Where(x => x.IsCompleted && x.WhenCompleted != null && x.WhenCompleted != DateTime.MinValue && x.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(7))).ToList();
+            RemoveAndCleanupJobs(oldJobs);  
+            //if there's more than {leaveSomeOldJobs} remove some more jobs.
+            if (_jobs.Count > leaveSomeOldJobs)
             {
-                Remove(x.Id);
+                oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled).OrderByDescending(x => x.WhenCreated).Skip(leaveSomeOldJobs).ToList();
+                RemoveAndCleanupJobs(oldJobs);                
             }
-            //if there's more than 50 remove some more jobs.
-            if (_jobs.Count > 50)
+        }
+
+        public void RemoveAndCleanupJobs(IEnumerable<HostedJobInfo> oldJobs)
+        {
+            foreach (var job in oldJobs)
             {
-                oldJobs = _jobs.Values.Where(x => x.Status >= HostedJobInfo.State.cancelled).OrderByDescending(x => x.WhenCreated).Skip(25);
-                foreach (var job in oldJobs)
+                try
                 {
+                    CleanupOldFolder(job);
                     Remove(job.Id);
+                }
+                catch (Exception ex)
+                {
+                    if (isError) _logger.LogError(ex,"Error removing" + job.Id  +  "(" + job.SettingsJobArgsDTO.JobName + ")");
+                }
+            }
+        }
+
+        public void CleanupOldFolder(HostedJobInfo job)
+        {
+            var oldJobPath = SettingsJobArgsDTO.UnDTO(job.SettingsJobArgsDTO).InputPathLocation;
+            if(oldJobPath != null && Directory.Exists(oldJobPath))
+            {
+                try
+                {
+                    if(Directory.Exists(oldJobPath))
+                    {
+                        Directory.Delete(oldJobPath, true);
+                    }
+                   
+                }catch (Exception ex)
+                {
+                    if (isWarn) _logger.LogWarning(ex, "Couldn't delete old job at '{0}'",oldJobPath);
                 }
             }
         }
@@ -197,6 +236,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         {
             if (_jobs.TryRemove(id, out HostedJobInfo job))
             {
+                Save();
                 if (!job.IsCompleted) job.Cancel();
                 return job;
             }
@@ -234,7 +274,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             try
             {
                 var json = JsonConvert.SerializeObject(_jobs.Values, Formatting.Indented, new JsonSerializerSettings() { });
-                System.IO.File.WriteAllText(persistFile, json, new UTF8Encoding(false));
+                System.IO.File.WriteAllText(_persistFile, json, new UTF8Encoding(false));
             }
             catch (Exception ex)
             {
@@ -245,11 +285,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         private void Load()
         {
-            if (System.IO.File.Exists(persistFile))
+            if (System.IO.File.Exists(_persistFile))
             {
                 try
                 {
-                    string json = System.IO.File.ReadAllText(persistFile);
+                    string json = System.IO.File.ReadAllText(_persistFile);
                     if (isDebug) _logger.LogDebug(json);
                     var jobs = JsonConvert.DeserializeObject<HostedJobInfo[]>(json);
                     if (isDebug) _logger.LogDebug($"job count = {jobs.Count()}");
@@ -259,18 +299,19 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                         if (job.Status < HostedJobInfo.State.cancelled) job.Status = HostedJobInfo.State.unstarted;//retry completing job that started but hadn't been previously marked as cancelled, completed or otherwise.
                         if (!_jobs.TryAdd(job.Id, job))
                         {
-                            if (isWarn) _logger.LogWarn($"Couldn't add jobid={job.Id} from '{persistFile}' as it already exists");
+                            if (isWarn) _logger.LogWarn($"Couldn't add jobid={job.Id} from '{_persistFile}' as it already exists");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    if (isError) _logger.LogErr($"Error loading {persistFile}", null, null, ex);
+                    if (isError) _logger.LogErr($"Error loading {_persistFile}", null, null, ex);
                 }
             }
         }
         public async Task<HostedJobInfo> RunJobAsync(HostedJobInfo hostedJobInfo)
         {
+            Tuple<NLog.Targets.Target, LoggingRule, ILogger> jobLogConfig = null;
             try
             {
                 hostedJobInfo.Status = HostedJobInfo.State.started;  
@@ -295,11 +336,15 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
                 string safepath = workerargs.JobName + workerargs.JobNotes;
                 System.IO.Path.GetInvalidPathChars().Select(x => safepath = safepath.Replace(x, ' '));
-                workerargs.InputPathLocation = System.IO.Path.Combine("webapijobs", safepath + hostedJobInfo.GetHashCode());
+                workerargs.InputPathLocation = System.IO.Path.Combine(_jobsFolder, safepath + hostedJobInfo.GetHashCode());
+                hostedJobInfo.SettingsJobArgsDTO.InputPathLocation = workerargs.InputPathLocation;//TODO refactor inputpathcrawls and events.
+                Directory.CreateDirectory(workerargs.InputPathLocation);//CreateFolder if it doesn't exist.
                 //end of unchecked requirements stuff that causes problems.
-
-                var customLogger = GetPerProjectLogger(hostedJobInfo.Id + workerargs.JobName, "genericsinglelogger");
-                var jobLogger = new Elastic.Logger.Log4NetLogger("hmm", customLogger.Item1, customLogger.Item2);
+           
+                var jobLoggerPath = Path.Combine(workerargs.InputPathLocation,"joblog.log");
+                jobLogConfig = GetJobLogConfig("WebAPI" + hostedJobInfo.Id + workerargs.JobName,jobLoggerPath);
+                var jobLogger = jobLogConfig.Item3;
+                if (jobLogger.IsEnabled(LogLevel.Debug)) jobLogger.LogDebug("+Job Log Starting+");
                 IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
                 PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
                 var index = new HOK.Elastic.DAL.Index(pipeLineNameHelper, indexNameHelper,workerargs.ElasticIndexURI.First(), jobLogger);
@@ -327,7 +372,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
                 if (_logger.IsEnabled(LogLevel.Information)) _logger.LogInfo("Starting....", null, hostedJobInfo.SettingsJobArgsDTO.JobName);
 
-                hostedJobInfo.CompletionInfo = await iWorker.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//we can pass IProgress<T> here later if we want to get progress.
+                hostedJobInfo.CompletionInfo = await iWorker.RunAsync(workerargs, hostedJobInfo.GetCancellationToken());//TODO we can pass IProgress<T> here later if we want to get progress.
               
                 switch (hostedJobInfo.CompletionInfo.exitCode)
                 {
@@ -355,13 +400,16 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 hostedJobInfo.Exception = ex;
                 hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
             }
+            finally
+            {
+                if (jobLogConfig != null) RemoveNlogJobLogger(jobLogConfig);
+            }
+            string email= hostedJobInfo.SettingsJobArgsDTO.EmailNotification;
             try
             {
                 //try and notify if set
-                var email = hostedJobInfo.SettingsJobArgsDTO.EmailNotification;
                 if (!string.IsNullOrEmpty(email))
                 {
-                    //todo we should validate the email address before it gets here.
                     var completionInfo = JsonConvert.SerializeObject(hostedJobInfo.CompletionInfo);
                     var mail = EmailService.MakeMessage(_emailService.DefaultSender, email, $"CrawlJob Complete on {Environment.MachineName} {hostedJobInfo.SettingsJobArgsDTO.JobName}", $"{hostedJobInfo.Status}\r\n\r\n***\r\n\r\n{completionInfo}\r\n\r\nException: {(hostedJobInfo.HasException ? hostedJobInfo.GetException().ToString() : "No Fatal Exceptions...")}");
                     _emailService.Send(mail);
@@ -369,23 +417,66 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
             catch (Exception ex)
             {
-                if (isError) _logger.LogError(ex, $"Couldn't send email notification {hostedJobInfo.Id}");
+                if (isError) _logger.LogError(ex, $"Couldn't send email notification {hostedJobInfo.Id} to '{email??" "}'");
             }
-            return hostedJobInfo;
+            return hostedJobInfo;//do we make it here when there's been an exception.
+        }
+       private static SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+        private Tuple<NLog.Targets.Target,LoggingRule,ILogger> GetJobLogConfig(string jobName,string logPath)
+        {
+            var target = new NLog.Targets.FileTarget()
+            {
+                Name = jobName,
+                FileName = logPath,
+                FileNameKind = NLog.Targets.FilePathKind.Relative,
+                ArchiveAboveSize =  10 * 1024^2,
+                ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Sequence,
+            };
+            var rule = new LoggingRule(jobName + "rule") { Final = true };
+            rule.EnableLoggingForLevels(NLog.LogLevel.Debug, NLog.LogLevel.Fatal);
+            rule.LoggerNamePattern = jobName;
+            rule.Targets.Add(target);          
+            try
+            {
+                semaphore.Wait(_cts.Token);
+                //NLog.LogManager.Configuration.LoggingRules.Insert(0, rule);//add at beginning of ruleset so that rules in nlog.config file can supercede(filter for example)
+               // var loggerFactory = LoggerFactory.Create(x => x.AddNLog(NLog.LogManager.Configuration));
+               // var logger = loggerFactory.CreateLogger(jobName);
+                //return new Tuple<NLog.Targets.Target, LoggingRule, ILogger>(target, rule, logger);
+                return new Tuple<NLog.Targets.Target, LoggingRule, ILogger>(target, rule,_logger);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+        private void RemoveNlogJobLogger(Tuple<NLog.Targets.Target, LoggingRule, ILogger> loggerSetup)
+        {
+            var target = loggerSetup.Item1;
+            var rule = loggerSetup.Item2;
+            //var logger = loggerSetup.Item3;//aparently it's not possible to remove loggers but only to disable them.
+            rule.Targets.Add(target);
+            NLog.LogManager.Configuration.RemoveTarget(target.Name);
+            NLog.LogManager.Configuration.RemoveRuleByName(rule.RuleName);
+            NLog.LogManager.ReconfigExistingLoggers();
         }
 
         private void Finish(HostedJobInfo jobInfo)
         {
             Interlocked.Increment(ref _jobsCompleted);
             if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
-            var filename = MakeSafeFileName($"completed{jobInfo.SettingsJobArgsDTO.JobName}.json");
+            var workerargs = SettingsJobArgsDTO.UnDTO(jobInfo.SettingsJobArgsDTO);
+            var outputPath = workerargs.InputPathLocation;
+            Save();
+
+            var filename =Path.Combine(outputPath,MakeSafeFileName($"completed{jobInfo.SettingsJobArgsDTO.JobName}.json"));
             try
             {
-                System.IO.File.AppendAllText($"logs\\{filename}", jobInfo.ToString());
+                System.IO.File.AppendAllText(filename, jobInfo.ToString());
             }
             catch (Exception ex)
             {
-                if (isError) _logger.LogError($"Couldn't save logs\\{filename} with {jobInfo.ToString()}", ex);
+                if (isError) _logger.LogError($"Couldn't save {filename} with {jobInfo.ToString()}", ex);
             }
             OnTaskCompleted(jobInfo.Id);
         }
@@ -393,55 +484,6 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private string MakeSafeFileName(string filename)
         {
             return new string(filename.Where(x => !_badChars.Contains(x)).ToArray());
-        }
-
-
-        private Tuple<log4net.Repository.ILoggerRepository, log4net.ILog> GetPerProjectLogger(string projectName, string name)
-        {
-            //temporary until we refactor logging...
-            //https://stackoverflow.com/questions/21022467/log4net-different-logs-on-different-file-appenders-at-runtime
-            var repositoryName = projectName;
-            log4net.Repository.ILoggerRepository repository = null;
-            var repositories = log4net.LogManager.GetAllRepositories();
-            foreach (var loggerRepository in repositories)
-            {
-                if (loggerRepository.Name.Equals(repositoryName))
-                {
-                    repository = loggerRepository;
-                    break;
-                }
-            }
-
-            log4net.Repository.Hierarchy.Hierarchy hierarchy = null;
-            if (repository == null)
-            {
-                //Create a new repository
-                repository = log4net.LogManager.CreateRepository(repositoryName);
-
-                hierarchy = (log4net.Repository.Hierarchy.Hierarchy)repository;
-                hierarchy.Root.Additivity = false;
-
-                var rollingFileAppenderLayout = new log4net.Layout.PatternLayout("%date{HH:mm:ss,fff}|T%2thread|%25.25logger|%5.5level| %message%newline");
-                rollingFileAppenderLayout.ActivateOptions();
-                var rollingFileAppender = new log4net.Appender.RollingFileAppender();
-                rollingFileAppender.Name = $"job{projectName}";
-                rollingFileAppender.Threshold = log4net.Core.Level.Info;
-                rollingFileAppender.CountDirection = 0;
-                rollingFileAppender.PreserveLogFileNameExtension = true;
-                rollingFileAppender.AppendToFile = true;
-                rollingFileAppender.LockingModel = new log4net.Appender.FileAppender.MinimalLock();
-                rollingFileAppender.StaticLogFileName = true;
-                rollingFileAppender.MaxFileSize = 10 * 1024 * 1024;
-                rollingFileAppender.MaxSizeRollBackups = 20;
-                rollingFileAppender.RollingStyle = log4net.Appender.RollingFileAppender.RollingMode.Composite;
-                rollingFileAppender.DatePattern = ".yyyy-MM-dd'.log'";
-                rollingFileAppender.Layout = rollingFileAppenderLayout;
-                rollingFileAppender.File = string.Format("{0}{1}{2}", "logs\\job", projectName, ".log");
-                rollingFileAppender.ActivateOptions();
-                hierarchy.Root.AddAppender(rollingFileAppender);
-                log4net.Config.BasicConfigurator.Configure(repository);
-            }
-            return new Tuple<log4net.Repository.ILoggerRepository, log4net.ILog>(repository, log4net.LogManager.GetLogger(repositoryName, name));
         }
         #endregion
 
@@ -457,14 +499,14 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 {
                     BulkUploadSize = rnd,
                     CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.EventBased,
-                    ElasticDiscoveryURI = new List<string> { "https://elasitcnode:9200/" },
-                    ElasticIndexURI = new List<string> { "https://elasticnode:9200/" },
+                    ElasticDiscoveryURI = new List<string> { "https://elasticnode:9200" },
+                    ElasticIndexURI = new List<string> { "https://elasticnode:9200" },
                     DocInsertionThreads = 1,
                     JobName = "Sample" + rnd,
                     JobNotes = "Some notes about the sample job",
                     IgnoreExtensions = new List<string>() { ".dat", ".db" },
                     IndexNamePrefix = $"test{rnd}",
-                    InputPathLocation = $"c:\\",
+                    InputPathLocation = $"d:\\",
                     InputEvents = new List<InputPathEventStream>() {new InputPathEventStream(){
                         IsDir = true,
                         Path = "c:\\archive",
@@ -479,7 +521,34 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     FileNameExclusionRegex = ".*",
                     OfficeSiteExtractRegex = "[a-z]{2,5}",
                     ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
-                    EmailNotification = "james.blackadar@hok.com"
+                    EmailNotification = ""// "james.blackadar@hok.com"
+                };
+                Enqueue(d);
+                d = new SettingsJobArgsDTO()
+                {
+                    BulkUploadSize = rnd,
+                    CrawlMode = HOK.Elastic.FileSystemCrawler.Models.CrawlMode.Incremental,
+                    ElasticDiscoveryURI = new List<string> { "https://elasticnode:9200" },
+                    ElasticIndexURI = new List<string> { "https://elasticnode:9200" },
+                    DocInsertionThreads = 1,
+                    JobName = "SampleIncremental" + rnd,
+                    JobNotes = "Some notes about the sample job",
+                    IgnoreExtensions = new List<string>() { ".dat", ".db" },
+                    IndexNamePrefix = $"test{rnd}",
+                    InputPathLocation = $"d:\\",
+                    InputCrawls = new List<InputPathBase>() {new InputPathBase(){
+                        Path = "c:\\archive"
+                       ,Office = "tor"
+                            }
+                    },
+                    PublishedPath = "c:\\",
+                    PathForCrawling = "c:\\",
+                    PathForCrawlingContent = "c:\\",
+                    PathInclusionRegex = ".*",
+                    FileNameExclusionRegex = ".*",
+                    OfficeSiteExtractRegex = "[a-z]{2,5}",
+                    ProjectExtractRegex = "\\d\\\\(([\\d|\\-|\\.]*\\d\\d)\\s?([\\+|\\s\\|\\-|_]+)([\\w]+[^\\\\|$|\\r|\\n]*))",
+                    EmailNotification = ""// "james.blackadar@hok.com"
                 };
                 Enqueue(d);
             }
