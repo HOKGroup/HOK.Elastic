@@ -6,9 +6,9 @@
   <ItemGroup>
     <PackageReference Include="Elasticsearch.Net" Version="7.17.0" />
     <PackageReference Include="NEST" Version="7.17.0" />
+    <PackageReference Include="NLog.Extensions.Logging" Version="5.3.11" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler\HOK.Elastic.FileSystemCrawler.csproj" />
-    <ProjectReference Include="..\HOK.Elastic.Logger\HOK.Elastic.Logger.csproj" />
   </ItemGroup>
 </Project>

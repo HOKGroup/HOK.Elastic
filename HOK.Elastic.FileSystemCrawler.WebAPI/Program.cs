@@ -14,23 +14,25 @@ using Newtonsoft.Json;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using System.Text;
 using NLog.Extensions.Logging;
+using log4net.Repository.Hierarchy;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
+   
 //todo
 //add 'remove' buttons for input paths (maybe a preview so you can see what's in there too)
 //fatal exception in crawl didn't seem to populate the 'exceptions' section of the results, but the completion status was 'completed with exceptions'
 //add 'logs' button to web page to view job logs...
     public class Program
     {
+        public static Microsoft.Extensions.Logging.ILoggerFactory LoggerFactory { get; private set; }
         public static string AppVersion
         {
             get
             {
                 StringBuilder sb = new StringBuilder();
                 sb.AppendLine("Runtime Version: " + System.Environment.Version.ToString());
-                sb.AppendLine("Program Version: " + typeof(Program).Assembly
-    .GetCustomAttribute<AssemblyFileVersionAttribute>().Version);
+                sb.AppendLine("Program Version: " + typeof(Program).Assembly.GetCustomAttribute<AssemblyFileVersionAttribute>().Version);
                 var appdir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 var di = new DirectoryInfo(appdir);
                 foreach (var fi in di.EnumerateFiles("HOK*.dll"))
@@ -53,6 +55,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     if (appSettings != null) { AppSettings = appSettings; }
                 }
             }
+            LoggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(x => x.AddNLog(NLog.LogManager.Configuration));
             CreateHostBuilder(args).Build().Run();
         }
 

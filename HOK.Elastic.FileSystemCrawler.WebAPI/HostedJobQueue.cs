@@ -121,7 +121,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 #if DEBUG
             if (Jobs.Count() < 20)
             {
-                LoadSomeRandomTestJobs(13);
+                LoadSomeRandomTestJobs(3);
             }
 
 #endif
@@ -439,11 +439,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             try
             {
                 semaphore.Wait(_cts.Token);
-                //NLog.LogManager.Configuration.LoggingRules.Insert(0, rule);//add at beginning of ruleset so that rules in nlog.config file can supercede(filter for example)
-               // var loggerFactory = LoggerFactory.Create(x => x.AddNLog(NLog.LogManager.Configuration));
-               // var logger = loggerFactory.CreateLogger(jobName);
-                //return new Tuple<NLog.Targets.Target, LoggingRule, ILogger>(target, rule, logger);
-                return new Tuple<NLog.Targets.Target, LoggingRule, ILogger>(target, rule,_logger);
+                 NLog.LogManager.Configuration.LoggingRules.Insert(0, rule);//add at beginning of ruleset so that rules in nlog.config file can supercede(filter for example)
+                var logger = Program.LoggerFactory.CreateLogger(jobName);
+                return new Tuple<NLog.Targets.Target, LoggingRule, ILogger>(target, rule, logger);
             }
             finally
             {
@@ -454,8 +452,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         {
             var target = loggerSetup.Item1;
             var rule = loggerSetup.Item2;
-            //var logger = loggerSetup.Item3;//aparently it's not possible to remove loggers but only to disable them.
-            rule.Targets.Add(target);
+            //loggerSetup.Item3;//aparently it's not possible to remove loggers but only to disable them.
             NLog.LogManager.Configuration.RemoveTarget(target.Name);
             NLog.LogManager.Configuration.RemoveRuleByName(rule.RuleName);
             NLog.LogManager.ReconfigExistingLoggers();
