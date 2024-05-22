@@ -50,6 +50,7 @@ namespace HOK.Elastic.DAL
             settings.DisableDirectStreaming();
 
 #endif
+            settings.EnableApiVersioningHeader();
             settings.RequestTimeout(TimeSpan.FromMinutes(5));//todo change this to a setting             
             this.client = new ElasticClient(settings);
            
@@ -188,6 +189,7 @@ namespace HOK.Elastic.DAL
         {
             var settings = new ConnectionSettings(connectionPool, new NetworkCredentialsHttpConnection());
             settings.MemoryStreamFactory(Elasticsearch.Net.MemoryStreamFactory.Default); //recycle memorystream linked to mem leakage https://github.com/serilog/serilog-sinks-elasticsearch/issues/368
+            settings.EnableApiVersioningHeader();
             ElasticClient apiKeyClient = new ElasticClient(settings);
             List<string> indexNames = new List<string>() { StaticIndexPrefix.Prefix + "*" };
             var possibleIndexAliasNames = new string[] { DAL.Models.FSOdirectory.indexname, DAL.Models.FSOfile.indexname, DAL.Models.FSOdocument.indexname, DAL.Models.FSOemail.indexname };
@@ -242,51 +244,6 @@ namespace HOK.Elastic.DAL
         }
 
 
-        public ApiKey GetApiKeyOld()
-        {
-            var settings = new ConnectionSettings(connectionPool, new NetworkCredentialsHttpConnection());
-            settings.MemoryStreamFactory(Elasticsearch.Net.MemoryStreamFactory.Default); //recycle memorystream linked to mem leakage https://github.com/serilog/serilog-sinks-elasticsearch/issues/368
-            ElasticClient apiKeyClient = new ElasticClient(settings);
-            CreateApiKeyResponse keyResponse = apiKeyClient.Security.CreateApiKeyAsync(
-                (_v) => new CreateApiKeyRequest
-                {
-                    Name = apiKeyGuid,
-                    Expiration = "1h",
-                    Roles = new ApiKeyRoles
-                           {
-                               {
-                                   "read-write-only", new ApiKeyRole
-                                               {
-                                                   Cluster = new [] { "all" },
-                                                   Index = new []
-                                                   {
-                                                       new ApiKeyPrivileges
-                                                       {
-                                                           Names = new [] { StaticIndexPrefix.Prefix + "*" },
-                                                           //Privileges = new[] { "read", "write", "manage" }
-                                                           Privileges = new []{ "all" }
-                                                       }
-                                                   }
-                                               }
-                               },
-                           }
-                }).GetAwaiter().GetResult();
-            if (keyResponse.IsValid)
-            {
-                return new ApiKey
-                {
-                    Id = keyResponse.Id,
-                    Secret = keyResponse.ApiKey,
-                    Expiration = keyResponse.Expiration.Value,
-                    ExpirationSunset = keyResponse.Expiration.Value.AddMinutes(-1)
-                };
-            }
-            else
-            {
-                var err = ElasticResponseError.GetError(keyResponse);
-                throw new HttpRequestException("Failed to generate token" + err.HttpStatusCode + err.ServerErrorReason + err.OriginalMessage + err.InnerMessage);
-            }
-        }
         public bool InvalidateApiKey(string apiGuid)
         {
             var invalidateResponse = client.Security.InvalidateApiKeyAsync(new InvalidateApiKeyRequest { Name = apiGuid }).GetAwaiter().GetResult();
