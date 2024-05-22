@@ -18,8 +18,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HOK.Elastic.FileSystemCrawl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HOK.Elastic.ArchiveDiscovery", "HOK.Elastic.ArchiveDiscovery\HOK.Elastic.ArchiveDiscovery.csproj", "{7633149C-6D28-4CAE-B931-CD1080092ACD}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HOK.Elastic.FileSystemCrawler.WebAPI.DAL", "HOK.Elastic.FileSystemCrawler.WebAPI.DAL\HOK.Elastic.FileSystemCrawler.WebAPI.DAL.csproj", "{37183D09-270E-43F9-931A-B547A6B1888C}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -92,14 +90,6 @@ Global
 		{7633149C-6D28-4CAE-B931-CD1080092ACD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{7633149C-6D28-4CAE-B931-CD1080092ACD}.Release|x64.ActiveCfg = Release|Any CPU
 		{7633149C-6D28-4CAE-B931-CD1080092ACD}.Release|x64.Build.0 = Release|Any CPU
-		{37183D09-270E-43F9-931A-B547A6B1888C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{37183D09-270E-43F9-931A-B547A6B1888C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{37183D09-270E-43F9-931A-B547A6B1888C}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{37183D09-270E-43F9-931A-B547A6B1888C}.Debug|x64.Build.0 = Debug|Any CPU
-		{37183D09-270E-43F9-931A-B547A6B1888C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{37183D09-270E-43F9-931A-B547A6B1888C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{37183D09-270E-43F9-931A-B547A6B1888C}.Release|x64.ActiveCfg = Release|Any CPU
-		{37183D09-270E-43F9-931A-B547A6B1888C}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

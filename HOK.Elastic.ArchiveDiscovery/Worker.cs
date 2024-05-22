@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using HOK.Elastic.DAL;
 using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.Extensions.Logging;
 using NLog;
 using NLog.Extensions.Logging;

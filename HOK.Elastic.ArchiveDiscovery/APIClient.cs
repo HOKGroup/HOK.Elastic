@@ -8,7 +8,7 @@ using System;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Security.Principal;
-using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 
 namespace HOK.Elastic.ArchiveDiscovery
 {

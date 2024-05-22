@@ -25,7 +25,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\HOK.Elastic.DAL\HOK.Elastic.DAL.csproj" />
-    <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler.WebAPI.DAL\HOK.Elastic.FileSystemCrawler.WebAPI.DAL.csproj" />
+    <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler.WebAPI\HOK.Elastic.FileSystemCrawler.WebAPI.csproj" />
     <ProjectReference Include="..\HOK.Elastic.FileSystemCrawler\HOK.Elastic.FileSystemCrawler.csproj" />
     <ProjectReference Include="..\HOK.Elastic.Logger\HOK.Elastic.Logger.csproj" />
   </ItemGroup>

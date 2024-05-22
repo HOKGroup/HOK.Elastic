@@ -10,7 +10,6 @@ using System.Threading.Tasks.Dataflow;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 using System.Text;
-using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using HOK.Elastic.DAL;
 using System.IO;
