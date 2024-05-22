@@ -1,4 +1,4 @@
-﻿namespace HOK.NasuniAuditEventAPI.DAL.Models
+﻿namespace HOK.NasuniAuditEventAPI.Models
 {
     public class NasuniEventRecord
     {

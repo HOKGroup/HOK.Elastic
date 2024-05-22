@@ -1,5 +1,5 @@
 using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.NasuniAuditEventAPI.DAL;
+using HOK.NasuniAuditEventAPI;
 using log4net;
 using log4net.Config;
 //using Microsoft.AspNetCore.OData.Builder;

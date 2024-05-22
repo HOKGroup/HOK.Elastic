@@ -25,7 +25,7 @@ using System.Threading.Tasks;
 
 ILogger? logger = null;
 IConfiguration Configuration;
-HOK.NasuniAuditEventAPI.DAL.NasuniEventReader nasuniEventStreamReader;
+HOK.NasuniAuditEventAPI.NasuniEventReader nasuniEventStreamReader;
 bool isDebug, isInfo, isWarn, isError;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -50,9 +50,9 @@ services.AddMvc().AddMvcOptions(x => x.EnableEndpointRouting = false);
 //https://andrewlock.net/running-async-tasks-on-app-startup-in-asp-net-core-3/
 //services.AddHostedService<DAL.AuditLogHostedService>()
 var provider = services.BuildServiceProvider();
-var ilogger = provider.GetService<ILogger<HOK.NasuniAuditEventAPI.DAL.NasuniEventReader>>();
-nasuniEventStreamReader = new HOK.NasuniAuditEventAPI.DAL.NasuniEventReader(ilogger, GlobalSettings.Settings.NasuniLogFolderToTail, GlobalSettings.Settings.MaxItemsToReturn, GlobalSettings.Settings.MinimumAgeOfEventInMinutes);
-services.AddSingleton<HOK.NasuniAuditEventAPI.DAL.NasuniEventReader>(nasuniEventStreamReader);
+var ilogger = provider.GetService<ILogger<HOK.NasuniAuditEventAPI.NasuniEventReader>>();
+nasuniEventStreamReader = new HOK.NasuniAuditEventAPI.NasuniEventReader(ilogger, GlobalSettings.Settings.NasuniLogFolderToTail, GlobalSettings.Settings.MaxItemsToReturn, GlobalSettings.Settings.MinimumAgeOfEventInMinutes);
+services.AddSingleton<HOK.NasuniAuditEventAPI.NasuniEventReader>(nasuniEventStreamReader);
 
 //authentication support
 services.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();

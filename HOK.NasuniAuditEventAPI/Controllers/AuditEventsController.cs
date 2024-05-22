@@ -1,7 +1,4 @@
 ﻿using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.NasuniAuditEventAPI.DAL;
-//using Microsoft.AspNet.OData;
-//using Microsoft.AspNet.OData.Query;
 using Microsoft.AspNetCore.OData;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.AspNetCore.Authorization;
@@ -17,11 +14,11 @@ namespace HOK.NasuniAuditEventAPI.Controllers
     [Authorize(Roles = "HOK Elastic Crawler Admins")]
     public class AuditEventsController : ODataController
     {
-        DAL.NasuniEventReader _auditLogHostedService;
+        NasuniEventReader _auditLogHostedService;
 
         private readonly ILogger<AuditEventsController> _logger;
 
-        public AuditEventsController(DAL.NasuniEventReader nasuniEventStreamReader, ILogger<AuditEventsController> logger)
+        public AuditEventsController(NasuniEventReader nasuniEventStreamReader, ILogger<AuditEventsController> logger)
         {
             _auditLogHostedService = nasuniEventStreamReader;
             _logger = logger;
@@ -73,7 +70,7 @@ namespace HOK.NasuniAuditEventAPI.Controllers
                     {
                         _logger.LogDebugInfo("Removing from Queue", null, string.Join(";", listOfItemsToRemove.Select(x => System.IO.Path.GetFileName(x))));
                     }
-                    if (listOfItemsToRemove.Count > 0)
+                    if (listOfItemsToRemove.Any())
                     {
                         await _auditLogHostedService.RemoveAsync(listOfItemsToRemove);//comment this out so that we never consume the events while testing...
                     }

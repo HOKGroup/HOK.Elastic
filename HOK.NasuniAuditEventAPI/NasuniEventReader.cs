@@ -1,5 +1,5 @@
 ﻿using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.NasuniAuditEventAPI.DAL.Models;
+using HOK.NasuniAuditEventAPI.Models;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
@@ -10,16 +10,16 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HOK.NasuniAuditEventAPI.DAL
+namespace HOK.NasuniAuditEventAPI
 {
-    public sealed class NasuniEventReader : IDisposable // : IAuditLogHostedService,IHostedService
+    public sealed class NasuniEventReader : IDisposable //: IAuditLogHostedService,IHostedService
     {
         public const int MaximumNumberOfItemsAllowedToRequestHardCoded = 1000;//TODO set this to some reasonable number or change from const to a formula of available RAM etc.
         private int _maxN;
         private int _minimumAgeMinutes;
         private readonly InputPathCollectionEventStream _inputPaths;
         private static Dictionary<string, long> logsWeHaveRead = new Dictionary<string, long>();
-        private SemaphoreSlim _sync = new SemaphoreSlim(1,1);
+        private SemaphoreSlim _sync = new SemaphoreSlim(1, 1);
         private bool disposedValue;
         private readonly ILogger<NasuniEventReader> _logger;
         private Task _task;
@@ -30,7 +30,7 @@ namespace HOK.NasuniAuditEventAPI.DAL
         public int PathSkipped { get; private set; }
         public int MaxItemsToReturn { get => _maxN; }
         public int MinageInMinutes { get => _minimumAgeMinutes; }
-        public List<string> LogsRead { get=> logsWeHaveRead.Keys.ToList(); }
+        public List<string> LogsRead { get => logsWeHaveRead.Keys.ToList(); }
         public string FolderTowatch { get; private set; }
 
         public TimeSpan MinimumAgeOfLogsToRead
@@ -273,11 +273,17 @@ namespace HOK.NasuniAuditEventAPI.DAL
                     //(for example elements [48,49,50] if the last loop only had 47 items in the buffer as the timestamps could be identical for multiple records)
                     //We assume that while records may identical timestamps, the most recently read line from the log is newest.
                     await _sync.WaitAsync();
-                    for (int i = 0; i < buffercounter; i++)
+                    try
                     {
-                        _inputPaths.Add(eventsBuffer[i]);
-                    };
-                    _sync.Release();
+                        for (int i = 0; i < buffercounter; i++)
+                        {
+                            _inputPaths.Add(eventsBuffer[i]);
+                        };
+                    }
+                    finally
+                    {
+                        _sync.Release();
+                    }
                 }
             }
         }
@@ -373,7 +379,5 @@ namespace HOK.NasuniAuditEventAPI.DAL
             Dispose(disposing: true);
             GC.SuppressFinalize(this);
         }
-
-       
     }
 }
