@@ -30,7 +30,7 @@ namespace HOK.Elastic.FileSystemCrawler
             if (NativeMethods.GlobalMemoryStatusEx(memStatus))
             {
                 installedMemory = memStatus.ullTotalPhys;
-                _desiredMaxMemoryKB = Math.Round((installedMemory / 1024) * 0.2);
+                _desiredMaxMemoryKB = Math.Min(300000, Math.Round((installedMemory / 1024) * 0.2));//todo take an optional min value from a config file or arg etc.
             }
             if (ilinfo) _il.LogInfo("Max Ram limit before inserting documents", null, _desiredMaxMemoryKB);
         }
@@ -460,6 +460,7 @@ namespace HOK.Elastic.FileSystemCrawler
             NativeMethods.MEMORYSTATUSEX memStatus;
             do
             {
+                _ct.ThrowIfCancellationRequested();
                 memStatus = new NativeMethods.MEMORYSTATUSEX();
                 if (NativeMethods.GlobalMemoryStatusEx(memStatus))
                 {

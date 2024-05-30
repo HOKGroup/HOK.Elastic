@@ -10,6 +10,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks.Dataflow;
+using System.Threading.Tasks;
+using System.IO;
 
 namespace HOK.Elastic.DAL
 {
@@ -18,7 +21,6 @@ namespace HOK.Elastic.DAL
     /// </summary>
     public class Discovery : Base, IDiscovery
     {
-
         public Discovery(Uri uri, Logger.Log4NetLogger logger) : base(uri, logger)
         {
         }
@@ -26,289 +28,21 @@ namespace HOK.Elastic.DAL
         {
         }
 
-        private readonly string[] DefaultSourceFieldsFilter = new string[] { "id", "parent", "acls", "last_write_timeUTC", "failureCount" };
-        private readonly string[] JustId = new string[] { "id" };
         protected readonly string AllIndicies = StaticIndexPrefix.Prefix + "*";
-        private Type typedir = typeof(FSOdirectory);
-        private Type typefsofile = typeof(FSOfile);
-        private Type typefsodoc = typeof(FSOdocument);
-        private Type typefsoemail = typeof(FSOemail);
+        internal Type typedir = typeof(FSOdirectory);
+        internal Type typefsofile = typeof(FSOfile);
+        internal Type typefsodoc = typeof(FSOdocument);
+        internal Type typefsoemail = typeof(FSOemail);
 
-
-        /// <summary>
-        /// Called by workercrawler recursion
-        /// </summary>
-        /// <param name="path">ensure lowercase</param>
-        ///  /// <param name="includeFullSource">set to true to return the full source document (when duplicating a document for example</param>
-        /// <returns></returns>
-        public DirectoryContents FindRootAndChildren(string path, bool includeFullSource = false)
+        internal static class SourceFilterDescriptors<T> where T : class, IFSO
         {
-            SourceFilterDescriptor<FSO> sourceFilter;
-            if (includeFullSource)
-            {
-                sourceFilter = new SourceFilterDescriptor<FSO>();
-                sourceFilter.IncludeAll();
-            }
-            else
-            {
-                sourceFilter = new SourceFilterDescriptor<FSO>();
-                sourceFilter.Includes(f => f.Fields(DefaultSourceFieldsFilter));
-            }
-
-
-            var response = client.Search<FSO>(d => d
-                        .Index(AllIndicies)
-                        .Size(1000)//if we get results at size limit we will scroll the query.
-                        .Sort(sort => sort.Ascending("id.keyword"))//added to ensure the root/parent/'path we are searching for' is actually found
-                        .Source(s => sourceFilter)//we could sort here if we really wanted to ensure we get the 'root' document but it's highly likely to be returned in the sub 1000 query.
-                        .Query(q => q
-                            .Bool(b => b
-                                .Filter(bf => bf
-                                    .Term("id.keyword", path) || bf.Term("parent.keyword", path)
-                                    )
-                                )
-                            )
-                        );
-            if (response.IsValid)
-            {
-                if (response.Hits.Any())
-                {
-                    DirectoryContents directoryContents;
-                    var root = response.Hits.Where(x => x.Id.Equals(path, StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
-                    var children = response.Hits.Where(x => x.Id != path);//.Select(x => new DirectoryContents.Content(x.Id.ToLowerInvariant(), x.Index, x.Source.Acls, x.Source.Last_write_timeUTC, x.Source.FailureCount));
-                    if (root != default)
-                    {
-                        directoryContents = new DirectoryContents()
-                        {
-                            Id = root.Id,
-                            Acls = root.Source.Acls,
-                            Last_write_timeUTC = root.Source.Last_write_timeUTC,
-                            IndexName = root.Index,
-                            Contents = new HashSet<DirectoryContents.Content>()
-                        };
-                    }
-                    else if (response.Hits.Count > 0)//root was null but we had some children...
-                    {
-                        directoryContents = new DirectoryContents()
-                        {
-                            Id = path,
-                            IndexName = FSOdirectory.indexname
-                        };
-                    }
-                    else//root and children were both null...
-                    {
-                        return null;
-                    }
-
-                    if (response.Hits.Count >= 1000)
-                    {
-                        var docs = FindChildrenScroll(path, false);
-                        foreach (var hit in docs)
-                        {
-                            directoryContents.Contents.Add(new DirectoryContents.Content(hit.Id.ToLowerInvariant(), hit.Index, hit.Source.Acls, hit.Source.Last_write_timeUTC, hit.Source.FailureCount));
-                        }
-                    }
-                    else
-                    {
-                        if (children != null && children.Any())
-                        {
-                            directoryContents.Contents = new HashSet<DirectoryContents.Content>(children.Select(hit => new DirectoryContents.Content(hit.Id.ToLowerInvariant(), hit.Index, hit.Source.Acls, hit.Source.Last_write_timeUTC, hit.Source.FailureCount)));
-                        }
-                    }
-                    return directoryContents;
-                }
-                else
-                {
-                    return null;//no response hits. 
-                }
-            }
-            else
-            {
-                var err = ElasticResponseError.GetError(response);
-                if (ilwarn) _il.LogWarn(nameof(FindRootAndChildren), path, err);
-                return null;//not valid
-            }
+            static string[] DefaultSourceFieldsFilter = new string[] { "id", "parent", "acls", "last_write_timeUTC", "failureCount" };
+            static string[] JustId = new string[] { "id" };
+            static public SourceFilterDescriptor<T> IncludeAlls = new SourceFilterDescriptor<T>().IncludeAll();
+            static public SourceFilterDescriptor<T> IncludeDefaults = new SourceFilterDescriptor<T>().Includes(f => f.Fields(DefaultSourceFieldsFilter));
+            static public SourceFilterDescriptor<T> JustIds = new SourceFilterDescriptor<T>().Includes(f => f.Fields(JustId));
         }
-
-
-        /// <summary>
-        /// called by workercrawler recursion if there are more than 1k hits
-        /// </summary>
-        /// <param name="path"></param>
-        /// <param name="includeFullSource "></param>
-        /// <returns></returns>
-        private IEnumerable<IHit<IFSO>> FindChildrenScroll(string path, bool includeFullSource)
-        {
-            SourceFilterDescriptor<FSO> sourceFilter;
-            if (includeFullSource)
-            {
-                sourceFilter = new SourceFilterDescriptor<FSO>();
-                sourceFilter.IncludeAll();
-            }
-            else
-            {
-                sourceFilter = new SourceFilterDescriptor<FSO>();
-                sourceFilter.Includes(f => f.Fields(DefaultSourceFieldsFilter));
-            }
-            string scrolltimeout = "10h";
-            ISearchResponse<FSO> searchResponse = null;
-            searchResponse = client.Search<FSO>(d => d
-                        .Index(AllIndicies)
-                        .Size(500)
-                        .Scroll(scrolltimeout)
-                        .Source(a => sourceFilter)
-                        .Query(q => q
-                           .Bool(b => b
-                              .Filter(bf => bf
-                               .Term("parent.keyword", path)
-                               )
-                              )
-                           )
-                        );
-            while (searchResponse != null && searchResponse.Documents.Any())
-            {
-                foreach (var hit in searchResponse.Hits)
-                {
-                    yield return hit;
-                }
-                searchResponse = client.Scroll<FSO>(scrolltimeout, searchResponse.ScrollId);
-            }
-            if (searchResponse != null)
-            {
-                if (searchResponse.IsValid == false)
-                {
-                    if (ilerror)
-                    {
-                        var err = ElasticResponseError.GetError(searchResponse);
-                        _il.LogErr("Discovery.FindRootAndChildren", path, err);
-                        throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");
-                    }
-                }
-                client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));
-            }
-        }
-
-        /// <summary>
-        /// Called by Nausni Audit Events - Full path to the directory will match on anything with the same parent.
-        /// </summary>
-        /// <param name="pageSize"></param>
-        /// <returns>Fully Populated Model</returns>
-        public IEnumerable<IFSO> FindDescendentsForMoving(string path)
-        {
-            foreach (var doc in FindDescendentsForMoving<FSOemail>(path, 1000))//move 'most valuable' documents first.
-            {
-                yield return doc;
-            }
-            foreach (var doc in FindDescendentsForMoving<FSOdocument>(path,1000))
-            {
-                yield return doc;
-            }
-            foreach (var doc in FindDescendentsForMoving<FSOdirectory>(path,1000))
-            {
-                yield return doc;
-            }
-            foreach (var doc in FindDescendentsForMoving<FSOfile>(path,1000))
-            {
-                yield return doc;
-            }
-        }
-
-
-        /// <summary>
-        /// Called by Nausni Audit Events - Full path to the directory will match on anything with the same parent. We use this during incremental crawl
-        /// </summary>
-        /// <param name="pageSize"></param>
-        /// <returns>Fully Populated Model</returns>
-        public IEnumerable<T> FindDescendentsForMoving<T>(string path, int pageSize) where T : class, IFSO
-        {            
-            int desiredTake = pageSize;
-            T doc;
-            string scrolltimeout = "10h";
-            string indexName = GetIndexName<T>().ToString();
-            ISearchResponse<T> searchResponse = null;
-            searchResponse = client.Search<T>(d => d
-                        .Index(indexName)
-                        .Size(pageSize)//in 10m 
-                        .Scroll(scrolltimeout)
-                        .Source(a => a.Includes(i => i.Fields(JustId)))
-                        .Query(q => q
-                           .Bool(b => b
-                              .Filter(bf => bf
-                               .Term("parent.smbtreelower", path)//was parent.keyword
-                               )
-                              )
-                           )
-                        );
-            while (searchResponse != null && searchResponse.Documents.Any())
-            {
-#if DEBUG
-                var scrollTime = DateTime.Now;
-#endif
-                var scrollSearchIds = searchResponse.Hits.Select(x => x.Id).ToList();
-                List<T> docs = new List<T>();
-                while (scrollSearchIds.Any())
-                {
-                    try
-                    {
-                        var results = client.MultiGet(m => m.Index(indexName).GetMany<T>(scrollSearchIds.Take(pageSize), (op, id) => op.Index(indexName)));
-                        foreach (var hit in results.Hits)
-                        {
-                            doc = hit.Source as T;
-                            docs.Add(doc);
-                        }
-                        scrollSearchIds.RemoveRange(0, Math.Min(scrollSearchIds.Count, pageSize));
-                    }
-                    catch (Exception ex)
-                    {
-                        if (pageSize == 1)//we are working with a single document.
-                        {
-                            var id = scrollSearchIds.First();
-                            scrollSearchIds.RemoveRange(0, 1);//we need to remove the actual document!                
-                            if (ex is UnexpectedElasticsearchClientException)
-                            {
-                                if (ex.Message.Contains("expected"))
-                                {
-                                    Delete(id, indexName);
-                                    if (ilwarn) _il.LogWarn("Deleting document because" + ex.Message, id);
-                                }
-                            }
-                            pageSize = desiredTake;
-                        }
-                        pageSize = Math.Max(1, pageSize / 3);
-                    }
-                }
-                foreach (var d in docs)
-                {
-                    yield return d;
-                }
-#if DEBUG
-                if (ildebug)
-                {
-                    _il.LogDebugInfo("OurScroll took: " + DateTime.Now.Subtract(scrollTime).TotalMinutes.ToString());
-                }
-#endif
-                searchResponse = client.Scroll<T>(scrolltimeout, searchResponse.ScrollId);
-            }
-            if (searchResponse != null)
-            {
-                if (searchResponse.IsValid == false)
-                {
-                    if (ilerror)
-                    {
-                        var err = ElasticResponseError.GetError(searchResponse);
-                        _il.LogErr("Discovery.FindDescendentsForMoving", path, err);
-                        throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");///hmm do we need to throw an error or can we try again or skip?
-                    }
-                }
-                client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));
-            }
-        }
-
-
-
-
-
-        private string GetIndexName<T>()
+        public string GetIndexName<T>()
         {
             if (typeof(T) == typedir)
             {
@@ -332,234 +66,467 @@ namespace HOK.Elastic.DAL
             }
         }
 
-        /// <summary>
-        /// Called by WorkerCrawler's Missing Content.
-        /// We want to be careful not to do deep paging. So we can't just query and say let's page through all the result in Elastic. Maybe we could look at find all>aggregate on some fields and then choose those as the filter for paging through the results. or something like that.
-        ///Elastic removed Scroll support so we know this is not how they want us to search.
-        ///We can use 'sort' + 'searchafter' to get beyone 10000 results. However, the use-case for this is to get bad records, fix them and update the index. so each time the number of hits should get lower.
-        ///
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="directoryPublishedPath"></param>
-        /// <param name="failureCountFilter"></param>
-        /// <param name="minimumDate"></param>
-        /// <returns></returns>
-        public IEnumerable<T> GetIFSOdocumentsLackingContentV2<T>(string directoryPublishedPath, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSOdocument
+        public string GetIndexFilterName<T>()
         {
-            string scrolltimeout = "30m";//Its value (e.g. 1m, see Time units) does not need to be long enough to process all data-it just needs to be long enough to process the previous batch of results.
-            string indexName;
-            DateTime? maximumDate = null;
-            if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);
-            if (failureCountFilter > 0)
+            string indexFilter = AllIndicies;//TODO this should be allindicies if <T> is IFSO,FSO but not if FSOemail, or FSOdoc etc.
+            if (typeof(T) == typedir)
             {
-                //if we are processing items with failureCountFilter greater than zero, it means we are looping through items that were just inserted by an incremental or event crawl(in metadataonly mode). Therefore, we should ignore very recent timestamps as they could be items we have just recently inserted and failed at.
-                maximumDate = DateTime.Now.Subtract(TimeSpan.FromHours(1));
+                indexFilter = FSOdirectory.indexname;
             }
-            if (typeof(T) == typeof(FSOdocument))
+            else if (typeof(T) == typefsofile)
             {
-                indexName = FSOdocument.indexname;
+                indexFilter = FSOfile.indexname;
             }
-            else if (typeof(T) == typeof(FSOemail))
+            else if (typeof(T) == typefsoemail)
             {
-                indexName = FSOemail.indexname;
+                indexFilter = FSOemail.indexname;
+            }
+            else if (typeof(T) == typefsodoc)
+            {
+                indexFilter = FSOdocument.indexname;
+            }
+            return indexFilter;
+        }
+
+
+        ///// <summary>
+        ///// Called by workercrawler recursion
+        ///// </summary>
+        ///// <param name="path">ensure lowercase</param>
+        /////  /// <param name="includeFullSource">set to true to return the full source document (when duplicating a document for example</param>
+        ///// <returns></returns>
+        //public DirectoryContents FindRootAndChildrenOld(string path, bool includeFullSource = false)
+        //{
+        //    SourceFilterDescriptor<FSO> sourceFilter;
+        //    if (includeFullSource)
+        //    {
+        //        sourceFilter = SourceFilterDescriptors<FSO>.IncludeAlls;
+        //    }
+        //    else
+        //    {
+        //        sourceFilter = SourceFilterDescriptors<FSO>.IncludeDefaults;
+        //    }
+
+
+        //    var response = client.Search<FSO>(d => d
+        //                .Index(AllIndicies)
+        //                .Size(1000)//if we get results at size limit we will scroll the query.
+        //                .Sort(sort => sort.Ascending("id.keyword"))//added to ensure the root/parent/'path we are searching for' is actually found
+        //                .Source(s => sourceFilter)//we could sort here if we really wanted to ensure we get the 'root' document but it's highly likely to be returned in the sub 1000 query.
+        //                .Query(q => q
+        //                    .Bool(b => b
+        //                        .Filter(bf => bf
+        //                            .Term("id.keyword", path) || bf.Term("parent.keyword", path)
+        //                            )
+        //                        )
+        //                    )
+        //                );
+        //    if (response.IsValid)
+        //    {
+        //        if (response.Hits.Any())
+        //        {
+        //            DirectoryContents directoryContents;
+        //            var root = response.Hits.Where(x => x.Id.Equals(path, StringComparison.InvariantCultureIgnoreCase)).FirstOrDefault();
+        //            var children = response.Hits.Where(x => x.Id != path);//.Select(x => new DirectoryContents.Content(x.Id.ToLowerInvariant(), x.Index, x.Source.Acls, x.Source.Last_write_timeUTC, x.Source.FailureCount));
+        //            if (root != default)
+        //            {
+        //                directoryContents = new DirectoryContents()
+        //                {
+        //                    Id = root.Id,
+        //                    Acls = root.Source.Acls,
+        //                    Last_write_timeUTC = root.Source.Last_write_timeUTC,
+        //                    IndexName = root.Index,
+        //                    Contents = new HashSet<DirectoryContents.Content>()
+        //                };
+        //            }
+        //            else if (response.Hits.Count > 0)//root was null but we had some children...
+        //            {
+        //                directoryContents = new DirectoryContents()
+        //                {
+        //                    Id = path,
+        //                    IndexName = FSOdirectory.indexname
+        //                };
+        //            }
+        //            else//root and children were both null...
+        //            {
+        //                return null;
+        //            }
+
+        //            if (response.Hits.Count >= 1000)
+        //            {
+        //                var docs = FindChildrenScroll(path, false);
+        //                foreach (var hit in docs)
+        //                {
+        //                    directoryContents.Contents.Add(new DirectoryContents.Content(hit.Id.ToLowerInvariant(), hit.Index, hit.Source.Acls, hit.Source.Last_write_timeUTC, hit.Source.FailureCount));
+        //                }
+        //            }
+        //            else
+        //            {
+        //                if (children != null && children.Any())
+        //                {
+        //                    directoryContents.Contents = new HashSet<DirectoryContents.Content>(children.Select(hit => new DirectoryContents.Content(hit.Id.ToLowerInvariant(), hit.Index, hit.Source.Acls, hit.Source.Last_write_timeUTC, hit.Source.FailureCount)));
+        //                }
+        //            }
+        //            return directoryContents;
+        //        }
+        //        else
+        //        {
+        //            return null;//no response hits. 
+        //        }
+        //    }
+        //    else
+        //    {
+        //        var err = ElasticResponseError.GetError(response);
+        //        if (ilwarn) _il.LogWarn(nameof(FindRootAndChildrenOld), path, err);
+        //        return null;//not valid
+        //    }
+        //}
+
+
+        ///// <summary>
+        ///// called by workercrawler recursion if there are more than 1k hits
+        ///// </summary>
+        ///// <param name="path"></param>
+        ///// <param name="includeFullSource "></param>
+        ///// <returns></returns>
+        //private IEnumerable<IHit<IFSO>> FindChildrenScroll(string path, bool includeFullSource)
+        //{
+        //    SourceFilterDescriptor<FSO> sourceFilter;
+        //    if (includeFullSource)
+        //    {
+        //        sourceFilter = SourceFilterDescriptors<FSO>.IncludeAlls;
+        //        // sourceFilter = new SourceFilterDescriptor<FSO>();
+        //        /// sourceFilter.IncludeAll();
+        //    }
+        //    else
+        //    {
+        //        sourceFilter = SourceFilterDescriptors<FSO>.IncludeDefaults;
+        //        //sourceFilter = new SourceFilterDescriptor<FSO>();
+        //        // sourceFilter.Includes(f => f.Fields(DefaultSourceFieldsFilter));
+        //    }
+        //    string scrolltimeout = "10h";
+        //    ISearchResponse<FSO> searchResponse = null;
+        //    searchResponse = client.Search<FSO>(d => d
+        //                .Index(AllIndicies)
+        //                .Size(500)
+        //                .Scroll(scrolltimeout)
+        //                .Source(a => sourceFilter)
+        //                .Query(q => q
+        //                   .Bool(b => b
+        //                      .Filter(bf => bf
+        //                       .Term("parent.keyword", path)
+        //                       )
+        //                      )
+        //                   )
+        //                );
+        //    while (searchResponse != null && searchResponse.Documents.Any())
+        //    {
+        //        foreach (var hit in searchResponse.Hits)
+        //        {
+        //            yield return hit;
+        //        }
+        //        searchResponse = client.Scroll<FSO>(scrolltimeout, searchResponse.ScrollId);
+        //    }
+        //    if (searchResponse != null)
+        //    {
+        //        if (searchResponse.IsValid == false)
+        //        {
+        //            if (ilerror)
+        //            {
+        //                var err = ElasticResponseError.GetError(searchResponse);
+        //                _il.LogErr("Discovery.FindRootAndChildren", path, err);
+        //                throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");
+        //            }
+        //        }
+        //        client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));
+        //    }
+        //}
+
+        ///// <summary>
+        ///// Called by workercrawler recursion
+        ///// </summary>
+        ///// <param name="path">ensure lowercase</param>
+        /////  /// <param name="includeFullSource">set to true to return the full source document (when duplicating a document for example</param>
+        ///// <returns>Root document and direct/first-level children</returns>
+        public DirectoryContents FindRootAndChildren(string directoryPath, bool includeFullSource)
+        {
+            SourceFilterDescriptor<FSO> sourceFilter;
+            if (includeFullSource)
+            {
+                sourceFilter = SourceFilterDescriptors<FSO>.IncludeAlls;
             }
             else
             {
-                throw new NotSupportedException(typeof(T) + directoryPublishedPath + "is not supported");//won't be caught below should fix that
-            }
-            ISearchResponse<T> searchResponse;
-            try
-            {
-                searchResponse = client.Search<T>(s => s
-                                .Index(indexName)
-                                .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))
-                                .Scroll(scrolltimeout)
-                                .Size(100)
-                                .Sort(sort => sort.Ascending(f => f.Timestamp))//hopefully find the newest documents first and then work through the older ones.
-                                .Query(q => +q
-                                .DateRange(d => d.Field(field => field.Last_write_timeUTC).GreaterThan(minimumDate.Value)) && +q
-                                .DateRange(d => d.Field(field => field.Timestamp).LessThan(maximumDate)) && +q
-                                .Term(t => t.FailureCount, failureCountFilter) && +q
-                                .Range(r => r.Field(field => field.LengthKB).GreaterThan(0)) && +q
-                                .Term("parent.smbtreelower", directoryPublishedPath) && !q
-                                .Exists(e => e.Field(field => field.Attachment.ContentType))
-                             )
-                       );
-            }
-            catch (Exception ex)
-            {
-                if (ilerror) _il.LogErr($"Failed Get on Index {indexName}:", directoryPublishedPath, null, ex);
-                searchResponse = null;
+                sourceFilter = SourceFilterDescriptors<FSO>.IncludeDefaults;
             }
 
-            while (searchResponse != null && searchResponse.Documents.Any())
+            int pageSize = 1000;
+            int docCount = 0;
+            var lastCheck = 0;
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
+            bool exit = false;
+            var docGroup = FindChildrenPIT<FSO>(directoryPath, sourceFilter, pageSize, false);//No PIT
+            DirectoryContents directoryContents = null;
+            while (!exit)
             {
-                int count = 0;
-                foreach (var hit in searchResponse.Hits)
-                {
-                    count++;
-                    var doc = hit.Source as T;
-                    doc.IndexName = hit.Index;
-                    yield return doc;
-                }
-                if (ilinfo) _il.LogInfo($"Found {count} {indexName} docs missing content.", directoryPublishedPath, null);
                 try
                 {
-                    searchResponse = client.Scroll<T>(scrolltimeout, searchResponse.ScrollId);
+                    foreach (var group in docGroup)
+                    {
+                        if (group != null && group.Any())
+                        {
+
+                            foreach (var item in group)
+                            {
+                                if (directoryContents == null)
+                                {
+                                    if (item.Id.Equals(directoryPath, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        directoryContents = new DirectoryContents()
+                                        {
+                                            Id = item.Id,
+                                            Acls = item.Acls,
+                                            Last_write_timeUTC = item.Last_write_timeUTC,
+                                            IndexName = item.IndexName,
+                                            Contents = new HashSet<DirectoryContents.Content>()
+                                        };
+                                    }
+                                    else
+                                    {
+                                        //this isn't expected.
+                                        if (ilwarn) _il.LogWarning("Root document wasn't returned {0} ", directoryPath);
+                                        directoryContents = new DirectoryContents()
+                                        {
+                                            Id = directoryPath,
+                                            IndexName = FSOdirectory.indexname,
+                                            Contents = new HashSet<DirectoryContents.Content>()
+                                        };
+                                    }
+                                }
+                                else
+                                {
+                                    directoryContents.Contents.Add(new DirectoryContents.Content(item.Id, item.IndexName, item.Acls, item.Last_write_timeUTC, item.FailureCount));
+                                }
+                            }
+                        }
+                        if (docCount == pageSize)
+                        {
+                            docGroup = FindChildrenPIT<FSO>(directoryPath, sourceFilter, pageSize, true);//No PIT
+                        }
+                    }
+                    exit = true;
                 }
                 catch (Exception ex)
                 {
-                    if (ilerror) _il.LogErr($"Failed Get on Index {indexName}:", directoryPublishedPath, null, ex);
+                    if (ilerror) _il.LogError(ex, "Unexpected Error in {0} because {1}", nameof(FindRootAndChildren), ex.Message);
                 }
             }
-            if (searchResponse.IsValid == false)
-            {
-                var err = ElasticResponseError.GetError(searchResponse);
-                if (ilerror)
-                {
-                    _il.LogErr("MissingContent", directoryPublishedPath, err);
-                }
-                if (err.IsBecauseBusy())
-                {
-                    Pause("MissingContent");
-                }
-            }
-            client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));
-            if (ilinfo) _il.LogInfo($"Doc {indexName} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", directoryPublishedPath);
-            yield break;
+            return directoryContents;
         }
 
-
-        /// <summary>
-        /// Similar to GetIFSOdocumentsLackingContentV2, but takes in a raw JSON query string to fetch documents,
-        /// instead of a directory path
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="directoryPublishedPath"></param>
-        /// <param name="failureCountFilter"></param>
-        /// <param name="minimumDate"></param>
-        /// <returns></returns>
-        public IEnumerable<T> GetIFSOsByQuery<T>(string jsonQueryString, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSO
+        public IEnumerable<List<T>> FindChildrenPIT<T>(string directoryPath, SourceFilterDescriptor<T> sourceFilter, int pageSize = 100, bool withPIT = false) where T : class, IFSO
         {
-            string scrolltimeout = "30m";
-            //Its value (e.g. 1m, see Time units) does not need to be long enough to process all data
-            //it just needs to be long enough to process the previous batch of results.
-            string indexName = GetIndexName<T>();
-            DateTime? maximumDate = null;
-            if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);
-            if (failureCountFilter > 0)
-            {
-                //if we are processing items with failureCountFilter greater than zero, it means we are looping through items that were just inserted by an incremental or event crawl(in metadataonly mode). Therefore, we should ignore very recent timestamps as they could be items we have just recently inserted and failed at.
-                maximumDate = DateTime.Now.Subtract(TimeSpan.FromHours(1));
-            }    
-            ISearchResponse<T> searchResponse;
+            int counter = 0;
+            long docCount = 0;
+            string pitID = null;
+            PointInTimeDescriptor pointInTime = null;
+            IHit<T> lastHit = null;
+            var indexFilter = GetIndexFilterName<T>();
+
             try
             {
-                searchResponse = client.Search<T>(s => s
-                                .Index(indexName)
-                                .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))//added to address Elasticsearch.Net.Utf8Json.JsonParsingException: expected:',', actual:'null' when trying to deserialize null attachment property. TODO, we could use same as getdescendantsformoving (or something like it).
-                                .Scroll(scrolltimeout)
-                                .Size(100)
-                                .Sort(sort => sort.Descending("project.fullName.keyword"))
-                                .Query(q => +q
-                                    .Raw(jsonQueryString) && +q
-                                    .DateRange(d => d.Field(field => field.Last_write_timeUTC).GreaterThan(minimumDate.Value)) && +q
-                                    .DateRange(d => d.Field(field => field.Timestamp).LessThan(maximumDate)) && +q
-                             )
-                       );
-            }
-            catch (Exception ex)
-            {
-                if (ilerror) _il.LogErr($"Failed Get on Index {indexName}:", jsonQueryString, null, ex);
-                searchResponse = null;
-            }
+                if (withPIT)
+                {
+                    var pit = GetPIT(indexFilter, new Time(TimeSpan.FromMinutes(5)));
+                    if (pit != null)
+                    {
+                        pitID = pit.Item1;
+                        pointInTime = pit.Item2;
+                    }
+                }
+                do
+                {
+                    var search = client.Search<T>(s => s
+                        .Index(AllIndicies)
+                        .Size(pageSize)//if we get results at size limit we will scroll the query.
+                        .Source(src => sourceFilter)//we could sort here if we really wanted to ensure we get the 'root' document but it's highly likely to be returned in the sub 1000 query.
+                        .Query(q => q
+                            .Bool(b => b
+                                .Filter(bf => bf
+                                    .Term("id.keyword", directoryPath) || bf.Term("parent.keyword", directoryPath)
+                                    )
+                                )
+                            )
+                        .PointInTime(pitID, x => pointInTime)//null if couldn't do a point in time search.
+                        .Sort(sort => sort.Ascending("id.keyword"))//added to ensure the root/parent/'path we are searching for' is actually found
+                        .SearchAfter(lastHit?.Sorts ?? null)
+                        );
 
-            while (searchResponse != null && searchResponse.Documents.Any())
-            {
-                int count = 0;
-                foreach (var hit in searchResponse.Hits)
-                {
-                    count++;
-                    var doc = hit.Source as T;
-                    //doc.SetFileSystemInfoFromId();                    
-                    doc.IndexName = hit.Index;
-                    yield return doc;
-                }
-                if (ilinfo) _il.LogInfo($"Found {count} {indexName} docs missing content.", null, jsonQueryString);
-                try
-                {
-                    searchResponse = client.Scroll<T>(scrolltimeout, searchResponse.ScrollId);
-                }
-                catch (Exception ex)
-                {
-                    if (ilerror) _il.LogErr($"Failed Get on Index {indexName}:", jsonQueryString, null, ex);
-                }
+
+                    if (search != null && search.IsValid)
+                    {
+                        //For paths with derived folder names (not necessarily children folders) the id field matchphrase query used above will return superfluous documents.
+                        //For example, when the documents should be within the path '.\\a\\', elastic matchphrase will also return  '.\\a nother folder\\..' as well as '.\\a big folder\\' as abandoned items and comparing to known/good/extant children.
+                        //To resolve this, rather than use wildcard query filtering for a '\\' delimiter...which is expensive, we just filter the results client-side based on string value of id.
+                        //var docs = search.Hits.Where(x => x.Id.Length > directoryPath.Length && x.Id[directoryPath.Length] == '\\').Select(x =>
+                        var docs = search.Hits.Select(x =>
+                        {
+                            var doc = x.Source as T;
+                            doc.IndexName = x.Index;
+                            return doc;
+                        }
+                       );
+                        var doclist = docs.ToList();
+                        docCount = +doclist.Count;
+                        yield return doclist;
+                        lastHit = search.Hits.LastOrDefault();
+                        pitID = search.PointInTimeId;
+                    }
+                    _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindChildrenPIT), counter++, directoryPath);
+                } while (withPIT && lastHit != null);
+
             }
-            if (searchResponse.IsValid == false)
+            finally
             {
-                var err = ElasticResponseError.GetError(searchResponse);
-                if (ilerror)
+                if (pitID != null)
                 {
-                    _il.LogErr("MissingContent", jsonQueryString, err);
+                    var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
                 }
-                if (err.IsBecauseBusy())
-                {
-                    Pause("MissingContent");
-                }
+                _il.LogInformation("{0} returned aprox {1} documents in '{2}'", nameof(FindChildrenPIT), docCount, directoryPath);
             }
-            client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));
-            if (ilinfo) _il.LogInfo($"Doc {indexName} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", jsonQueryString);
-            yield break;
         }
+
+
+        //public IEnumerable<T> FindGuardianDocuments<T>(string guardianPath, DateTime from, DateTime to, int pageSize = 100) where T : class, IFSO
+        //{
+        //    //TODO to change to searchafter with PIT
+        //    List<T> fsos = new List<T>();
+        //    for (int i = 0; i < pageSize * 100; i++)//tood change the upper-limit we shoudln't limit the results...or think about it.
+        //    {
+        //        var response = client.Search<T>
+        //                (search => search
+        //                    .Index(AllIndicies)
+        //                    .From(i * pageSize)
+        //                    .Size(pageSize)
+        //                    .Source(src => SourceFilterDescriptors<T>.IncludeDefaults)
+        //                    .Query(q => +q
+        //                            //.DateRange(doc => doc.Field(field => field.last_write_timeUTC).GreaterThan(from).LessThanOrEquals(to)) && +q
+        //                            .Term(t => t.Field(field => field.Acls.GuardianPath).Value(guardianPath.ToLowerInvariant()))
+        //                            )
+        //                        );
+        //        if (response.Hits.Count > 0)
+        //        {
+        //            foreach (var hit in response.Hits)
+        //            {
+        //                var doc = hit.Source as T;
+        //                doc.FailureCount++;
+        //                doc.IndexName = hit.Index;
+        //                yield return doc;
+        //            }
+        //            if (response.Hits.Count < pageSize)
+        //            {
+        //                //this is the last iteration where we got hits.
+        //                yield break;
+        //            }
+        //        }
+        //        else
+        //        {
+        //            yield break;
+        //        }
+        //    }
+        //}
+
 
         public IEnumerable<T> FindGuardianDocuments<T>(string guardianPath, DateTime from, DateTime to, int pageSize = 100) where T : class, IFSO
         {
-            //TODO to change to searchafter with PIT
-            List<T> fsos = new List<T>();
-            for (int i = 0; i < pageSize * 100; i++)//tood change the upper-limit we shoudln't limit the results...or think about it.
+            int counter = 0;
+            long docCount = 0;
+            string pitID = null;
+            PointInTimeDescriptor pointInTime = null;
+            IHit<T> lastHit = null;
+            var indexFilter = GetIndexFilterName<T>();
+
+            try
+            {       
+                    var pit = GetPIT(indexFilter, new Time(TimeSpan.FromMinutes(5)));
+                    if (pit != null)
+                    {
+                        pitID = pit.Item1;
+                        pointInTime = pit.Item2;
+                    }
+                do
+                {
+                    var response = client.Search<T>
+                       (s => s
+                           .Index(AllIndicies)
+                           .Size(pageSize)
+                           .Source(src => SourceFilterDescriptors<T>.IncludeDefaults)
+                           .Query(q => +q
+                                   //.DateRange(doc => doc.Field(field => field.last_write_timeUTC).GreaterThan(from).LessThanOrEquals(to)) && +q
+                                   .Term(t => t.Field(field => field.Acls.GuardianPath).Value(guardianPath.ToLowerInvariant()))
+                                   )
+                            .PointInTime(pitID, x => pointInTime)//null if couldn't do a point in time search.
+                            .Sort(sort => sort.Ascending("id.keyword"))//added to ensure the root/parent/'path we are searching for' is actually found
+                            .SearchAfter(lastHit?.Sorts ?? null)
+                               );
+
+                    if (response != null && response.IsValid)
+                    {
+                        foreach (var hit in response.Hits)
+                        {
+                            var doc = hit.Source as T;
+                            doc.FailureCount++;
+                            doc.IndexName = hit.Index;
+                            yield return doc;
+                        }
+                        lastHit = response.Hits.LastOrDefault();
+                        pitID = response.PointInTimeId;
+                    }
+                    _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindChildrenPIT), counter++, guardianPath);
+                } while (lastHit != null);
+
+            }
+            finally
             {
-                var resp = client.Search<T>
-                        (search => search
-                            .Index(AllIndicies)
-                            .From(i * pageSize)
-                            .Size(pageSize)
-                            .Source(src => src.Includes(inc => inc.Fields(DefaultSourceFieldsFilter)))
-                            .Query(q => +q
-                                    //.DateRange(doc => doc.Field(field => field.last_write_timeUTC).GreaterThan(from).LessThanOrEquals(to)) && +q
-                                    .Term(t => t.Field(field => field.Acls.GuardianPath).Value(guardianPath.ToLowerInvariant()))
-                                    )
-                                );
-                if (resp.Hits.Count > 0)
+                if (pitID != null)
                 {
-                    foreach (var hit in resp.Hits)
-                    {
-                        var doc = hit.Source as T;
-                        doc.FailureCount++;
-                        doc.IndexName = hit.Index;
-                        yield return doc;
-                    }
-                    if (resp.Hits.Count < pageSize)
-                    {
-                        //this is the last iteration where we got hits.
-                        yield break;
-                    }
+                    var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
                 }
-                else
-                {
-                    yield break;
-                }
+                _il.LogInformation("{0} returned aprox {1} documents in '{2}'", nameof(FindChildrenPIT), docCount, guardianPath);
             }
         }
 
 
+        /*
+         * 
+         * {"@timestamp":"2024-05-28T15:16:12.421Z","level":"ERROR","logger":"Default.WorkerEvents","thread":"18",
+         * "data":{"message":"ActionMoveOrCopy Child","path":"\\\\?\\unc\\tor-05fs\\canadmin\\internal\\cal\\projects\\2023\\23.81003.00 deloitte canada - calgary orbis\\e-design\\e8-designstudies\\2023-05-17 greenhouse strategy\\2024-05-22 concept imagery",
+         * "json":{
+         * "PathFrom":"\\\\?\\unc\\tor-05fs\\canadmin\\internal\\cal\\projects\\2023\\23.81003.00 deloitte canada - calgary orbis\\e-design\\e8-designstudies\\2023-05-17 greenhouse strategy\\2023-05-22 concept imagery",
+         * "ContentAction":0,
+         * "PresenceAction":2,
+         * "TimeStampUtc":"2024-05-28T01:15:08Z",
+         * "IsDir":true,
+         * "Path":"\\\\?\\unc\\tor-05fs\\canadmin\\internal\\cal\\projects\\2023\\23.81003.00 deloitte canada - calgary orbis\\e-design\\e8-designstudies\\2023-05-17 greenhouse strategy\\2024-05-22 concept imagery",
+         * "Office":null,
+         * "PathStatus":0},
+         * "exception":{"message":"index is required to build a url to this API (Parameter 'index')",
+         * "stacktrace":"   at Nest.RouteValues.Route(String name, IUrlParameter routeValue, Boolean required)
+         * \r\n   at Nest.DeleteByQueryDescriptor`1.<>c.<Index>b__6_0(IDeleteByQueryRequest`1 a, Indices v)
+         * \r\n   at HOK.Elastic.DAL.Index.<>c__DisplayClass6_0.<Delete>b__0(DeleteByQueryDescriptor`1 d) in D:\\a\\1\\s\\HOK.Elastic.DAL\\Index.cs:line 66
+         * \r\n   at Nest.Extensions.InvokeOrDefault[T,TReturn](Func`2 func, T default)\r\n   at Nest.ElasticClient.DeleteByQuery[TDocument](Func`2 selector)
+         * \r\n   at HOK.Elastic.DAL.Index.Delete(String[] keys, String index) in D:\\a\\1\\s\\HOK.Elastic.DAL\\Index.cs:line 66
+         * \r\n   at HOK.Elastic.FileSystemCrawler.WorkerEventStream.ActionMoveOrCopy(InputPathEventStream auditEvent) in D:\\a\\1\\s\\HOK.Elastic.FileSystemCrawler\\WorkerEventStream.cs:line 179"}}}
+         * */
+
         public T GetById<T>(string id, string indexName) where T : class, IFSO
         {
-            var resp = this.client.Get<T>(id, g => g
+            var response = this.client.Get<T>(id, g => g
                         .Index(indexName)
                         );
-            if (resp.Found)
+            if (response.Found)
             {
-                var doc = resp.Source as T;
+                var doc = response.Source as T;
                 doc.IndexName = indexName;
                 return doc;
             }
@@ -574,6 +541,7 @@ namespace HOK.Elastic.DAL
             return null;
         }
 
+        #region CrawlByQuery
         /// <summary>
         /// Uses the Elastic client to validate a JSON-string based query
         /// befure using it in the missing content crawl
@@ -582,10 +550,10 @@ namespace HOK.Elastic.DAL
         /// <returns>True if a valid query</returns>
         public bool ValidateJsonStringQuery(string jsonQueryString)
         {
-            var resp = client.Indices.ValidateQuery<IFSO>(v => v
+            var response = client.Indices.ValidateQuery<IFSO>(v => v
                 .Index(AllIndicies)
                 .Query(q => q.Raw(jsonQueryString)));
-            if (resp.IsValid)
+            if (response.IsValid)
             {
                 return true;
             }
@@ -593,37 +561,314 @@ namespace HOK.Elastic.DAL
             return false;
         }
 
-        //There no longer seems any real need to have separate index and discovery endpoints. In future, we can refactor these together and simplify.
-        public long Delete(string key, string index)
-        {
-            return Delete(new string[] { key }, index);
-        }
+        ///// <summary>
+        ///// Similar to GetIFSOdocumentsLackingContentV2, but takes in a raw JSON query string to fetch documents,
+        ///// instead of a directory path
+        ///// </summary>
+        ///// <typeparam name="T"></typeparam>
+        ///// <param name="directoryPublishedPath"></param>
+        ///// <param name="failureCountFilter"></param>
+        ///// <param name="minimumDate"></param>
+        ///// <returns></returns>
+        //public IEnumerable<T> GetIFSOsByQueryOld<T>(string jsonQueryString, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSO
+        //{
+        //    string scrolltimeout = "30m";
+        //    //Its value (e.g. 1m, see Time units) does not need to be long enough to process all data
+        //    //it just needs to be long enough to process the previous batch of results.
+        //    string indexName = GetIndexName<T>();
+        //    DateTime? maximumDate = null;
+        //    if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);
+        //    if (failureCountFilter > 0)
+        //    {
+        //        //if we are processing items with failureCountFilter greater than zero, it means we are looping through items that were just inserted by an incremental or event crawl(in metadataonly mode). Therefore, we should ignore very recent timestamps as they could be items we have just recently inserted and failed at.
+        //        maximumDate = DateTime.Now.Subtract(TimeSpan.FromHours(1));
+        //    }
+        //    ISearchResponse<T> response;
+        //    try
+        //    {
+        //        response = client.Search<T>(s => s
+        //                        .Index(indexName)
+        //                        .Source(src => SourceFilterDescriptors<T>.IncludeDefaults)//added to address Elasticsearch.Net.Utf8Json.JsonParsingException: expected:',', actual:'null' when trying to deserialize null attachment property. TODO, we could use same as getdescendantsformoving (or something like it).
+        //                        .Scroll(scrolltimeout)
+        //                        .Size(100)
+        //                        .Sort(sort => sort.Descending("project.fullName.keyword"))
+        //                        .Query(q => +q
+        //                            .Raw(jsonQueryString) && +q
+        //                            .DateRange(d => d.Field(field => field.Last_write_timeUTC).GreaterThan(minimumDate.Value)) && +q
+        //                            .DateRange(d => d.Field(field => field.Timestamp).LessThan(maximumDate)) && +q
+        //                     )
+        //               );
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        if (ilerror) _il.LogErr($"Failed Get on Index {indexName}:", jsonQueryString, null, ex);
+        //        response = null;
+        //    }
 
-        public long Delete(string[] keys, string index)
+        //    while (response != null && response.Documents.Any())
+        //    {
+        //        int count = 0;
+        //        foreach (var hit in response.Hits)
+        //        {
+        //            count++;
+        //            var doc = hit.Source as T;
+        //            //doc.SetFileSystemInfoFromId();                    
+        //            doc.IndexName = hit.Index;
+        //            yield return doc;
+        //        }
+        //        if (ilinfo) _il.LogInfo($"Found {count} {indexName} docs missing content.", null, jsonQueryString);
+        //        try
+        //        {
+        //            response = client.Scroll<T>(scrolltimeout, response.ScrollId);
+        //        }
+        //        catch (Exception ex)
+        //        {
+        //            if (ilerror) _il.LogErr($"Failed Get on Index {indexName}:", jsonQueryString, null, ex);
+        //        }
+        //    }
+        //    if (response.IsValid == false)
+        //    {
+        //        var err = ElasticResponseError.GetError(response);
+        //        if (ilerror)
+        //        {
+        //            _il.LogErr("MissingContent", jsonQueryString, err);
+        //        }
+        //        if (err.IsBecauseBusy())
+        //        {
+        //            Pause("MissingContent");
+        //        }
+        //    }
+        //    client.ClearScroll(new ClearScrollRequest(response.ScrollId));
+        //    if (ilinfo) _il.LogInfo($"Doc {indexName} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", jsonQueryString);
+        //    yield break;
+        //}
+
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="indexFilter"></param>
+        /// <param name="keepAlive"></param>
+        /// <returns>Null if PIT couldn't be obtained.</returns>
+        internal Tuple<string, PointInTimeDescriptor> GetPIT(string indexFilter, Time keepAlive)
         {
-            var ir = this.client.DeleteByQuery<FSO>(d => d
-                .Index(index)
-                .Query(q => +q
-                    .Ids(i => i.Values(keys))
-                    )
-                );
-            if (!ir.IsValid)
+            string pitID = "";
+            PointInTimeDescriptor pointInTime = null;
+            var response = client.OpenPointInTime(new OpenPointInTimeRequest(indexFilter) { KeepAlive = keepAlive.ToString() });
+            if (response.IsValid)
             {
-                var err = ElasticResponseError.GetError(ir);
-                if (ilerror) _il.LogErr("Index.Delete", null, err);//this shouldn't fail normally
-                if (ilwarn)
-                {
-                    for (int i = 0; i < keys.Length; i++)
-                    {
-                        _il.LogWarn("Index.Delete", keys[i], err.ServerErrorReason);
-                    }
-                }
-                return 0;
+                pitID = response.Id;
+                pointInTime = new PointInTimeDescriptor(pitID);
+                pointInTime.KeepAlive(keepAlive);
+                return new Tuple<string, PointInTimeDescriptor>(pitID, pointInTime);
             }
             else
             {
-                return ir.Deleted;
+                _il.LogWarning("Unable to get PIT");
+                return null;
             }
         }
+
+        public IEnumerable<T> GetIFSOsByQuery<T>(string jsonQueryString, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSO
+        {
+            int counter = 0;
+            long docCount = 0;
+            PointInTimeDescriptor pointInTime = null;
+            string pitID = null;
+            IHit<T> lastHit = null;
+            int pageSize = 1000;
+
+            var indexFilter = GetIndexFilterName<T>();
+            var pit = GetPIT(indexFilter, new Time(TimeSpan.FromMinutes(5)));
+            if (pit != null)
+            {
+                pitID = pit.Item1;
+                pointInTime = pit.Item2;
+            }
+
+            //string indexName = GetIndexName<T>();//todo compare with getindexfiltername (fso ifso, wildcard, vs concrete index name?)
+            DateTime? maximumDate = null;
+            if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);
+            if (failureCountFilter > 0)
+            {
+                //if we are processing items with failureCountFilter greater than zero, it means we are looping through items that were just inserted by an incremental or event crawl(in metadataonly mode). Therefore, we should ignore very recent timestamps as they could be items we have just recently inserted and failed at.
+                maximumDate = DateTime.Now.Subtract(TimeSpan.FromHours(1));
+            }
+            ISearchResponse<T> response;
+            try
+            {
+                do
+                {
+                    response = client.Search<T>(s => s
+                                .Index(indexFilter)
+                                .Source(src => SourceFilterDescriptors<T>.IncludeDefaults)//added to address Elasticsearch.Net.Utf8Json.JsonParsingException: expected:',', actual:'null' when trying to deserialize null attachment property. TODO, we could use same as getdescendantsformoving (or something like it).
+                                .Size(pageSize)
+                                .Query(q => +q
+                                    .Raw(jsonQueryString) && +q
+                                    .DateRange(d => d.Field(field => field.Last_write_timeUTC).GreaterThan(minimumDate.Value)) && +q
+                                    .DateRange(d => d.Field(field => field.Timestamp).LessThan(maximumDate)) && +q
+                                    )
+                                .PointInTime(pitID, x => pointInTime)//null if couldn't do a point in time search.
+                                .Sort(sort => sort.Descending(f => f.Timestamp))
+                                .SearchAfter(lastHit?.Sorts ?? null)
+                                );
+                    if (response != null && response.IsValid)
+                    {
+                        var doclist = response.Hits.Select(x =>
+                                               {
+                                                   var doc = x.Source as T;
+                                                   doc.IndexName = x.Index;
+                                                   return doc;
+                                               }).ToList();
+                        docCount = +doclist.Count;
+                        foreach (var doc in doclist)
+                        {
+                            yield return doc;
+                        }
+                        lastHit = response.Hits.LastOrDefault();
+                        pitID = response.PointInTimeId;
+                    }
+                    else
+                    {
+                        var err = ElasticResponseError.GetError(response);
+                        if (ilerror)
+                        {
+                            _il.LogErr("MissingContent", jsonQueryString, err);
+                        }
+                        if (err.IsBecauseBusy())
+                        {
+                            Pause("MissingContent");
+                        }
+                    }
+                    _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(GetIFSOsByQuery), counter++, jsonQueryString);
+                    if (ilinfo) _il.LogInfo($"Doc {indexFilter} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", jsonQueryString);
+
+                } while (lastHit != null);
+
+            }
+            finally
+            {
+                if (pit != null)
+                {
+                    var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
+                    if (ilinfo) _il.LogInformation("Closed" + closeResponse);
+                }
+                if (ilinfo) _il.LogInfo($"Doc {indexFilter} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", jsonQueryString);
+            }
+        }
+
+
+        #endregion
+
+        #region MissingContent
+
+        /// <summary>
+        /// Called by WorkerCrawler's Missing Content.
+        /// We want to be careful not to do deep paging. So we can't just query and say let's page through all the result in Elastic. Maybe we could look at find all>aggregate on some fields and then choose those as the filter for paging through the results. or something like that.
+        ///Elastic removed Scroll support so we know this is not how they want us to search.
+        ///We can use 'sort' + 'searchafter' to get beyone 10000 results. However, the use-case for this is to get bad records, fix them and update the index. so each time the number of hits should get lower.
+        ///
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="directoryPublishedPath"></param>
+        /// <param name="failureCountFilter"></param>
+        /// <param name="minimumDate"></param>
+        /// <returns></returns>
+        public IEnumerable<T> GetIFSOdocumentsLackingContentV2<T>(string directoryPublishedPath, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSOdocument
+        {
+            int counter = 0;
+            long docCount = 0;
+            PointInTimeDescriptor pointInTime = null;
+            string pitID = null;
+            IHit<T> lastHit = null;
+            int pageSize = 1000;
+
+            string indexFilter;
+            DateTime? maximumDate = null;
+            if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);
+            if (failureCountFilter > 0)
+            {
+                //if we are processing items with failureCountFilter greater than zero, it means we are looping through items that were just inserted by an incremental or event crawl(in metadataonly mode). Therefore, we should ignore very recent timestamps as they could be items we have just recently inserted and failed at.
+                maximumDate = DateTime.Now.Subtract(TimeSpan.FromHours(1));
+            }
+            if (typeof(T) == typeof(FSOdocument))
+            {
+                indexFilter = FSOdocument.indexname;
+            }
+            else if (typeof(T) == typeof(FSOemail))
+            {
+                indexFilter = FSOemail.indexname;
+            }
+            else
+            {
+                throw new NotSupportedException(typeof(T) + directoryPublishedPath + "is not supported");//won't be caught below should fix that
+            }
+
+            var pit = GetPIT(indexFilter, new Time(TimeSpan.FromMinutes(5)));
+            if (pit != null)
+            {
+                pitID = pit.Item1;
+                pointInTime = pit.Item2;
+            }
+
+            ISearchResponse<T> response;
+            try
+            {
+                do
+                {
+                    response = client.Search<T>(s => s
+                                .Index(indexFilter)
+                                .Source(src => SourceFilterDescriptors<T>.IncludeDefaults)
+                                .Size(pageSize)
+                                .Query(q => +q
+                                    .DateRange(d => d.Field(field => field.Last_write_timeUTC).GreaterThan(minimumDate.Value)) && +q
+                                    .DateRange(d => d.Field(field => field.Timestamp).LessThan(maximumDate)) && +q
+                                    .Term(t => t.FailureCount, failureCountFilter) && +q
+                                    .Range(r => r.Field(field => field.LengthKB).GreaterThan(0)) && +q
+                                    .Term("parent.smbtreelower", directoryPublishedPath) && !q
+                                    .Exists(e => e.Field(field => field.Attachment.ContentType))
+                                )
+                                .PointInTime(pitID, x => pointInTime)//null if couldn't do a point in time search.
+                                .Sort(sort => sort.Descending(f => f.Timestamp))
+                                .SearchAfter(lastHit?.Sorts ?? null)
+                       );
+                    if(response.IsValid)
+                    {
+                        foreach (var hit in response.Hits)
+                        {
+                            docCount++;
+                            var doc = hit.Source as T;
+                            doc.IndexName = hit.Index;
+                            yield return doc;
+                        }
+                        lastHit = response.Hits.Last();
+                        if (ilinfo) _il.LogInfo($"Found {docCount} {indexFilter} docs missing content.", directoryPublishedPath, null);
+                    }
+                    else
+                    {
+                        var err = ElasticResponseError.GetError(response);
+                        if (ilerror)
+                        {
+                            _il.LogErr("MissingContent", directoryPublishedPath, err);
+                        }
+                        if (err.IsBecauseBusy())
+                        {
+                            Pause("MissingContent");
+                        }
+                    }
+                }
+                while(lastHit != null);
+            }
+            finally
+            {
+                if (pit != null)
+                {
+                    var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
+                    if (ilinfo) _il.LogInformation("Closed" + closeResponse);
+                }
+                if (ilinfo) _il.LogInfo($"Doc {indexFilter} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", directoryPublishedPath);
+            }
+        }
+        #endregion
     }
 }

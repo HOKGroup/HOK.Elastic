@@ -162,7 +162,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     var fromPublishedPath = PathHelper.GetPublishedPath(auditEvent.PathFrom);
                     #region movedir
                     //first, move any affected Children....actually we should do this regardless if existing doc was found...
-                    var affectedDocuments = _discoveryEndPoint.FindDescendentsForMoving(fromPublishedPath);
+                    var affectedDocuments = _indexEndPoint.FindDescendentsForMoving(fromPublishedPath);
                     foreach (var fso in affectedDocuments)
                     {
                         _ct.ThrowIfCancellationRequested();

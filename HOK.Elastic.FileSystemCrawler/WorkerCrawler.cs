@@ -326,7 +326,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             {
                                 if (elasticContents.Count > currentItemsAsPublishedPaths.Count||true==true)
                                 {
-                                    var deletedItems = await DeleteAbandonedItemsAsync(elasticContents, directory, currentItemsAsPublishedPaths);
+                                    var deletedItems = DeleteAbandonedItems(elasticContents, directory, currentItemsAsPublishedPaths);
                                     Interlocked.Add(ref _deleted, deletedItems);
                                 }
                             }
@@ -571,7 +571,7 @@ namespace HOK.Elastic.FileSystemCrawler
         }
 
 
-        private async Task<long> DeleteAbandonedItemsAsync(HashSet<DirectoryContents.Content> elasticContents, FSOdirectory directory, ConcurrentBag<string> currentItemsAsPublishedPaths)
+        private long DeleteAbandonedItems(HashSet<DirectoryContents.Content> elasticContents, FSOdirectory directory, ConcurrentBag<string> currentItemsAsPublishedPaths)
         {
             List<DirectoryContents.Content> abandonedItems = elasticContents.Where(x => !currentItemsAsPublishedPaths.Where(a => x.Item1.Equals(a) || x.Item1.StartsWith(a)).Any()).ToList();
 
@@ -603,7 +603,7 @@ namespace HOK.Elastic.FileSystemCrawler
             //look for any abandoned items that have no path
             var goodChildren = currentItemsAsPublishedPaths.ToList();
             var directoryPath = directory.PublishedPath;
-            itemsDeleted += await _indexEndPoint.DeleteExceptAsync<FSO>(directoryPath, goodChildren, docDeleteBatchBlock);
+            itemsDeleted += _indexEndPoint.DeleteAbandonedDocuments<FSO>(directoryPath, goodChildren, docDeleteBatchBlock);
             return itemsDeleted;
         }
     }

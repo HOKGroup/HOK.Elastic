@@ -7,6 +7,7 @@ namespace HOK.Elastic.DAL
 {
     public interface IIndex : IBase
     {
+
         long DeleteDirectoryDescendants(string directoryPublishedPath, string[] indicies);
         long Delete(string key, string index);
         long Delete(string[] key, string index);
@@ -16,6 +17,9 @@ namespace HOK.Elastic.DAL
         void InsertEmail(FSOemail item);
         void InsertTikaDoc(FSOdocument item);
         void BulkInsert(IFSO[] dws, bool crawlContent = false);
-        Task<long> DeleteExceptAsync<T>(string path, List<string> currentItems, BatchBlock<T> actionBlock) where T : class, IFSO;
+        long DeleteAbandonedDocuments<T>(string path, List<string> currentItems, BatchBlock<T> actionBlock) where T : class, IFSO;
+        IEnumerable<IFSO> FindDescendentsForMoving(string path);
+        //IEnumerable<T> FindDescendentsForMoving<T>(string path, int pageSize) where T : class, IFSO;
+
     }
 }
