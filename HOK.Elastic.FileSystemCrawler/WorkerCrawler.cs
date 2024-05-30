@@ -570,7 +570,7 @@ namespace HOK.Elastic.FileSystemCrawler
             //look for any abandoned items that have no path
             var goodChildren = currentItemsAsPublishedPaths.ToList();
             var directoryPath = directory.PublishedPath;
-            itemsDeleted += await _indexEndPoint.DeleteExceptAsync<FSO>(directoryPath, goodChildren, docDeleteBatchBlock);
+            itemsDeleted +=  _indexEndPoint.DeleteAbandonedDocuments<FSO>(directoryPath, goodChildren, docDeleteBatchBlock);
             return itemsDeleted;
         }
     }

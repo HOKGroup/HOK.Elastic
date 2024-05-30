@@ -14,6 +14,7 @@ using System.Threading.Tasks.Dataflow;
 using System.IO;
 using System.Text;
 using static System.Net.WebRequestMethods;
+using Newtonsoft.Json;
 
 namespace HOK.Elastic.DAL
 {
@@ -21,10 +22,13 @@ namespace HOK.Elastic.DAL
     public partial class Index : Discovery, IIndex
     {
         private readonly int _maxbulkthreads = Convert.ToInt32(Environment.ProcessorCount * 0.75);
-        private readonly TimeSpan defaultQueryTimeout = TimeSpan.FromSeconds(240);
-        
+        private readonly TimeSpan defaultQueryTimeout = TimeSpan.FromSeconds(120);
+        private const int WARNIFDELETEMORETHAN = 9000;
+        private const int CRITICALDELETEMORETHAN = 30000;
 
-        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, Logger.Log4NetLogger logger) : base (pipeLineNameHelper, indexNameHelper, uri, logger)
+
+
+        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }
 
@@ -45,22 +49,22 @@ namespace HOK.Elastic.DAL
             if (item == null) return;//TODO:we really need to stop generating null documents further up the chain...
 
             var thistype = item.GetType();
-            if (thistype == typeof(FSOemail))
+            if (thistype == typefsoemail)
             {
                 var eml = item as FSOemail;
                 InsertEmail(eml);
             }
-            else if (thistype == typeof(FSOdocument))
+            else if (thistype == typefsodoc)
             {
                 var doc = item as FSOdocument;
                 InsertTikaDoc(doc);
             }
-            else if (thistype == typeof(FSOdirectory))
+            else if (thistype == typedir)
             {
                 var doc = item as FSOdirectory;
                 InsertDirectory(doc);
             }
-            else if (thistype == typeof(FSOfile))
+            else if (thistype == typefsofile)
             {
                 var doc = item as FSOfile;
                 InsertFile(doc);
@@ -73,14 +77,13 @@ namespace HOK.Elastic.DAL
 
         public void InsertFile(FSOfile item)
         {
-            IndexResponse ir = new IndexResponse();
-            ir = this.client.Index(item, i => i
+            var response = this.client.Index(item, i => i
                 .Index(item.IndexName)
                 .Timeout(defaultQueryTimeout)
                 );
-            if (!ir.IsValid)
+            if (!response.IsValid)
             {
-                var err = ElasticResponseError.GetError(ir);
+                var err = ElasticResponseError.GetError(response);
                 if (ilerror) _il.LogErr("Index.InsertFile", item.Id, err);//this shouldn't fail normally
             }
             else
@@ -91,14 +94,14 @@ namespace HOK.Elastic.DAL
 
         public void InsertDirectory(FSOdirectory item)
         {
-            IndexResponse ir = new IndexResponse();
-            ir = this.client.Index(item, i => i
+            
+            var response = this.client.Index(item, i => i
                 .Index(item.IndexName)
                 .Timeout(defaultQueryTimeout)
                 );
-            if (!ir.IsValid)
+            if (!response.IsValid)
             {
-                var err = ElasticResponseError.GetError(ir);
+                var err = ElasticResponseError.GetError(response);
                 if (ilerror) _il.LogErr("Index.Insertdirectory", item.Id, err);//this shouldn't fail normally.
             }
             else
@@ -109,14 +112,13 @@ namespace HOK.Elastic.DAL
 
         public void InsertEmail(FSOemail item)
         {
-            IndexResponse ir = new IndexResponse();
-            ir = this.client.Index(item, i => i
+            var response = this.client.Index(item, i => i
                 .Index(IndexHelper.IndexNameFsoMsg)
                 .Timeout(defaultQueryTimeout)
                 );
-            if (!ir.IsValid)
+            if (!response.IsValid)
             {
-                var err = ElasticResponseError.GetError(ir);
+                var err = ElasticResponseError.GetError(response);
                 if (ilerror) _il.LogErr("Index.InsertEmail", item.Id, err);
             }
             else
@@ -126,28 +128,25 @@ namespace HOK.Elastic.DAL
         }
 
 
-
         /// <summary>
         /// Should there be a tika parsing exception, we try and insert it with empty content and skip the pipeline.
         /// </summary>
         /// <param name="item"></param>
         public void InsertTikaDoc(FSOdocument item)
         {
-            var temp = DateTime.Now;
             if (item.Content == null)
             {
                 InsertTikaDocNonAttachment(item);
             }
             else
             {
-                IndexResponse ir = new IndexResponse();
-                ir = this.client.Index(item, i => i
+               var response = this.client.Index(item, i => i
                         .Index(IndexHelper.IndexNameFsoDoc)
                         .Timeout(TimeSpan.FromMinutes(5))//todo decide on how to handle timeouts
                         );
-                if (!ir.IsValid)
+                if (!response.IsValid)
                 {
-                    var err = ElasticResponseError.GetError(ir);
+                    var err = ElasticResponseError.GetError(response);
                     if (err.IsBecauseBusy() && item.FailureCount < 1)
                     {
                         if (ilwarn) _il.LogWarn("Index.InsertTika", item.Id, err);
@@ -174,16 +173,14 @@ namespace HOK.Elastic.DAL
 
         private void InsertTikaDocNonAttachment(FSOdocument item)
         {
-            var temp = DateTime.Now;
-            IndexResponse ir = new IndexResponse();
-            ir = this.client.Index(item, i => i
+          var  response = this.client.Index(item, i => i
                                 .Pipeline(PipeLineNameHelper.PIPEvalidate)//override
                                 .Index(IndexHelper.IndexNameFsoDoc)
                                 .Timeout(defaultQueryTimeout)//todo decide on how to handle timeouts
                                 );
-            if (!ir.IsValid)
+            if (!response.IsValid)
             {
-                var indexError = ElasticResponseError.GetError(ir);
+                var indexError = ElasticResponseError.GetError(response);
                 if (ilerror) _il.LogErr("Index.InsertTika-Nocontent", item.Id, indexError, null);
             }
             else
@@ -191,7 +188,6 @@ namespace HOK.Elastic.DAL
                 if (ildebug) _il.LogDebugInfo("Index.InsertTika-Nocontent", item.Id);
             }
         }
-
 
         /// <summary>
         /// bulk insert should only support 'light' documents, so for example the FSOdoc makes sense with metadataonly=true
@@ -206,9 +202,9 @@ namespace HOK.Elastic.DAL
             {
                 var bulk = client.BulkAll(group, b => b
                                   .Index(group.Key)
-                                  .BackOffTime("20s")
-                                  .BackOffRetries(3)
-                                  .Timeout(defaultQueryTimeout)                                  
+                                  .BackOffTime("60s")
+                                  .BackOffRetries(2)
+                                  .Timeout(defaultQueryTimeout)
                                   //.RefreshOnCompleted(true)
                                   .MaxDegreeOfParallelism(_maxbulkthreads)
                                   .Size(50)
@@ -235,18 +231,11 @@ namespace HOK.Elastic.DAL
                                   .DroppedDocumentCallback((response, o) =>
                                   {
                                       //this doesn't seem to get called for failed documents but it's here just in case
-                                      if(response.Status==201)
+                                      failures.Add(o);
+                                      if (ilwarn)
                                       {
-                                          if(ildebug) { _il.LogDebug("Bulk dropped document but had a 201 created." + o.Id.ToString()); };
+                                          _il.LogWarn("Bulk fail", response.Id, response.Error?.Reason);
                                       }
-                                      else
-                                      {
-                                          failures.Add(o);
-                                          if (ilwarn)
-                                          {
-                                              _il.LogWarn("Bulk fail", response.Id, response.Error?.Reason);
-                                          }
-                                      }                                     
                                   })
                                   );
                 try
@@ -279,16 +268,18 @@ namespace HOK.Elastic.DAL
 
         public void Update<T>(T doc) where T : class, IFSO
         {
-            var ir = client.Update<object>(doc.Id, u => u//specifying T instead of object, causes all properties to get written (instead of using the annotation hints)
+            var response = client.Update<object>(doc.Id, u => u//specifying T instead of object, causes all properties to get written (instead of using the annotation hints)
             .Index(doc.IndexName)
             .Doc(doc)
             );
 
-            if (!ir.IsValid)
+            if (!response.IsValid)
             {
                 if (ilerror)
                 {
-                    var err = ElasticResponseError.GetError(ir);//TODO this is a temporary routine to move misplaced documents from October-Nov 2020 where fsodocuments got inserted into fsofile index.Will remove 
+                    var err = ElasticResponseError.GetError(response);
+                    //TODO this is a temporary routine to move misplaced documents from October-Nov 2020
+                    //Where fsodocuments got inserted into fsofile index.Will remove 
                     if (err.HttpStatusCode == 404)
                     {
                         IFSO exist;
@@ -317,6 +308,104 @@ namespace HOK.Elastic.DAL
             }
         }
 
+
+        #endregion
+
+        #region Moves
+
+
+
+        ////        /// <summary>
+        ////        /// Called by Nausni Audit Events - Full path to the directory will match on anything with the same parent. We use this during incremental crawl
+        ////        /// </summary>
+        ////        /// <param name="pageSize"></param>
+        ////        /// <returns>Fully Populated Model</returns>
+        ////        public IEnumerable<T> FindDescendentsForMovingOLD<T>(string path, int pageSize) where T : class, IFSO
+        ////        {
+        ////            int desiredTake = pageSize;
+        ////            T doc;
+        ////            string scrolltimeout = "10h";
+        ////            string indexName = GetIndexName<T>().ToString();
+        ////            ISearchResponse<T> searchResponse = null;
+        ////            searchResponse = client.Search<T>(d => d
+        ////                        .Index(indexName)
+        ////                        .Size(pageSize)//in 10m 
+        ////                        .Scroll(scrolltimeout)
+        ////                        .Source(a => a.Includes(i => i.Fields(JustId)))
+        ////                        .Query(q => q
+        ////                           .Bool(b => b
+        ////                              .Filter(bf => bf
+        ////                               .Term("parent.smbtreelower", path)//was parent.keyword
+        ////                               )
+        ////                              )
+        ////                           )
+        ////                        );
+        ////            while (searchResponse != null && searchResponse.Documents.Any())
+        ////            {
+        ////#if DEBUG
+        ////                var scrollTime = DateTime.Now;
+        ////#endif
+        ////                var scrollSearchIds = searchResponse.Hits.Select(x => x.Id).ToList();
+        ////                List<T> docs = new List<T>();
+        ////                while (scrollSearchIds.Any())
+        ////                {
+        ////                    try
+        ////                    {
+        ////                        var results = client.MultiGet(m => m.Index(indexName).GetMany<T>(scrollSearchIds.Take(pageSize), (op, id) => op.Index(indexName)));
+        ////                        foreach (var hit in results.Hits)
+        ////                        {
+        ////                            doc = hit.Source as T;
+        ////                            docs.Add(doc);
+        ////                        }
+        ////                        scrollSearchIds.RemoveRange(0, Math.Min(scrollSearchIds.Count, pageSize));
+        ////                    }
+        ////                    catch (Exception ex)
+        ////                    {
+        ////                        if (pageSize == 1)//we are working with a single document.
+        ////                        {
+        ////                            var id = scrollSearchIds.First();
+        ////                            scrollSearchIds.RemoveRange(0, 1);//we need to remove the actual document!                
+        ////                            if (ex is UnexpectedElasticsearchClientException)
+        ////                            {
+        ////                                if (ex.Message.Contains("expected"))
+        ////                                {
+        ////                                    Delete(id, indexName);
+        ////                                    if (ilwarn) _il.LogWarn("Deleting document because" + ex.Message, id);
+        ////                                }
+        ////                            }
+        ////                            pageSize = desiredTake;
+        ////                        }
+        ////                        pageSize = Math.Max(1, pageSize / 3);
+        ////                    }
+        ////                }
+        ////                foreach (var d in docs)
+        ////                {
+        ////                    yield return d;
+        ////                }
+        ////#if DEBUG
+        ////                if (ildebug)
+        ////                {
+        ////                    _il.LogDebugInfo("OurScroll took: " + DateTime.Now.Subtract(scrollTime).TotalMinutes.ToString());
+        ////                }
+        ////#endif
+        ////                searchResponse = client.Scroll<T>(scrolltimeout, searchResponse.ScrollId);
+        ////            }
+        ////            if (searchResponse != null)
+        ////            {
+        ////                if (searchResponse.IsValid == false)
+        ////                {
+        ////                    if (ilerror)
+        ////                    {
+        ////                        var err = ElasticResponseError.GetError(searchResponse);
+        ////                        _il.LogErr("Discovery.FindDescendentsForMoving", path, err);
+        ////                        throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");///hmm do we need to throw an error or can we try again or skip?
+        ////                    }
+        ////                }
+        ////                client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));
+        ////            }
+        ////        }
+   
+
         #endregion
 
         #region Deletes
@@ -325,9 +414,9 @@ namespace HOK.Elastic.DAL
         {
             long count = 0;
             var docGroupedByIndex = docs.GroupBy(x => x.IndexName);
-            foreach(var docsByIndex in docGroupedByIndex)
-            {              
-                count =+ Delete(docsByIndex.Select(x=>x.Id).ToArray(), docsByIndex.Key);
+            foreach (var docsByIndex in docGroupedByIndex)
+            {
+                count = +Delete(docsByIndex.Select(x => x.Id).ToArray(), docsByIndex.Key);
                 if (ildebug)
                 {
                     var logPathGroupings = docsByIndex.GroupBy(files => Path.GetDirectoryName(files.Id), x => Path.GetFileName(x.Id));
@@ -346,30 +435,30 @@ namespace HOK.Elastic.DAL
 
         public long Delete(string[] keys, string index)
         {
-            var ir = this.client.DeleteByQuery<FSO>(d => d
+            var response = this.client.DeleteByQuery<FSO>(d => d
                 .Index(index)
                 .Query(q => +q
                     .Ids(i => i.Values(keys))
                     )
                 );
-            if (!ir.IsValid)
+            if (!response.IsValid)
             {
-                var err = ElasticResponseError.GetError(ir);
+                var err = ElasticResponseError.GetError(response);
                 if (ilerror) _il.LogErr("Index.Delete", null, err);//this shouldn't fail normally
                 if (ilwarn)
                 {
                     StringBuilder sb = new StringBuilder();
                     for (int i = 0; i < keys.Length; i++)
                     {
-                        sb.AppendLine(keys[i] + ";");                      
+                        sb.AppendLine(keys[i] + ";");
                     }
-                    _il.LogWarn("Index.Delete + " +  sb.ToString(), err.ServerErrorReason);
+                    _il.LogWarn("Index.Delete + " + sb.ToString(), err.ServerErrorReason);
                 }
                 return 0;
             }
             else
             {
-                return ir.Deleted;
+                return response.Deleted;
             }
         }
         /// <summary>
@@ -391,41 +480,45 @@ namespace HOK.Elastic.DAL
             }
             else
             {
-                if (response.Failures.Any() || response.Deleted > 1000)//arbirtray number of when we want to warn
+                if (response.Deleted > WARNIFDELETEMORETHAN)
                 {
-                    if (ilwarn) _il.LogWarn(string.Format("Deleted {0} items but had {1} failures", response.Deleted, response.Failures.Count), directoryPublishedPath, null);
-                    if (response.Deleted > 50000)
-                    {
-                        if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Critical)) _il.LogCritical("Deleted an alarming lot of items!", directoryPublishedPath, response.Deleted, null);
-                    }
+                    if (ilwarn) _il.LogWarning("Deleted {1} from {0}", directoryPublishedPath, response.Deleted);
                 }
-                if (ildebug) _il.LogDebugInfo("Deleted from", directoryPublishedPath, response.Deleted);
+                else if (response.Deleted > CRITICALDELETEMORETHAN)
+                {
+                    if (ilerror) _il.LogCritical("Deleted an alarming lot of items from {0}! ({1})", directoryPublishedPath, response.Deleted);
+                }
+                else if (response.Failures.Any())
+                {
+                    if (ilwarn) _il.LogWarning("Deleted {1} from {0} but had {2} failures", directoryPublishedPath, response.Deleted, response.Failures.Count );
+                }
+                else
+                {
+                    if (ildebug) _il.LogDebugInfo("Deleted {1} from {0}", directoryPublishedPath, response.Deleted);
+                }
             }
             return response.Deleted;
         }
- 
 
-        public async Task<long> DeleteExceptAsync<T>(string directoryPath, List<string> goodChildren, BatchBlock<T> deleteBlock) where T : class, IFSO
+      
+        public long DeleteAbandonedDocuments<T>(string directoryPath, List<string> extantChildren, BatchBlock<T> deleteBlock) where T : class, IFSO
         {
-            //ActionBlock<string> actionBlock = new ActionBlock<string>(x => File.AppendAllText(".\\abandons.txt", x + "\r\n"), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1 });
-            // ActionBlock<IFSO> deleteBlock = new ActionBlock<IFSO>(x => Delete(x.Id,x.IndexName), new ExecutionDataflowBlockOptions() { MaxDegreeOfParallelism = 1 });
             int pageSize = 1000;
             int totalDeletedCount = 0;
-            int lastCount = 0;
-            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
-            var docGroup = GetAbandonedSearchAsync<T>(directoryPath, goodChildren, pageSize, false);
             var lastCheck = 0;
-
+            var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
             bool exit = false;
+            var docGroup = FindDescendants<T>(directoryPath, extantChildren, SourceFilterDescriptors<T>.JustIds, pageSize, false);//No PIT
+
             while (!exit)
             {
                 try
                 {
                     foreach (var group in docGroup)
                     {
-                        if (group!=null && group.Any())
+                        if (group != null && group.Any())
                         {
-                            if (totalDeletedCount - lastCheck > 1000)
+                            if (totalDeletedCount - lastCheck > pageSize)
                             {
                                 lastCheck = totalDeletedCount;
                                 if (!Directory.Exists(directoryPath))
@@ -433,138 +526,66 @@ namespace HOK.Elastic.DAL
                                     throw new DirectoryNotFoundException($"Verification path doesn't exist '{directoryPath}' but should...we will abort deleting abandoned documents.");
                                 }
                             }
-
-                            Parallel.ForEach(group, parallelOptions, () => 0, (doc, loopState, localCount) =>
+                            if (totalDeletedCount > WARNIFDELETEMORETHAN)
                             {
-                                var di = new DirectoryInfo(doc.Id);
-                                var x = di.Attributes.HasFlag(FileAttributes.Directory) && di.Exists;
-                                bool exists = false;
-                    
-                                if (di.Attributes.HasFlag(FileAttributes.Directory))
+                                if (ilwarn) _il.LogWarning("More than {0} abandoned documents deleted under '{1}' ", WARNIFDELETEMORETHAN, directoryPath);
+                                exit = true;
+                            }
+                            else
+                            {
+                                Parallel.ForEach(group, parallelOptions, () => 0, (doc, loopState, localCount) =>
                                 {
-                                    if (di.Exists)
+                                    var di = new DirectoryInfo(doc.Id);
+                                    var x = di.Attributes.HasFlag(FileAttributes.Directory) && di.Exists;
+                                    bool exists = false;
+
+                                    if (di.Attributes.HasFlag(FileAttributes.Directory))
+                                    {
+                                        if (di.Exists)
+                                        {
+                                            exists = true;
+                                        }
+                                    }
+                                    else if (System.IO.File.Exists(doc.Id))
                                     {
                                         exists = true;
                                     }
-                                }
-                                else if (System.IO.File.Exists(doc.Id))
-                                {
-                                    exists = true;
-                                }
-                                if (exists)
-                                {
-                                    throw new Exception($"Unexpected Query failure.....'{doc.Id}' shouldn't exist but does.");
-                                }
-                                else
-                                {
-                                    localCount++;
-                                    if (!deleteBlock.Post(doc))
+                                    if (exists)
                                     {
-                                        _il.LogWarn("Couldn't POST...shouldn't be possible");
-                                       // _il.LogTrace("Deleting abandonded '{0}'", doc.Id);
+                                        throw new Exception($"Unexpected Query failure.....'{doc.Id}' shouldn't exist but does.");
                                     }
-                                }
+                                    else
+                                    {
+                                        localCount++;
+                                        if (!deleteBlock.Post(doc))
+                                        {
+                                            _il.LogWarn("Couldn't POST...shouldn't be possible");
+                                            // _il.LogTrace("Deleting abandonded '{0}'", doc.Id);
+                                        }
+                                    }
 
-                                return localCount;
+                                    return localCount;
 
-                            }, localCount => Interlocked.Add(ref totalDeletedCount, localCount));
+                                }, localCount => Interlocked.Add(ref totalDeletedCount, localCount));
+                            }
+                        }else
+                        {
+                            exit = true;
                         }
                     }
                 }
                 catch (Exception ex)
                 {
                     _il.LogError(ex, ex.Message);
-                }
-
-                if (totalDeletedCount > lastCount && totalDeletedCount >= pageSize && totalDeletedCount < 9000)
-                {
-                    lastCount = totalDeletedCount;
-                    docGroup = GetAbandonedSearchAsync<T>(directoryPath, goodChildren, pageSize, true);
-                }
-                else
-                {
                     exit = true;
+                }
+                if (totalDeletedCount == pageSize)//number should match for nonPIT first run unless there were documentst that existed that shouldn't have - in which case we want to exit anyways.
+                {
+                    this.client.Indices.Refresh(IndexHelper.PrefixWildcard, x => x.Index(IndexHelper.AllIndexNames));//to avoid getting the same documents again
+                    docGroup = FindDescendants<T>(directoryPath, extantChildren,SourceFilterDescriptors<T>.JustIds, pageSize, true);//search with PIT going forward.
                 }
             }
             return totalDeletedCount;
-        }
-
-        public IEnumerable<List<T>> GetAbandonedSearchAsync<T>(string directoryPath, List<string> goodChildren, int pageSize = 100, bool withPIT = true) where T : class, IFSO
-        {
-            int counter = 0;
-            long docCount = 0;
-            string pitID = null;
-            IHit<T> lastHit = null;
-
-            var mustNots = new List<Func<QueryContainerDescriptor<T>, QueryContainer>>();
-            foreach (var x in goodChildren)
-            {
-                mustNots.Add(q => q.MatchPhrase(w => w.Field(f => f.Id).Query(x)));
-            }
-            mustNots.Add(a => a.Term(new Field("id.keyword"), directoryPath));
-            string indexFilter = IndexHelper.PrefixWildcard;
-            PointInTimeDescriptor pointInTime = null;
-            if (withPIT)
-            {
-                var pitResponse = client.OpenPointInTime(new OpenPointInTimeRequest(indexFilter) { KeepAlive = "5m" });
-
-                if (pitResponse.IsValid)
-                {
-                    pitID = pitResponse.Id;
-                    pointInTime = new PointInTimeDescriptor(pitID);
-                    pointInTime.KeepAlive(pageSize * 5 + "s");
-                }
-                else
-                {
-                    _il.LogWarning("Unable to get PIT");
-                }
-            }
-            do
-            {
-                var search = client.Search<T>(s => s
-                    .Index(indexFilter)
-                    .Size(pageSize)
-                    .Source(a => a.Includes(i => i
-                        .Fields(f => f.Id)
-                        ))
-                        .Query(q => q
-                 .Bool(b => b
-                 .Filter(f => f.MatchPhrase(mp => mp
-                     .Field(mf => mf.Id)
-                     .Query(directoryPath)
-                     )
-                 )
-                 .MustNot(mustNots.ToArray()))
-                 )
-                        .PointInTime(pitID, x => pointInTime)//null if couldn't do a point in time search.
-                    .Sort(srt => srt.Ascending(f => f.Timestamp))
-                .SearchAfter(lastHit?.Sorts ?? null)
-                );
-                counter++;
-
-                if (search != null && search.IsValid)
-                {
-                    //For paths with derived folder names (not necessarily children folders) the id field matchphrase query used above will return superfluous documents. For example when the documents should be within the path '.\\a\\', elastic matchphrase will also return  '.\\a nother folder\\..' as well as '.\\a big folder\\' as abandoned items and comparing to known,good children.
-                    //To resolved this, rather than use wildcard query filtering for a '\\' delimiter...which is expensive, we just filter the results client-side based on string value of id.
-                    var docs = search.Hits.Where(x => x.Id.Length > directoryPath.Length  && x.Id[directoryPath.Length]=='\\').Select(x => {
-                        var doc = x.Source as T;
-                        doc.IndexName = x.Index;
-                        return doc;
-                    }
-                    );
-                    var doclist = docs.ToList();
-                    docCount =+ doclist.Count;
-                    yield return doclist;
-                    lastHit = search.Hits.LastOrDefault();
-                    pitID = search.PointInTimeId;
-                }
-                _il.LogDebug(nameof(GetAbandonedSearchAsync) + " returing documents in {0}", directoryPath);
-            } while (withPIT && lastHit != null);
-            if (pitID != null)
-            {
-                var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
-            }
-            _il.LogInformation(nameof(GetAbandonedSearchAsync) +  " returned aprox {0} documents in {1}", docCount, directoryPath);
         }
         #endregion
     }
