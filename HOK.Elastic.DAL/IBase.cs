@@ -1,4 +1,5 @@
 ﻿using Elasticsearch.Net;
+using Microsoft.Extensions.Logging;
 using System;
 
 namespace HOK.Elastic.DAL
@@ -9,5 +10,6 @@ namespace HOK.Elastic.DAL
         ApiKey GetApiKey();
         IndexNameHelper IndexHelper { get;  set; }
         PipeLineNameHelper PipeLineNameHelper { get; set; }
+        ILogger Logger { get; }
     }
 }

@@ -1,7 +1,5 @@
 using HOK.Elastic.FileSystemCrawler.Models;
 using HOK.NasuniAuditEventAPI;
-using log4net;
-using log4net.Config;
 //using Microsoft.AspNetCore.OData.Builder;
 using Microsoft.AspNetCore.OData.Extensions;
 //to support authentication:

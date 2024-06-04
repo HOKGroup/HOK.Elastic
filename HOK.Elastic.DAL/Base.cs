@@ -23,6 +23,7 @@ namespace HOK.Elastic.DAL
         private bool disposedValue;
         public IndexNameHelper IndexHelper { get;  set; }
         public PipeLineNameHelper PipeLineNameHelper { get; set; }
+        public ILogger Logger { get => _il; }
 
         public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, ILogger logger) : this(pipeLineNameHelper, indexNameHelper, new SingleNodeConnectionPool(elastiSearchServerUrl), logger)
         {

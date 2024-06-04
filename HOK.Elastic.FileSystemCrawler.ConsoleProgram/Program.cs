@@ -2,7 +2,6 @@
 using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
 using HOK.Elastic.Logger;
-using log4net.Repository.Hierarchy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NLog.Extensions.Logging;
@@ -65,14 +64,6 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     configuration.Bind(jobSettings);
 
                     #region ManageLogFiles
-                    var logfilepath = Path.Combine(jobDirectoryInfo.FullName, "logs");
-                    var configFilePath = "log4net\\log4net.config";
-                    ConfigFileHelper.ChangeLog4netOutputpaths(logfilepath, new FileInfo(configFilePath));
-#if DEBUG
-                    ConfigFileHelper.MakeJsonSchemaFileForAppSettings();
-#endif
-                    // TODO
-                    //_il = loggerFactory.CreateLogger($"{jobDirectoryInfo.Name}.ConsoleProgram", Logger.Log4NetProvider.Parselog4NetConfigFile(configFilePath));
                     _loggerFactory = LoggerFactory.Create(x => x.AddNLog("nlog.config"));
                     _il = _loggerFactory.CreateLogger<ILogger>();
                     ildebug = _il != null && _il.IsEnabled(LogLevel.Debug);
@@ -80,6 +71,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     ilwarn = _il != null && _il.IsEnabled(LogLevel.Warning);
                     ilerror = _il != null && _il.IsEnabled(LogLevel.Error);
                     ilfatal = _il != null && _il.IsEnabled(LogLevel.Critical);
+                    #endregion
                     #region PopulateWorkerArgs
                     var workerargs = new SettingsJobArgs()
                     {
@@ -142,7 +134,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                         workerargs.RunningInteractively = runningInteractively;
                         workerargs.JobNotes = args.ElementAt(1);
                     }
-                    #endregion
+   
                     if (workerargs.CrawlMode == CrawlMode.Incremental || workerargs.CrawlMode == CrawlMode.Full) //for event based or find missing content...maybe we don't want to cancel if we are getting 1000's of errors (but we will want to be notified by log4net)
                     {
                         ExceptionRateLimiter.ThresholdCount = workerargs.ExceptionsPerTenMinuteIntervalLimit ?? 10;
@@ -162,7 +154,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     }
 
                     #region DoWork
-                    exitcode = await Start(workerargs, configFilePath);
+                    exitcode = await Start(workerargs);
                     #endregion
                 }
                 else
@@ -189,13 +181,12 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
         }
    
 
-        static async Task<int> Start(ISettingsJobArgs workerargs, string configFilePath)
+        static async Task<int> Start(ISettingsJobArgs workerargs)
         {
             CompletionInfo completionInfo = null;
 
             if (ilinfo)
-            {
-                _il.LogInfo("Read config file", configFilePath);
+            {                
                 _il.LogInfo("Assembly Version", "N/A", FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion);
                 _il.LogInfo("Verify Starting Arguments", "N/A", workerargs);
             }
@@ -210,10 +201,8 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
             PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
            
-            var discovery = new DAL.Discovery(pipeLineNameHelper,indexNameHelper, workerargs.ElasticDiscoveryURI.First(), new Log4NetLogger($"{workerargs.JobName}.Discovery"));
-            var index = new DAL.Index(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Log4NetLogger($"{workerargs.JobName}.Index"));
-       
-
+            var discovery = new DAL.Discovery(pipeLineNameHelper,indexNameHelper, workerargs.ElasticDiscoveryURI.First(), _loggerFactory.CreateLogger($"{workerargs.JobName}.Discovery"));
+            var index = new DAL.Index(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), _loggerFactory.CreateLogger($"{workerargs.JobName}.Index"));
             var securityHelper = new SecurityHelper(_loggerFactory.CreateLogger($"{workerargs.JobName}.SecurityHelper"));
             var documentHelper = new DocumentHelper(workerargs.ReadFileContents ?? false, securityHelper, index, _loggerFactory.CreateLogger($"{workerargs.JobName}.DocumentHelper"));
             try

@@ -6,7 +6,7 @@ using System.IO;
 
 namespace Microsoft.Extensions.Logging
 {
-    public static class Log4NetLoggerExtensions
+    public static class LoggerExtensions
     {
         private static JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings()
         {
@@ -48,21 +48,7 @@ namespace Microsoft.Extensions.Logging
                 writer.WritePropertyName("exception");
                 var exs = ExceptionSerializable.Get(ex);
                 writer.WriteRawValue(JsonConvert.SerializeObject(exs, jsonSerializerSettings));
-                ////{
-                //writer.WriteStartObject();
-                //writer.WritePropertyName("message");
-                //writer.WriteValue(ex.Message);
-                //writer.WritePropertyName("stacktrace");
-                //writer.WriteValue(ex.StackTrace);
-                //if (ex.InnerException != null)
-                //{
-                //    writer.WritePropertyName("innerexception");
-                //    writer.WriteValue(ex.InnerException.ToString());
-                //}
-                ////}
-                //writer.WriteEndObject();
             }
-            // }
             writer.WriteEndObject();
             return sw.ToString();
         }
@@ -98,18 +84,7 @@ namespace Microsoft.Extensions.Logging
                 return exceptionSerialze;
             }
         }
-
-        //public static ILoggerFactory AddLog4Net(this ILoggerFactory factory, string log4NetConfigFile)
-        //{
-        //    factory.AddProvider(new Log4NetProvider(log4NetConfigFile));
-        //    return factory;
-        //}
-
-        //public static ILoggerFactory AddLog4Net(this ILoggerFactory factory)
-        //{
-        //    factory.AddProvider(new Log4NetProvider("log4net.config"));
-        //    return factory;
-        //}
+       
 
         public static void LogDebugInfo(this ILogger log, string text, string path = "", object data = null)
         {
@@ -126,12 +101,14 @@ namespace Microsoft.Extensions.Logging
             log.LogWarning(GetJson(text, path, data));
         }
         public static void LogErr(this ILogger log, string text, string path = "", object data = null, Exception ex = null)
-        {
+        {           
             log.LogError(GetJson(text, path, data, ex));
+            ExceptionRateLimiter.HasRateLimitExceeded(ex);
         }
         public static void LogFatal(this ILogger log, string text, string path = "", object data = null, Exception ex = null)
         {
             log.LogCritical(GetJson(text, path, data, ex));
+            ExceptionRateLimiter.HasRateLimitExceeded(ex);
         }
     }
 }

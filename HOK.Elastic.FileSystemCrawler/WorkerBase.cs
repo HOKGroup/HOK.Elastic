@@ -47,6 +47,7 @@ namespace HOK.Elastic.FileSystemCrawler
         internal BatchBlock<IFSO> docDeleteBatchBlock;
         public SecurityHelper SecurityHelper => _securityHelper;
         public DocumentHelper DocumentHelper => _documentHelper;
+        
 
         public WorkerBase(IIndex elasticIngest, IDiscovery elasticDiscovery, DocumentHelper Dh, SecurityHelper Sh, ILogger logger)
         {
@@ -174,8 +175,8 @@ namespace HOK.Elastic.FileSystemCrawler
                         docInsertBatch.TriggerBatch();
                         IndexNameHelper indexNameHelper = new IndexNameHelper(_args.IndexNamePrefix);
                         PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(_args.IndexNamePrefix);
-                        this._indexEndPoint = new DAL.Index(pipeLineNameHelper, indexNameHelper, _args.ElasticIndexURI.ToArray(), new Elastic.Logger.Log4NetLogger("Index"));
-                        this._discoveryEndPoint = new DAL.Discovery(pipeLineNameHelper, indexNameHelper, _args.ElasticDiscoveryURI.ToArray(), new Elastic.Logger.Log4NetLogger("Discovery"));
+                        this._indexEndPoint = new DAL.Index(pipeLineNameHelper, indexNameHelper, _args.ElasticIndexURI.ToArray(), this._indexEndPoint.Logger);
+                        this._discoveryEndPoint = new DAL.Discovery(pipeLineNameHelper, indexNameHelper, _args.ElasticDiscoveryURI.ToArray(), this._discoveryEndPoint.Logger);
                         if (ilwarn) _il.LogWarn($"Almost out of memory...cleared elastic");
                     }
 
