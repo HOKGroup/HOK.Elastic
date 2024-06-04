@@ -24,7 +24,7 @@ namespace HOK.Elastic.DAL
         public const string TRUNCATE10 = "truncate10";
         public readonly Nest.Time RefreshInterval = new Time(TimeSpan.FromSeconds(30));
 
-        public InitializationIndex(PipeLineNameHelper pipeLineHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : base(pipeLineHelper, indexNameHelper, elastiSearchServerUrl, logger)
+        public InitializationIndex(PipeLineNameHelper pipeLineHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, ILogger logger) : base(pipeLineHelper, indexNameHelper, elastiSearchServerUrl, logger)
         {
         }
 

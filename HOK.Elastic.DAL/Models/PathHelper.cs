@@ -107,7 +107,7 @@ namespace HOK.Elastic.DAL.Models
         /// <summary>
         /// always exclude at least these:
         /// </summary>
-        private readonly static HashSet<string> BadExtensionList = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".log", ".slog", ".rws", ".dat", ".ds_store", ".appdisk", ".tmp", ".bak", ".skb", ".sv$", ".dwl", ".dwl2", ".err", ".dmp", ".idlk", "" };//added "" to skip files without extensions (like autocad temp files(that at other times end in .tmp sometimes)//we remove digits from extensions and compare with removed digits
+        private readonly static HashSet<string> BadExtensionList = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { ".log", ".slog", ".rws", ".dat", ".ds_store", ".appdisk", ".tmp", ".bak", ".skb", ".sv$", ".dwl", ".dwl2", ".err", ".dmp", ".idlk", "", ".afpub~lock~" };//added "" to skip files without extensions (like autocad temp files(that at other times end in .tmp sometimes)//we remove digits from extensions and compare with removed digits
         private static Regex _compiledFileNameExclusionRegex;
         private static Regex _compiledPathInclusionRegex;
         public static Regex FileNameExclusion

@@ -1,6 +1,6 @@
 ﻿using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;

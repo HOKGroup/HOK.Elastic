@@ -5,7 +5,7 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.Threading;
 
-namespace HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models
+namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
 {
 
     //https://learn.microsoft.com/en-us/aspnet/core/fundamentals/host/hosted-services?view=aspnetcore-6.0&tabs=visual-studio

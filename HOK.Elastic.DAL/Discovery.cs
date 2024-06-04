@@ -25,17 +25,17 @@ namespace HOK.Elastic.DAL
         internal Type typefsofile = typeof(FSOfile);
         internal Type typefsodoc = typeof(FSOdocument);
         internal Type typefsoemail = typeof(FSOemail);
-        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper, uri, logger)
+        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, ILogger logger) : base(pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }
-        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper, uri, logger)
+        public Discovery(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, ILogger logger) : base(pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }
 
         internal static class SourceFilterDescriptors<T> where T : class, IFSO
         {
-            static string[] DefaultSourceFieldsFilter = new string[] { "id", "parent", "acls", "last_write_timeUTC", "failureCount" };
-            static string[] JustId = new string[] { "id" };
+            static string[] DefaultSourceFieldsFilter = new string[] { "id", "parent", "acls", "last_write_timeUTC", "failureCount","reason" };
+            static string[] JustId = new string[] { "id","reason" };
             static public SourceFilterDescriptor<T> IncludeAlls = new SourceFilterDescriptor<T>().IncludeAll();
             static public SourceFilterDescriptor<T> IncludeDefaults = new SourceFilterDescriptor<T>().Includes(f => f.Fields(DefaultSourceFieldsFilter));
             static public SourceFilterDescriptor<T> JustIds = new SourceFilterDescriptor<T>().Includes(f => f.Fields(JustId));
@@ -303,33 +303,45 @@ namespace HOK.Elastic.DAL
         /// </summary>
         /// <param name="pageSize"></param>
         /// <returns>Fully Populated Model</returns>
-        public IEnumerable<T> FindDescendentsForMoving<T>(string path) where T : class,IFSO
+        //public IEnumerable<T> FindDescendentsForMoving<T>(string path) where T : class,IFSO
+        //{
+        //    var docs = FindDescendentsForMoving<T>(path, 1000);
+        //    foreach (var page in docs)
+        //    {
+        //        foreach (var doc in page)
+        //        {
+        //            yield return doc;
+        //        }
+        //    }
+        //}
+
+        public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
-            var docs = FindDescendentsForMoving<T>(path, 1000);
-            foreach (var page in docs)
+            foreach (var page in FindDescendentsForMoving(path, 1000))
             {
                 foreach (var doc in page)
                 {
                     yield return doc;
                 }
             }
+           
         }
 
-        public IEnumerable<List<T>> FindDescendentsForMoving<T>(string path, int pageSize) where T : class, IFSO
+        public IEnumerable<List<FSO>> FindDescendentsForMoving(string path, int pageSize)
         {
-            var documents = FindDescendants<T>(path, null, SourceFilterDescriptors<T>.IncludeAlls, pageSize);
+            var documents = FindDescendants(path, null, SourceFilterDescriptors<FSO>.IncludeAlls, pageSize);
             return documents;
         }
 
-        public IEnumerable<List<T>> FindDescendants<T>(string directoryPath, List<string> exceptTheseExtantChildren, SourceFilterDescriptor<T> sourceFilter, int pageSize = 100, bool withPIT = false) where T : class, IFSO
+        public IEnumerable<List<FSO>> FindDescendants(string directoryPath, List<string> exceptTheseExtantChildren, SourceFilterDescriptor<FSO> sourceFilter, int pageSize = 100, bool withPIT = false)
         {
             int counter = 0;
             long docCount = 0;
             string pitID = null;
-            IHit<T> lastHit = null;
+            IHit<IFSO> lastHit = null;
             PointInTimeDescriptor pointInTime = null;
 
-            var mustNots = new List<Func<QueryContainerDescriptor<T>, QueryContainer>>();
+            var mustNots = new List<Func<QueryContainerDescriptor<FSO>, QueryContainer>>();
             if (exceptTheseExtantChildren != null)
             {
                 //if there are good children don't return the children or the parent.
@@ -340,7 +352,7 @@ namespace HOK.Elastic.DAL
                 mustNots.Add(a => a.Term(new Field("id.keyword"), directoryPath));
             }
 
-            string indexFilter = GetIndexFilterName<T>();
+            string indexFilter = GetIndexFilterName<IFSO>();
 
             try
             {
@@ -355,12 +367,10 @@ namespace HOK.Elastic.DAL
                 }
                 do
                 {
-                    var response = client.Search<T>(s => s
+                    var response = client.Search<FSO>(s => s
                         .Index(indexFilter)
                         .Size(pageSize)
-                        .Source(a => a.Includes(i => i
-                            .Fields(f => f.Id)
-                            ))
+                        .Source(s=> sourceFilter)
                             .Query(q => q
                      .Bool(b => b
                      .Filter(f => f.MatchPhrase(mp => mp
@@ -383,7 +393,25 @@ namespace HOK.Elastic.DAL
                         //To resolve this, rather than use wildcard query filtering for a '\\' delimiter...which is expensive, we just filter the results client-side based on string value of id.
                         var docs = response.Hits.Where(x => x.Id.Length > directoryPath.Length && x.Id[directoryPath.Length] == '\\').Select(x =>
                         {
-                            var doc = x.Source as T;
+                            FSO doc;                            
+                            if(x.Index.EndsWith(IndexNameHelper.DIR))
+                            {
+                                doc = new FSOdirectory();
+                            }
+                            else if(x.Index.EndsWith(IndexNameHelper.FSOMSG))
+                            {
+                                doc = new FSOemail();
+                            }
+                            else if(x.Index.EndsWith(IndexNameHelper.FSODOC))
+                            {
+                                doc = new FSOdocument();
+                            }
+                            else
+                            {
+                                doc = new FSOfile();
+                                //we could set doc.indexname to indexhelper.fsodocindexname..to account for aliases specified in the appsettings.json..but maybe not needed.
+                            }                
+                            FSOdocument.CopyProperties(x.Source, doc);
                             doc.IndexName = x.Index;
                             return doc;
                         }
@@ -798,24 +826,25 @@ namespace HOK.Elastic.DAL
 
         public string GetIndexFilterName<T>()
         {
-            string indexFilter = IndexHelper.PrefixWildcard;//TODO this should be allindicies if <T> is IFSO,FSO but not if FSOemail, or FSOdoc etc.
             if (typeof(T) == typedir)
             {
-                indexFilter = IndexHelper.IndexNameDir;
+                return IndexHelper.IndexNameDir;
             }
             else if (typeof(T) == typefsofile)
             {
-                indexFilter = IndexHelper.IndexNameFsoFile;
+                return IndexHelper.IndexNameFsoFile;
             }
             else if (typeof(T) == typefsoemail)
             {
-                indexFilter = IndexHelper.IndexNameFsoMsg;
+                return IndexHelper.IndexNameFsoMsg;
             }
             else if (typeof(T) == typefsodoc)
             {
-                indexFilter = IndexHelper.IndexNameFsoDoc;
+                return IndexHelper.IndexNameFsoDoc;
+            }else
+            {
+               return IndexHelper.PrefixWildcard;//TODO this should be allindicies if <T> is IFSO,FSO but not if FSOemail, or FSOdoc etc.
             }
-            return indexFilter;
         }
     }
 }

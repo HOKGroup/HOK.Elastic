@@ -18,8 +18,13 @@ namespace HOK.Elastic.DAL
             if(string.IsNullOrEmpty(indexPrefix)) throw new ArgumentException($"{nameof(indexPrefix)} can't be empty");
             _indexPrefix = indexPrefix;
             _indexPrefixWildcard = indexPrefix + "*";
-            _allIndexNames = new string[] { _indexPrefix + "dir", _indexPrefix + "fsofile", _indexPrefix + "fsomsg", _indexPrefix + "fsodoc" };
+            _allIndexNames = new string[] { _indexPrefix + DIR, _indexPrefix + FSOFILE, _indexPrefix + FSOMSG, _indexPrefix + FSODOC };
         }
+        public const string DIR = "dir";
+        public const string FSOFILE = "fsofile";
+        public const string FSOMSG = "fsomsg";
+        public const string FSODOC = "fsodoc";
+
         private string[] _allIndexNames;
         public string[] AllIndexNames => _allIndexNames;
         public string IndexNameDir => _allIndexNames[0];

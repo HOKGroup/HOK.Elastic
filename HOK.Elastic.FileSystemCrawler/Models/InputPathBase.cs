@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace HOK.Elastic.FileSystemCrawler.Models
 {
@@ -119,7 +120,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
             return left == right || Compare(left, right) > 0;
         }
     }
-
+    [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]//added for system.text.json deserialization.
     public enum PathStatus
     {
         Unstarted,

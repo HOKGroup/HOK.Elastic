@@ -22,7 +22,7 @@ namespace HOK.Elastic.FileSystemCrawler
         /// we might want to remove this constructor to ensure we always populate path substitutions from here.
         /// </summary>
         /// <param name="logger"></param>
-        public WorkerCrawler(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, HOK.Elastic.Logger.Log4NetLogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
+        public WorkerCrawler(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, ILogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
         {
         }
         /// <summary>
@@ -83,11 +83,11 @@ namespace HOK.Elastic.FileSystemCrawler
             docInsertTranformBlock.LinkTo(docInsertBatch, linkOptions, item => DocumentHelper.IsBatchable(item));
             docInsertTranformBlock.LinkTo(docInsert, linkOptions, item => !DocumentHelper.IsBatchable(item));
             docInsertTranformBlock.LinkTo(DataflowBlock.NullTarget<IFSO>(), linkOptions);
-            docDeleteAction = new ActionBlock<FSO[]>(v => completionInfo.Deleted=+ _indexEndPoint.DeleteGroup(v), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = insertBoundedCapacity });
+            docDeleteAction = new ActionBlock<IFSO[]>(v => completionInfo.Deleted=+ _indexEndPoint.DeleteGroup(v), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = insertBoundedCapacity });
  
 
         
-            docDeleteBatchBlock = new BatchBlock<FSO>(100);
+            docDeleteBatchBlock = new BatchBlock<IFSO>(100);
             docDeleteBatchBlock.LinkTo(docDeleteAction, linkOptions);
 
             if (args.CrawlMode == CrawlMode.Full|| args.CrawlMode==CrawlMode.Incremental)
@@ -205,7 +205,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             elasticContents = dirContentResponse?.Contents;
                             if (dirContentResponse == null)
                             {                                
-                                directory.Reason = "incremental newfolder";
+                                directory.Reason = directory.AppendReason("incremental newfolder");
                                 if (ilwarn) _il.LogWarn(directory.Reason, directory.Id);
                                 await docInsertTranformBlock.SendAsync(directory).ConfigureAwait(false);
                             }
@@ -213,14 +213,14 @@ namespace HOK.Elastic.FileSystemCrawler
                             {
                                 if (dirContentResponse.Acls == null)//could be because root document was missing from index and so was constructed as a placeholder without ACLS.
                                 {
-                                    directory.Reason = "acls missing-root doc not present";
+                                    directory.Reason = directory.AppendReason("acls missing-root doc not present");
                                     await docInsertTranformBlock.SendAsync(directory).ConfigureAwait(false);
                                 }
                                 else
                                 {
                                     if (!dirContentResponse.Acls.Equals(directory.Acls))
                                     {
-                                        directory.Reason = "dir acls unequal";
+                                        directory.Reason = directory.AppendReason("dir acls unequal");
                                         await docInsertTranformBlock.SendAsync(directory).ConfigureAwait(false);
                                     }
                                     else
@@ -235,7 +235,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         }
                         else
                         {
-                            directory.Reason = "fullcrawl newfolder";
+                            directory.Reason = directory.AppendReason("fullcrawl newfolder");
                             await docInsertTranformBlock.SendAsync(directory).ConfigureAwait(false);
                             elasticContents = null;
                         }
@@ -476,14 +476,14 @@ namespace HOK.Elastic.FileSystemCrawler
                 }
                 if (!isIncremental)
                 {
-                    fsoFile.Reason = "fullcrawl";
+                    fsoFile.Reason = fsoFile.AppendReason( "fullcrawl");
                     await docInsertTranformBlock.SendAsync(fsoFile).ConfigureAwait(false);
                     Interlocked.Increment(ref _filesmatched);
                 }
                 else if (elasticContents == null)
                 {
                     currentItemsAsPublishedPaths.Add(fsoFile.PublishedPath);
-                    fsoFile.Reason = "isincremental; elasticContents null";//so just insert it
+                    fsoFile.Reason = fsoFile.AppendReason("isincremental; elasticContents null");//so just insert it
                     await docInsertTranformBlock.SendAsync(fsoFile).ConfigureAwait(false);
                     Interlocked.Increment(ref _filesmatched);
                 }
@@ -493,7 +493,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     existingElasticDocument = elasticContents.Where(x => x.Item1 == fsoFile.Id).FirstOrDefault();
                     if (existingElasticDocument == null)
                     {
-                        fsoFile.Reason = "isincremental; no match in elasticContents";
+                        fsoFile.Reason = fsoFile.AppendReason("isincremental; no match in elasticContents");
                         await docInsertTranformBlock.SendAsync(fsoFile).ConfigureAwait(false);
                         Interlocked.Increment(ref _filesmatched);
                     }
@@ -502,7 +502,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         fsoFile.FailureCount = existingElasticDocument.Item5;
                         if (Math.Abs(fsoFile.Last_write_timeUTC.Subtract(existingElasticDocument.Item4).TotalMinutes) > 5)//the time skew could be either way and we have seen greater then 2 minutes time skew (2 minutes 11 seconds)
                         {
-                            fsoFile.Reason = "isincremental; newer";
+                            fsoFile.Reason = fsoFile.AppendReason("isincremental; newer");
                             await docInsertTranformBlock.SendAsync(fsoFile).ConfigureAwait(false);
                             Interlocked.Increment(ref _filesmatched);
                         }
@@ -510,7 +510,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         {
                             if (existingElasticDocument.Item3 == null || !existingElasticDocument.Item3.Equals(fsoFile.Acls))
                             {
-                                fsoFile.Reason = "isincremental; acls unequal";
+                                fsoFile.Reason = fsoFile.AppendReason("isincremental; acls unequal");
                                 await docReindexTransformBlock.SendAsync(fsoFile).ConfigureAwait(false);//we'll use the update api.
                                 Interlocked.Increment(ref _filesmatched);
                             }
@@ -570,7 +570,7 @@ namespace HOK.Elastic.FileSystemCrawler
             //look for any abandoned items that have no path
             var goodChildren = currentItemsAsPublishedPaths.ToList();
             var directoryPath = directory.PublishedPath;
-            itemsDeleted +=  _indexEndPoint.DeleteAbandonedDocuments<FSO>(directoryPath, goodChildren, docDeleteBatchBlock);
+            itemsDeleted +=  _indexEndPoint.DeleteAbandonedDocuments(directoryPath, goodChildren, docDeleteBatchBlock);
             return itemsDeleted;
         }
     }

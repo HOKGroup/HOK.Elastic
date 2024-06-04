@@ -2,6 +2,7 @@
 using Newtonsoft.Json;
 using System;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace HOK.Elastic.FileSystemCrawler.Models
 {
@@ -26,12 +27,14 @@ namespace HOK.Elastic.FileSystemCrawler.Models
            return JsonConvert.SerializeObject(this, Formatting.Indented);
         }
     }
+    [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
     public enum ActionContent
     {
         None = 0,
         ACLSet = 1,
         Write = 2
     }
+    [System.Text.Json.Serialization.JsonConverter(typeof(JsonStringEnumConverter))]
     public enum ActionPresence
     {
         None = 0,

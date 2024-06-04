@@ -125,6 +125,12 @@ namespace HOK.Elastic.RoleMappingGroupSync
                         try
                         {
                             var roleMapping = allroleMappingInElastic.Where(x => x.Key == user.ElasticFriendlyName).FirstOrDefault();
+                            if (roleMapping.Value == null)
+                            {
+                                ourElasticCluster.PutUserRoleMapping(new string[] { user.ElasticFriendlyName }, user.Name, user.ElasticFriendlyName);
+                                System.Threading.Thread.Sleep(50);
+                                roleMapping = allroleMappingInElastic.Where(x => x.Key == user.ElasticFriendlyName).FirstOrDefault();
+                            }
                             var fieldRoleMappingRule = roleMapping.Value.Rules as FieldRoleMappingRule;
                             var userNameRule = fieldRoleMappingRule.Field as UsernameRule;
                             var userName = userNameRule?.Where(x => x.Key == "username")?.FirstOrDefault().Value as string;

@@ -22,7 +22,7 @@ namespace HOK.Elastic.FileSystemCrawler
         /// we might want to remove this constructor to ensure we always populate path substitutions from here.
         /// </summary>
         /// <param name="logger"></param>
-        public WorkerByQuery(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, HOK.Elastic.Logger.Log4NetLogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
+        public WorkerByQuery(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, ILogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
         {
             //calculate desired free memory for future reference to avoid consuming too much memory
             ulong installedMemory;
@@ -335,11 +335,11 @@ namespace HOK.Elastic.FileSystemCrawler
                         item.SetFileSystemInfoFromId(fileInfo);
                         item.Acls = SecurityHelper.GetDocACLs(fileInfo);
                         item.Owner = SecurityHelper.GetOwner(fileInfo);
-                        if (item.Reason == "Missing Content")
+                        if (item.Reason.Contains("Missing Content"))
                         {
                             item.FailureCount++;
                         }
-                        item.Reason = "Missing Content";                    
+                        item.Reason = item.AppendReason("Missing Content");                   
                         await WaitForMemory(_desiredMaxMemoryKB).ConfigureAwait(false);
                         await docInsertTranformBlock.SendAsync(item).ConfigureAwait(false);
                     }
@@ -400,7 +400,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         //use fileSystemInfo object to populate the elastic document
                         item.SetFileSystemInfoFromId(fileSystemInfo);
                         item.Acls = SecurityHelper.GetDocACLs(fileSystemInfo);
-                        item.Reason = "Reindex by Query";
+                        item.Reason = item.AppendReason("Reindex by Query");
                         await WaitForMemory(_desiredMaxMemoryKB).ConfigureAwait(false);
                         if (_args.ReadFileContents??false)
                         {

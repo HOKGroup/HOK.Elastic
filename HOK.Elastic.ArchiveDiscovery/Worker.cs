@@ -10,9 +10,10 @@ using System.Threading.Tasks;
 using HOK.Elastic.DAL;
 using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
-using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using NLog;
+using NLog.Extensions.Logging;
 
 
 namespace HOK.Elastic.ArchiveDiscovery
@@ -20,7 +21,8 @@ namespace HOK.Elastic.ArchiveDiscovery
     internal class Worker
     {
         private Repository<List<JobItem>> context = new Repository<List<JobItem>>();
-        private HOK.Elastic.Logger.Log4NetLogger _il;
+        private static readonly NLog.Logger _il = NLog.LogManager.GetCurrentClassLogger();
+        private ILoggerFactory loggerFactory;
         private bool ilDebug;
         private bool ilInfo;
         private bool ilWarn;
@@ -30,12 +32,12 @@ namespace HOK.Elastic.ArchiveDiscovery
         public int ProjectCompletedCount { get; set; } = 0;
         public Worker(string apihost)
         {
-            _il = new HOK.Elastic.Logger.Log4NetLogger(nameof(Worker));
-            ilDebug = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
-            ilInfo = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information);
-            ilWarn = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
-            ilError = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error);
-            api = new APIClient(apihost, new Logger.Log4NetLogger("API"));
+            loggerFactory = LoggerFactory.Create(builder => builder.AddNLog());
+            ilDebug = _il.IsDebugEnabled;
+            ilInfo = _il.IsInfoEnabled;
+            ilWarn = _il.IsWarnEnabled;
+            ilError = _il.IsErrorEnabled;
+            api = new APIClient(apihost, loggerFactory.CreateLogger("api"));
         }
 
         internal async Task RunAsync(SettingsJobArgsDTO settingsJobArgsDTO,string pathPrefix,string pathProdSuffix,string pathArchiveSuffix,Regex officeMatch=null)
@@ -43,9 +45,9 @@ namespace HOK.Elastic.ArchiveDiscovery
             IndexNameHelper indexNameHelper = new IndexNameHelper(settingsJobArgsDTO.IndexNamePrefix);
             PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(settingsJobArgsDTO.IndexNamePrefix);
             var discoveryuris = settingsJobArgsDTO.ElasticDiscoveryURI.Select(x => new Uri(x)).ToList();
-            DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(pipeLineNameHelper, indexNameHelper, discoveryuris, new Logger.Log4NetLogger(nameof(Worker)));
+            DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(pipeLineNameHelper, indexNameHelper, discoveryuris, loggerFactory.CreateLogger(nameof(Worker)));
             var clientStatus = discoveryArchive.GetClientStatus();
-            if (ilDebug) _il.LogDebugInfo("Status", null, clientStatus);
+            if (ilDebug) _il.Debug("Status", null, clientStatus);
             var offices = (await discoveryArchive.FindOffices());
             if(offices != null&&officeMatch!=null) { offices = offices.Where(x => officeMatch.IsMatch(x)); }
             if (offices != null && offices.Any())
@@ -53,7 +55,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                 
                 foreach (var office in offices)
                 {
-                    if (ilInfo) _il.LogInfo($">>>Searching: '{office}'", null, null);
+                    if (ilInfo) _il.Info($">>>Searching: '{office}'", null, null);
 
                     var projectRootsInArchive = discoveryArchive.FindProjectRootsInArchive(pathPrefix,  office,pathArchiveSuffix);
                     if (projectRootsInArchive.Any())
@@ -65,20 +67,20 @@ namespace HOK.Elastic.ArchiveDiscovery
                             if (productionDocument != null)
                             {
                                 var workItem = new JobItem(office, archiveDocument.Project.Number, productionDocument.Id, archiveDocument.Id);
-                                if (ilInfo) _il.LogInfo($">>>Found matching pair PROD>ARCHIVE WorkItem", null, workItem);
+                                if (ilInfo) _il.Info($">>>Found matching pair PROD>ARCHIVE WorkItem", null, workItem);
                                 context.Value.Add(workItem);
                             }
                         }
                     }
                     else
                     {
-                        if (ilDebug) _il.LogDebugInfo($"No projects found for: '{office}'", null, null);
+                        if (ilDebug) _il.Debug($"No projects found for: '{office}'", null, null);
                     }
                 }
             }
             else
             {
-                if (ilInfo) _il.LogInfo("No offices" + officeMatch !=null? " matched " + officeMatch.ToString():" found that matched");
+                if (ilInfo) _il.Info("No offices" + officeMatch !=null? " matched " + officeMatch.ToString():" found that matched");
             }
             try
             {
@@ -86,7 +88,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             }
             catch (Exception e)
             {
-                if (_il.IsEnabled(LogLevel.Critical)) _il.LogErr("Fatal", null, e);
+                if (_il.IsFatalEnabled) _il.Fatal("Fatal", null, e);
             }
         }
 
@@ -96,7 +98,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             ProjectCount = context.Value.Count;
             while (context.Value.Any())
             {
-                if (ilInfo) _il.LogInfo($"Looping {ProjectCount} jobs in context...with {ProjectCompletedCount} completed.", null, null);
+                if (ilInfo) _il.Info($"Looping {ProjectCount} jobs in context...with {ProjectCompletedCount} completed.", null, null);
                 #region PersistJobs
                 if (DateTime.Now.Subtract(timer).TotalMinutes > 2)
                 {
@@ -135,13 +137,13 @@ namespace HOK.Elastic.ArchiveDiscovery
                         else
                         {
                             //else job failed...we increment retries if we want to exit endless loop in case of failure.
-                            if (ilDebug) _il.LogDebugInfo("Unexpected JobId failure when posting", null, Id);
+                            if (ilDebug) _il.Debug("Unexpected JobId failure when posting", null, Id);
                             await Task.Delay(TimeSpan.FromSeconds(5));
                         }
                     }
                     else
                     {
-                        if (ilInfo) _il.LogInfo("no items waiting to be sent to API");
+                        if (ilInfo) _il.Info("no items waiting to be sent to API");
                         break;
                     }
                 }
@@ -181,11 +183,11 @@ namespace HOK.Elastic.ArchiveDiscovery
                                     job.Status = HostedJobInfo.State.unstarted;
                                     job.Retries++;
                                     //log warn that it's failing
-                                    if (ilWarn) _il.LogWarn($"Failed {job.Retries + 1} times", job.Source, jobInfo);
+                                    if (ilWarn) _il.Warn($"Failed {job.Retries + 1} times", job.Source, jobInfo);
                                 }
                                 else if (jobInfo.WhenCompleted == null|| jobInfo.WhenCompleted==DateTime.MinValue|| jobInfo.WhenCompleted < maxAge)
                                 {
-                                    if (ilError) _il.LogErr("Aborted", job.Source, job);
+                                    if (ilError) _il.Error("Aborted", job.Source, job);
                                     jobsToBeRemoved.Add(job);
                                     await api.DeleteAsync(job.TaskId);
                                 }
@@ -202,7 +204,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                     }
                     catch (Exception ex)
                     {
-                        if (ilError) _il.LogErr("Error monitoringjobs and removing completed", null, ilDebug ? context.Value : null, ex);
+                        if (ilError) _il.Error("Error monitoringjobs and removing completed", null, ilDebug ? context.Value : null, ex);
                     }
                 }
                 foreach (var job in jobsToBeRemoved)

@@ -7,24 +7,33 @@ using RestSharp.Authenticators;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using static HOK.Elastic.FileSystemCrawler.WorkerBase;
+
+using System.Net.Http.Json;
+using Nest;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 
 namespace HOK.Elastic.FileSystemCrawler
 {
     public class EventStreamClient
     {
-        private HOK.Elastic.Logger.Log4NetLogger _il;
+        private ILogger _il;
+        private HttpClient _httpClient;
 
         protected class ODataCollectionWrapper<T> where T : class
         {
             public IEnumerable<T> Value { get; set; }
         }
-        public EventStreamClient(Uri eventStreamAPIEndPoint, Log4NetLogger logger)
+        public EventStreamClient(HttpClient hc, Uri eventStreamAPIEndPoint, ILogger logger)
         {
+            _httpClient = hc;
             _il = logger;
             this.EventStreamEndPoint = eventStreamAPIEndPoint;
+            _httpClient.BaseAddress = eventStreamAPIEndPoint;
+            //add default credentials
         }
         public Uri EventStreamEndPoint { get; private set; }
 
@@ -83,6 +92,8 @@ namespace HOK.Elastic.FileSystemCrawler
             return totalCompletionInfo;
         }
 
+  
+
         /// <summary>
         /// //go to the api and request a block of 400 entries for example.
         /// </summary>
@@ -93,26 +104,31 @@ namespace HOK.Elastic.FileSystemCrawler
         {
             //var samplepath = @"\now\Internal\site\DEPTS\department\Software Development\Elastic";
             //samplepath = samplepath.Replace(find, replace);
+            ///Summary:
+            ///build a list of paths and actions either externally or via a pre-processing step. The input for the next step should just be: 
+            ///Delete (my action remove from index)0
+            ///Set Security (my action read metadata)1
+            ///Write (my action read content and metadata)2
+            ///Rename/Move (my action reindex item with new id) //only happens when newpath and oldpath are interesting.
+            /////Rename unless both paths are interesting becomes two independant items: A Delete and a Write. We only care about Renames that newpath is interesting. 
+            ///So Rename from xls to tmp....delete is ignored, write is ignored as newpath ext is excluded....or maybe we just log a delete event and let the write event below 'cancel' it out.
+            ///So Rename from tmp to xls, delete is ignored as path is excluded. write is interesting though. And so becomes a write event as shown above (read content + metadata)
+            ///so as you look at the logs, when you encounter a rename, if both paths are interesting, request a move, otherwise, if the currentpath is excluded but newpath isn't request a write newpath, if the currentpath is good, but newpath is bad request a delete of currentpath (to be canceled out later possibly)
+
             IEnumerable<InputPathEventStream> httpResponsePaths = null;
-            var options = new RestClientOptions();
-            options.UseDefaultCredentials = true;
-            options.BaseUrl = this.EventStreamEndPoint;
-            var client = new RestSharp.RestClient(options);
-            RestRequest request = new RestRequest("auditevents?$top=75", Method.Get);//we can adjust how many items to take, the less items the more likely the paths will be 'more' accurate/timely...
-            request.OnBeforeDeserialization = resp => { resp.ContentType = "application/json"; };
+            HttpResponseMessage response = null;
             try
             {
-                var response = await client.ExecuteAsync<ODataCollectionWrapper<InputPathEventStream>>(request).ConfigureAwait(false);
-
-                if (response.StatusCode == System.Net.HttpStatusCode.OK)
+                response = await _httpClient.GetAsync("api/auditevents?$top=75");
+                if (response.IsSuccessStatusCode)
                 {
-                    httpResponsePaths = response.Data.Value;
-                    if (httpResponsePaths != null)
+                    var result = await response.Content.ReadFromJsonAsync<ODataCollectionWrapper<InputPathEventStream>>();
+                    if (result.Value?.Any() ?? false)
                     {
                         int replacementlength = find.Length;//here's where we substitute the path from eventStream for example \now\internal\projects ...to what we want \\domain\fileroot\projects etc.
-                        if(replacementlength>0)
+                        if (replacementlength > 0)
                         {
-                            foreach (var item in httpResponsePaths)
+                            foreach (var item in result.Value)
                             {
                                 item.Path = replace + item.Path.Substring(replacementlength);
                                 if (item.PathFrom != null)
@@ -120,28 +136,20 @@ namespace HOK.Elastic.FileSystemCrawler
                                     item.PathFrom = replace + item.PathFrom.Substring(replacementlength);
                                 }
                             }
-                        }
+                        }                        
                     }
-                    return httpResponsePaths;
+                    return result.Value;
                 }
                 else
                 {
-                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogErr(response.StatusDescription, "", null, response.ErrorException);
+                    var content = await response.Content.ReadAsStringAsync();
+                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogInformation( "Error in {0}", nameof(GetEvents),content);
                 }
-                ///Summary:
-                ///build a list of paths and actions either externally or via a pre-processing step. The input for the next step should just be: 
-                ///Delete (my action remove from index)0
-                ///Set Security (my action read metadata)1
-                ///Write (my action read content and metadata)2
-                ///Rename/Move (my action reindex item with new id) //only happens when newpath and oldpath are interesting.
-                /////Rename unless both paths are interesting becomes two independant items: A Delete and a Write. We only care about Renames that newpath is interesting. 
-                ///So Rename from xls to tmp....delete is ignored, write is ignored as newpath ext is excluded....or maybe we just log a delete event and let the write event below 'cancel' it out.
-                ///So Rename from tmp to xls, delete is ignored as path is excluded. write is interesting though. And so becomes a write event as shown above (read content + metadata)
-                ///so as you look at the logs, when you encounter a rename, if both paths are interesting, request a move, otherwise, if the currentpath is excluded but newpath isn't request a write newpath, if the currentpath is good, but newpath is bad request a delete of currentpath (to be canceled out later possibly)
             }
             catch (Exception ex)
             {
-                if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogErr(ex.Message, "", request.ToString(), ex);
+                var result = await response?.Content.ReadAsStringAsync();
+                if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogError(ex,"Error in {0}",nameof(GetEvents),result.Take(300));
             }
             return null;
         }

@@ -23,7 +23,7 @@ namespace HOK.Elastic.FileSystemCrawler
         internal int FileSystemRetryAttempts = 3;
         internal bool ildebug, ilinfo, ilwarn, ilerror, ilfatal;
         internal ISettingsJobArgs _args;
-        internal HOK.Elastic.Logger.Log4NetLogger _il;
+        internal ILogger _il;
         internal DAL.IIndex _indexEndPoint;
         internal DAL.IDiscovery _discoveryEndPoint;
         internal DocumentHelper _documentHelper;
@@ -40,15 +40,15 @@ namespace HOK.Elastic.FileSystemCrawler
         internal TransformBlock<IFSO, IFSO> docUpdateExistingTransformBlock;
         internal BatchBlock<IFSO> docInsertBatch;
         internal ActionBlock<IFSO> docInsert;
-        internal ActionBlock<IFSO> docInsertReindex;
+        //internal ActionBlock<IFSO[]> docInsertReindex;
         internal ActionBlock<IFSO[]> docInsertArray;
         internal ActionBlock<IFSO> docUpdate;
-        internal ActionBlock<FSO[]> docDeleteAction;
-        internal BatchBlock<FSO> docDeleteBatchBlock;
+        internal ActionBlock<IFSO[]> docDeleteAction;
+        internal BatchBlock<IFSO> docDeleteBatchBlock;
         public SecurityHelper SecurityHelper => _securityHelper;
         public DocumentHelper DocumentHelper => _documentHelper;
 
-        public WorkerBase(IIndex elasticIngest, IDiscovery elasticDiscovery, DocumentHelper Dh, SecurityHelper Sh, HOK.Elastic.Logger.Log4NetLogger logger)
+        public WorkerBase(IIndex elasticIngest, IDiscovery elasticDiscovery, DocumentHelper Dh, SecurityHelper Sh, ILogger logger)
         {
             _il = logger;
             _documentHelper = Dh;

@@ -15,7 +15,7 @@ namespace HOK.Elastic.FileSystemCrawler
         private bool ildebug, ilinfo, ilwarn, ilerror;
         private bool readFileContents;
         private readonly string MachineName;
-        private HOK.Elastic.Logger.Log4NetLogger _il;
+        private readonly ILogger _il;
         private DAL.IIndex _indexNode;
         private SecurityHelper sh;
         private readonly int _readLimitKBEmail = 200000;///<200MB is generally a reasonable size...there is one email in the Shire that is 300MB...but it says 'invalid structured storage' when opened.
@@ -25,7 +25,7 @@ namespace HOK.Elastic.FileSystemCrawler
         private readonly int _readLimitKBTika = 275000;
 
 
-        public DocumentHelper(bool ReadFileContents, SecurityHelper securityHelper, DAL.IIndex indexNode,  Log4NetLogger logger = null)
+        public DocumentHelper(bool ReadFileContents, SecurityHelper securityHelper, DAL.IIndex indexNode,  ILogger logger = null)
         {
             _il = logger;
             ildebug = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
@@ -54,6 +54,7 @@ namespace HOK.Elastic.FileSystemCrawler
             try
             {
                 _indexNode.BulkInsert(items);
+                if(ildebug)_il.LogDebugInfo("BulkInserted","N/A",items.Count() );
             }
             catch (Exception ex)
             {
@@ -141,7 +142,7 @@ namespace HOK.Elastic.FileSystemCrawler
         public IFSO InsertTransform(IFSO ifso)
         {
             ifso.Timestamp = DateTime.UtcNow;
-            ifso.MachineName = MachineName;
+            ifso.MachineName = MachineName;            
             if (ifso is FSOfile)
             {
                 return InsertTransformFile(ifso as FSOfile);

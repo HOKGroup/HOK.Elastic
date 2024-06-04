@@ -14,7 +14,7 @@ namespace HOK.Elastic.DAL
         private const string regexPatternToFindMultipleLinebreaks = @"[\r\n]{1}[\s]+";
         public string[] PipeLines { get { return new string[] { PipeLineNameHelper.PIPEEmail, PipeLineNameHelper.PIPEDocument, PipeLineNameHelper.PIPEvalidate, PipeLineNameHelper.PIPECategorizationProject }; } }
 
-        public InitializationPipeline(PipeLineNameHelper pipeLineHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, Logger.Log4NetLogger logger) : base(pipeLineHelper, indexNameHelper, elastiSearchServerUrl, logger)
+        public InitializationPipeline(PipeLineNameHelper pipeLineHelper, IndexNameHelper indexNameHelper, Uri elastiSearchServerUrl, ILogger logger) : base(pipeLineHelper, indexNameHelper, elastiSearchServerUrl, logger)
         {
         }
 

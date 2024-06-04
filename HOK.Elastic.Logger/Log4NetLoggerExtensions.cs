@@ -1,6 +1,7 @@
 ﻿using HOK.Elastic.Logger;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace Microsoft.Extensions.Logging
@@ -10,6 +11,10 @@ namespace Microsoft.Extensions.Logging
         private static JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings()
         {
             ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
+            ,DefaultValueHandling=DefaultValueHandling.Ignore,
+            NullValueHandling=NullValueHandling.Ignore,
+            Formatting = Formatting.Indented
+
         };
         public static string GetJson(string text, string path = "", object data = null, Exception ex = null)
         {
@@ -41,35 +46,70 @@ namespace Microsoft.Extensions.Logging
             if (ex != null)
             {
                 writer.WritePropertyName("exception");
+                var exs = ExceptionSerializable.Get(ex);
+                writer.WriteRawValue(JsonConvert.SerializeObject(exs, jsonSerializerSettings));
+                ////{
+                //writer.WriteStartObject();
+                //writer.WritePropertyName("message");
+                //writer.WriteValue(ex.Message);
+                //writer.WritePropertyName("stacktrace");
+                //writer.WriteValue(ex.StackTrace);
+                //if (ex.InnerException != null)
                 //{
-                writer.WriteStartObject();
-                writer.WritePropertyName("message");
-                writer.WriteValue(ex.Message);
-                writer.WritePropertyName("stacktrace");
-                writer.WriteValue(ex.StackTrace);
-                if (ex.InnerException != null)
-                {
-                    writer.WritePropertyName("innerexception");
-                    writer.WriteValue(ex.InnerException.ToString());
-                }
+                //    writer.WritePropertyName("innerexception");
+                //    writer.WriteValue(ex.InnerException.ToString());
                 //}
-                writer.WriteEndObject();
+                ////}
+                //writer.WriteEndObject();
             }
             // }
             writer.WriteEndObject();
             return sw.ToString();
         }
-        public static ILoggerFactory AddLog4Net(this ILoggerFactory factory, string log4NetConfigFile)
+
+
+        public class ExceptionSerializable
         {
-            factory.AddProvider(new Log4NetProvider(log4NetConfigFile));
-            return factory;
+            public string Message { get; set; }
+            public string StackTrace { get; set; }
+            public string Type { get; set; }
+            public ExceptionSerializable InnerException { get; set; }
+            public List<ExceptionSerializable> InnerExceptions { get; set; } = new List<ExceptionSerializable>();
+            public static ExceptionSerializable Get(Exception exception)
+            {
+                if (exception == null) return null;
+                var exceptionSerialze = new ExceptionSerializable();
+                exceptionSerialze.Message = exception.Message;
+                exceptionSerialze.StackTrace = exception.StackTrace;
+                exceptionSerialze.Type = exception.GetType().Name;
+                if (exception.InnerException != null)
+                {
+                    exceptionSerialze.InnerExceptions.Add(Get(exception.InnerException));
+                }
+                if (exception is AggregateException)
+                {
+                    var ae = exception as AggregateException;
+                    foreach (var e in ae.InnerExceptions)
+                    {
+                        exceptionSerialze.InnerExceptions.Add(Get(e));
+                    }
+                }
+
+                return exceptionSerialze;
+            }
         }
 
-        public static ILoggerFactory AddLog4Net(this ILoggerFactory factory)
-        {
-            factory.AddProvider(new Log4NetProvider("log4net.config"));
-            return factory;
-        }
+        //public static ILoggerFactory AddLog4Net(this ILoggerFactory factory, string log4NetConfigFile)
+        //{
+        //    factory.AddProvider(new Log4NetProvider(log4NetConfigFile));
+        //    return factory;
+        //}
+
+        //public static ILoggerFactory AddLog4Net(this ILoggerFactory factory)
+        //{
+        //    factory.AddProvider(new Log4NetProvider("log4net.config"));
+        //    return factory;
+        //}
 
         public static void LogDebugInfo(this ILogger log, string text, string path = "", object data = null)
         {

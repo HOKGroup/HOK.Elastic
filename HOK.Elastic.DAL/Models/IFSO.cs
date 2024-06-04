@@ -19,6 +19,8 @@ namespace HOK.Elastic.DAL.Models
         DateTime Last_write_timeUTC { get; set; }
         DateTime Create_write_timeUTC { get; set; }
         DateTime Timestamp { get; set; }
+
+        string AppendReason(string reason); 
         string Reason { get; set; }
         //[Keyword]
         string MachineName { get; set; }

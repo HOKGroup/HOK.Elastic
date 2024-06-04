@@ -1,5 +1,6 @@
 ﻿using Nest;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 
@@ -42,6 +43,38 @@ namespace HOK.Elastic.DAL.Models
         public bool Hidden { get; set; }
         public int FailureCount { get; set; }
         public string FailureReason { get; set; }
+
+        public string AppendReason (string newReason)
+        {
+            if(string.IsNullOrEmpty(Reason))
+            {
+                return newReason;
+            }else
+            {
+                var index = Reason.IndexOf(newReason, StringComparison.Ordinal);//we could improve this later. The intent is 'Reason: IncrementalCrawl|MissingContent2|ActionUpdateMove' etc.
+                if (index != -1)
+                {                    
+                    int number;
+                    var digits = Reason.Skip(index + newReason.Length).TakeWhile(x=>char.IsDigit(x)).ToArray();
+                    if(digits.Length > 0)
+                    {
+                        number = Convert.ToInt32(new string(digits));
+                        number += 1;
+                    }
+                    else
+                    {
+                        number = 2;
+                    }
+                    var newreason = Reason.Substring(0, index) + Reason.Substring(index + newReason.Length + digits.Length);
+                    newreason = (string.Empty.Equals(newreason)?"" :"|") + newReason + number;
+                    return newreason;
+                }
+                else
+                {
+                    return Reason + "|" + newReason;
+                }
+            }
+        }
         public string Reason { get; set; }
         [Keyword]
         public string MachineName { get; set; }

@@ -6,7 +6,7 @@ using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 
-namespace HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models
+namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
 {
     public class SettingsJobArgsDTO : FileSystemCrawler.Models.SettingsJobArgs
     {

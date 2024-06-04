@@ -2,13 +2,18 @@
 using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.Models;
 using HOK.Elastic.Logger;
+using log4net.Repository.Hierarchy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using NLog.Extensions.Logging;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
+using System.Runtime.Versioning;
+using System.Security.Policy;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -16,21 +21,21 @@ using System.Threading.Tasks;
 
 namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 {
+    [SupportedOSPlatform("windows")]
     partial class Program
     {
 
+        static ILogger _il;
+        static Microsoft.Extensions.Logging.ILoggerFactory _loggerFactory;
 
-        private static HOK.Elastic.Logger.Log4NetLogger _il;
         private static CancellationTokenSource _ct = new CancellationTokenSource();
         public static SettingsApp AppSettings { get; private set; }
         private static bool ildebug, ilinfo, ilwarn, ilerror, ilfatal;
-
+        
 
         //Main Entry Point
         static async Task<int> Main(string[] args)
         {
-
-        
             ///not sure if this is actually needed here or in the msgreader library but it's all working currently...
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             int exitcode = 1;
@@ -66,16 +71,15 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 #if DEBUG
                     ConfigFileHelper.MakeJsonSchemaFileForAppSettings();
 #endif
-                    _il = new Logger.Log4NetLogger($"{jobDirectoryInfo.Name}.ConsoleProgram", Logger.Log4NetProvider.Parselog4NetConfigFile(configFilePath));
-                    ildebug = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
-                    ilinfo = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information);
-                    ilwarn = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
-                    ilerror = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error);
-                    ilfatal = _il != null && _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Critical);
-                    using (var loggerLifecycle = new Logger.LifecycleManagement(_il))
-                    {
-                        loggerLifecycle.Purge(Path.Combine(logfilepath), DateTime.Now.Subtract(TimeSpan.FromDays(15)), 15);
-                    }
+                    // TODO
+                    //_il = loggerFactory.CreateLogger($"{jobDirectoryInfo.Name}.ConsoleProgram", Logger.Log4NetProvider.Parselog4NetConfigFile(configFilePath));
+                    _loggerFactory = LoggerFactory.Create(x => x.AddNLog("nlog.config"));
+                    _il = _loggerFactory.CreateLogger<ILogger>();
+                    ildebug = _il != null && _il.IsEnabled(LogLevel.Debug);
+                    ilinfo = _il != null && _il.IsEnabled(LogLevel.Information);
+                    ilwarn = _il != null && _il.IsEnabled(LogLevel.Warning);
+                    ilerror = _il != null && _il.IsEnabled(LogLevel.Error);
+                    ilfatal = _il != null && _il.IsEnabled(LogLevel.Critical);
                     #region PopulateWorkerArgs
                     var workerargs = new SettingsJobArgs()
                     {
@@ -87,11 +91,11 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                         BulkUploadSize = jobSettings.BulkUploadSize ?? AppSettings.BulkUploadSize,//todo change to 200 or other bigger number
                         IndexNamePrefix = jobSettings.IndexNamePrefix ?? AppSettings.IndexNamePrefix,
                         FileNameExclusionRegex = jobSettings.FileNameExclusionRegex ?? AppSettings.FileNameExclusionRegex,
-                        PathInclusionRegex = jobSettings.PathInclusionRegex??AppSettings.PathInclusionRegex,
-                        IgnoreExtensions = jobSettings.IgnoreExtensions??AppSettings.IgnoreExtensions,
-                        OfficeSiteExtractRegex = jobSettings.OfficeSiteExtractRegex??AppSettings.OfficeSiteExtractRegex,
-                        ProjectExtractRegex = jobSettings.ProjectExtractRegex??AppSettings.ProjectExtractRegex,
-                        PipeCategorizationRegex = jobSettings.PipeCategorizationRegex??AppSettings.PipeCategorizationRegex,
+                        PathInclusionRegex = jobSettings.PathInclusionRegex ?? AppSettings.PathInclusionRegex,
+                        IgnoreExtensions = jobSettings.IgnoreExtensions ?? AppSettings.IgnoreExtensions,
+                        OfficeSiteExtractRegex = jobSettings.OfficeSiteExtractRegex ?? AppSettings.OfficeSiteExtractRegex,
+                        ProjectExtractRegex = jobSettings.ProjectExtractRegex ?? AppSettings.ProjectExtractRegex,
+                        PipeCategorizationRegex = jobSettings.PipeCategorizationRegex ?? AppSettings.PipeCategorizationRegex,
                         CrawlMode = jobSettings.CrawlMode,
                         ReadFileContents = jobSettings.ReadFileContents,
                         InputPathLocation = jobDirectoryInfo.FullName,
@@ -100,16 +104,16 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                         PublishedPath = jobSettings.PublishedPath,
                         FileSystemEventsAPI = AppSettings.FileSystemEventsAPI,
                         //JsonQueryString = load from jsonloader.
-                        ExceptionsPerTenMinuteIntervalLimit= AppSettings.ExceptionsPerTenMinuteIntervalLimit??jobSettings.ExceptionsPerTenMinuteIntervalLimit
+                        ExceptionsPerTenMinuteIntervalLimit = AppSettings.ExceptionsPerTenMinuteIntervalLimit ?? jobSettings.ExceptionsPerTenMinuteIntervalLimit
                     };
-                    
+
                     PathHelper.Set(workerargs.PublishedPath, workerargs.PathForCrawlingContent, workerargs.PathForCrawling);
                     HOK.Elastic.DAL.Models.PathHelper.SetPathInclusion(workerargs.PathInclusionRegex);
                     HOK.Elastic.DAL.Models.PathHelper.SetFileNameExclusion(workerargs.FileNameExclusionRegex);
                     HOK.Elastic.DAL.Models.PathHelper.SetOfficeExtractRgx(workerargs.OfficeSiteExtractRegex);
                     HOK.Elastic.DAL.Models.PathHelper.SetProjectExtractRgx(workerargs.ProjectExtractRegex);
                     HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
-                    
+
                     if (workerargs.CrawlMode == CrawlMode.Incremental || workerargs.CrawlMode == CrawlMode.Full)
                     {
                         var inputPathWorkerCollection = new InputPathCollectionCrawl(jobSettings.InputPaths);
@@ -140,8 +144,8 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     }
                     #endregion
                     if (workerargs.CrawlMode == CrawlMode.Incremental || workerargs.CrawlMode == CrawlMode.Full) //for event based or find missing content...maybe we don't want to cancel if we are getting 1000's of errors (but we will want to be notified by log4net)
-                    {                      
-                        ExceptionRateLimiter.ThresholdCount = workerargs.ExceptionsPerTenMinuteIntervalLimit ??10;
+                    {
+                        ExceptionRateLimiter.ThresholdCount = workerargs.ExceptionsPerTenMinuteIntervalLimit ?? 10;
                         ExceptionRateLimiter.ThresholdTime = TimeSpan.FromMinutes(10);
                         ExceptionRateLimiter.ThresholdReached += ExceptionThresholdReachedEventOccured;
                     }
@@ -174,7 +178,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             catch (Exception ex)
             {
                 //todo we should ensure this gets written out somewhere in case the logger never got setup and this is running headless
-                if (ilfatal) _il.LogErr("program.main", null, null, ex);
+                if (ilerror) _il.LogErr("program.main", null, null, ex);
                 if (runningInteractively)
                 {
                     Console.WriteLine(ex.ToString());
@@ -183,6 +187,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             }
             return exitcode;
         }
+   
 
         static async Task<int> Start(ISettingsJobArgs workerargs, string configFilePath)
         {
@@ -190,9 +195,9 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 
             if (ilinfo)
             {
-                _il.LogInfo("Read config file from:", configFilePath);
-                _il.LogInfo("Assembly Informational Version", "N/a", FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion);
-                _il.LogInfo("Verify Starting Arguments", "N/a", workerargs);
+                _il.LogInfo("Read config file", configFilePath);
+                _il.LogInfo("Assembly Version", "N/A", FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion);
+                _il.LogInfo("Verify Starting Arguments", "N/A", workerargs);
             }
             if (workerargs.RunningInteractively)
             {
@@ -209,13 +214,13 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             var index = new DAL.Index(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Log4NetLogger($"{workerargs.JobName}.Index"));
        
 
-            var securityHelper = new SecurityHelper(new Log4NetLogger($"{workerargs.JobName}.SecurityHelper"));
-            var documentHelper = new DocumentHelper(workerargs.ReadFileContents ?? false, securityHelper, index, new Log4NetLogger($"{workerargs.JobName}.DocumentHelper"));
+            var securityHelper = new SecurityHelper(_loggerFactory.CreateLogger($"{workerargs.JobName}.SecurityHelper"));
+            var documentHelper = new DocumentHelper(workerargs.ReadFileContents ?? false, securityHelper, index, _loggerFactory.CreateLogger($"{workerargs.JobName}.DocumentHelper"));
             try
             {
                 PipeLineNameHelper pipeLineHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
 
-                using (var initializationPipeline = new InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
+                using (var initializationPipeline = new InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), _loggerFactory.CreateLogger($"{workerargs.JobName}.Setup")))
                 {
                     if (!initializationPipeline.CheckForPipeLines())
                     {
@@ -229,7 +234,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     }
 
 
-                    using (var initializationIndex = new InitializationIndex(pipeLineNameHelper, indexNameHelper, workerargs.ElasticIndexURI.First(), new Logger.Log4NetLogger($"{workerargs.JobName}.Setup")))
+                    using (var initializationIndex = new InitializationIndex(pipeLineNameHelper, indexNameHelper, workerargs.ElasticIndexURI.First(), _loggerFactory.CreateLogger($"{workerargs.JobName}.IndexSetup")))
                     {
 #if DEBUG
                         //initializationIndex.PromptToDelete();
@@ -252,15 +257,17 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 
                 if (workerargs.CrawlMode == CrawlMode.EventBased)
                 {
+                    var httpclient = new HttpClient(new HttpClientHandler() { UseDefaultCredentials=true});
+                   // httpclient.BaseAddress = new Uri("https://localhost:51898");
                     //we will eventually need to check that all the indicies and pipelines are setup
-                    WorkerEventStream worker = new WorkerEventStream(index, discovery, securityHelper, documentHelper, new Logger.Log4NetLogger($"{workerargs.JobName}.WorkerEvents"));
+                    WorkerEventStream worker = new WorkerEventStream(index, discovery, securityHelper, documentHelper, _loggerFactory.CreateLogger($"{workerargs.JobName}.WorkerEvents"));
                     var fileSystemEventsAPI = Program.AppSettings.FileSystemEventsAPI;
-                    EventStreamClient eventStreamClient = new EventStreamClient(fileSystemEventsAPI, new Logger.Log4NetLogger($"{workerargs.JobName}.EventStreamClient"));
+                    EventStreamClient eventStreamClient = new EventStreamClient(httpclient,fileSystemEventsAPI, _loggerFactory.CreateLogger($"{workerargs.JobName}.EventStreamClient"));
                     completionInfo = await eventStreamClient.ProcessEventsAsync(workerargs, worker, _ct.Token);
                 }
                 else if (workerargs.CrawlMode == CrawlMode.Full || workerargs.CrawlMode == CrawlMode.Incremental)
                 {
-                    WorkerCrawler worker = new WorkerCrawler(index, discovery, securityHelper, documentHelper, new Logger.Log4NetLogger($"{workerargs.JobName}.WorkerCrawler"));
+                    WorkerCrawler worker = new WorkerCrawler(index, discovery, securityHelper, documentHelper, _loggerFactory.CreateLogger($"{workerargs.JobName}.WorkerCrawler"));
                     completionInfo = await worker.RunAsync(workerargs, _ct.Token);
                 }
                 else if (workerargs.CrawlMode == CrawlMode.FindMissingContent || workerargs.CrawlMode == CrawlMode.EmailOnlyMissingContent || workerargs.CrawlMode == CrawlMode.QueryBasedReIndex)
@@ -273,13 +280,13 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                             workerargs.ReadFileContents = true;
                         }
                     }
-                    WorkerByQuery worker = new WorkerByQuery(index, discovery, securityHelper, documentHelper, new Logger.Log4NetLogger($"{workerargs.JobName}.WorkerByQuery"));
+                    WorkerByQuery worker = new WorkerByQuery(index, discovery, securityHelper, documentHelper, _loggerFactory.CreateLogger($"{workerargs.JobName}.WorkerByQuery"));
                     completionInfo = await worker.RunAsync(workerargs, _ct.Token);
                 }
             }
             catch (Exception ex)
             {   
-                if (_il.IsEnabled(LogLevel.Error)) _il.LogErr("Error in program.main", "", null, ex);
+                if (ilerror) _il.LogErr("Error in program.main", "", null, ex);
             }
             finally
             {
@@ -301,7 +308,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             if (!_ct.IsCancellationRequested)
             {
                 _ct.Cancel();
-                if (_il.IsEnabled(LogLevel.Critical))
+                if (ilfatal)
                 {
                     _il.LogFatal($"Error Threshold Event was triggered...cancelling limit reached  {AppSettings.ExceptionsPerTenMinuteIntervalLimit}/10 minutes", "", null);
                 }

@@ -28,11 +28,11 @@ namespace HOK.Elastic.DAL
 
 
 
-        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, Logger.Log4NetLogger logger) : base(pipeLineNameHelper, indexNameHelper, uri, logger)
+        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, Uri uri, ILogger logger) : base(pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }
 
-        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, Logger.Log4NetLogger logger)
+        public Index(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> uri, ILogger logger)
             : base(pipeLineNameHelper, indexNameHelper, uri, logger)
         {
         }
@@ -296,7 +296,7 @@ namespace HOK.Elastic.DAL
                         if (exist != null)
                         {
                             Delete(exist.Id, IndexHelper.IndexNameFsoFile);
-                            doc.Reason += " relocate from fsofile.";
+                            doc.Reason = doc.AppendReason(" relocate from fsofile.");
                             Insert(doc);//because of the 404 above, this would never be an update.
                         }
                     }
@@ -410,7 +410,7 @@ namespace HOK.Elastic.DAL
 
         #region Deletes
 
-        public long DeleteGroup(FSO[] docs)
+        public long DeleteGroup(IFSO[] docs)
         {
             long count = 0;
             var docGroupedByIndex = docs.GroupBy(x => x.IndexName);
@@ -501,14 +501,14 @@ namespace HOK.Elastic.DAL
         }
 
       
-        public long DeleteAbandonedDocuments<T>(string directoryPath, List<string> extantChildren, BatchBlock<T> deleteBlock) where T : class, IFSO
+        public long DeleteAbandonedDocuments(string directoryPath, List<string> extantChildren, BatchBlock<IFSO> deleteBlock) 
         {
             int pageSize = 1000;
             int totalDeletedCount = 0;
             var lastCheck = 0;
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
             bool exit = false;
-            var docGroup = FindDescendants<T>(directoryPath, extantChildren, SourceFilterDescriptors<T>.JustIds, pageSize, false);//No PIT
+            var docGroup = FindDescendants(directoryPath, extantChildren, SourceFilterDescriptors<FSO>.JustIds, pageSize, false);//No PIT
 
             while (!exit)
             {
@@ -582,7 +582,7 @@ namespace HOK.Elastic.DAL
                 if (totalDeletedCount == pageSize)//number should match for nonPIT first run unless there were documentst that existed that shouldn't have - in which case we want to exit anyways.
                 {
                     this.client.Indices.Refresh(IndexHelper.PrefixWildcard, x => x.Index(IndexHelper.AllIndexNames));//to avoid getting the same documents again
-                    docGroup = FindDescendants<T>(directoryPath, extantChildren,SourceFilterDescriptors<T>.JustIds, pageSize, true);//search with PIT going forward.
+                    docGroup = FindDescendants(directoryPath, extantChildren,SourceFilterDescriptors<FSO>.JustIds, pageSize, true);//search with PIT going forward.
                 }
             }
             return totalDeletedCount;

@@ -8,22 +8,22 @@ using System;
 using System.Net.Http.Json;
 using System.Reflection;
 using System.Security.Principal;
-using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 
 namespace HOK.Elastic.ArchiveDiscovery
 {
     internal class APIClient
     {
-        private Logger.Log4NetLogger _il;
+        private ILogger _il;
         private bool ilDebug;
         private bool ilWarn;
         private static HttpClient httpClient;
         private string host;
         private const string JOBSAPI = @"/jobsapi";
         private readonly string freeSlotpath;
-        public APIClient(string hostAddress, Logger.Log4NetLogger log4NetLogger)
+        public APIClient(string hostAddress, ILogger logger)
         {
-            _il = log4NetLogger;
+            _il = logger;
             ilDebug = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug);
             ilWarn = _il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
             host = hostAddress.Trim('/');

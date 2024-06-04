@@ -14,7 +14,7 @@ namespace HOK.Elastic.FileSystemCrawler
 {
     public class WorkerEventStream : WorkerBase
     {
-        public WorkerEventStream(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, Logger.Log4NetLogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
+        public WorkerEventStream(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, ILogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
         {
         }
 
@@ -62,7 +62,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 docReindexTransformBlock = new TransformBlock<IFSO, IFSO>(item => DocumentHelper.ReindexTransform(item));
                 docUpdateExistingTransformBlock = new TransformBlock<IFSO, IFSO>(item => DocumentHelper.ReindexTransform(item));
                 docInsert = new ActionBlock<IFSO>(item => DocumentHelper.Insert(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = 2 });
-                docInsertReindex = new ActionBlock<IFSO>(item => DocumentHelper.Insert(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = 2 });
+                //docInsertReindex = new ActionBlock<IFSO[]>(item => DocumentHelper.Insert(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = 2 });
                 docInsertArray = new ActionBlock<IFSO[]>(item => DocumentHelper.Insert(item), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = 2 });
                 if (args.ReadFileContents == true)
                 {
@@ -74,7 +74,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 }
                 docInsertBatch.LinkTo(docInsertArray, linkOptions);
                 docUpdate = new ActionBlock<IFSO>(item => DocumentHelper.Update(item));//todo make update methods
-                docReindexTransformBlock.LinkTo(docInsertReindex, linkOptions);
+                docReindexTransformBlock.LinkTo(docInsertBatch, linkOptions);
                 docUpdateExistingTransformBlock.LinkTo(docUpdate, linkOptions);
                 docInsertTranformBlock.LinkTo(docInsertBatch, linkOptions, item => DocumentHelper.IsBatchable(item));
                 docInsertTranformBlock.LinkTo(docInsert, linkOptions, item => !DocumentHelper.IsBatchable(item));
@@ -96,7 +96,8 @@ namespace HOK.Elastic.FileSystemCrawler
                 docInsertTranformBlock.Complete();
                 docReindexTransformBlock.Complete();
                 docUpdateExistingTransformBlock.Complete();
-                await Task.WhenAll(docInsertArray.Completion, docInsert.Completion, docInsertReindex.Completion, docUpdate.Completion).ConfigureAwait(false);
+                //await Task.WhenAll(docInsertArray.Completion, docInsert.Completion, docInsertReindex.Completion, docUpdate.Completion).ConfigureAwait(false);
+                await Task.WhenAll(docInsertArray.Completion, docInsert.Completion, docUpdate.Completion).ConfigureAwait(false);
                 if (ilinfo) _il.LogInfo("Completed Task");
                 completionInfo.exitCode = _ct.IsCancellationRequested ? CompletionInfo.ExitCode.Cancel : CompletionInfo.ExitCode.OK;
                 #endregion
@@ -162,7 +163,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     var fromPublishedPath = PathHelper.GetPublishedPath(auditEvent.PathFrom);
                     #region movedir
                     //first, move any affected Children....actually we should do this regardless if existing doc was found...
-                    var affectedDocuments =_discoveryEndPoint.FindDescendentsForMoving<FSO>(fromPublishedPath);
+                    var affectedDocuments =_discoveryEndPoint.FindDescendentsForMoving(fromPublishedPath);
                     foreach (var fso in affectedDocuments)
                     {
                         _ct.ThrowIfCancellationRequested();
@@ -193,7 +194,7 @@ namespace HOK.Elastic.FileSystemCrawler
                                 fso.Acls = SecurityHelper.GetDocACLs(new FileInfo(fso.PathForCrawling));//todo make same change in the movefile region
                             }
                                                         
-                            fso.Reason = "ActionMoveOrCopy Child";
+                            fso.Reason = fso.AppendReason("ActionMoveOrCopy Child");
                             if (ildebug) _il.LogDebugInfo(fso.Reason, oldPath, newPublishedPath);
                             await docReindexTransformBlock.SendAsync(fso).ConfigureAwait(false);
 
@@ -236,14 +237,14 @@ namespace HOK.Elastic.FileSystemCrawler
                         existingdoc.Acls = ToDoc.Acls;
                         existingdoc.Category = ToDoc.Category;
 
-                        existingdoc.Reason = "ActionMoveOrCopy Dir";
+                        existingdoc.Reason = existingdoc.AppendReason( "ActionMoveOrCopy Dir");
                         await docInsertTranformBlock.SendAsync(existingdoc).ConfigureAwait(false);
                         Interlocked.Increment(ref _dircount);
                     }
                     else
                     {
                         //existing doc was null
-                        ToDoc.Reason = "ActionMoveOrCopy Dir Null";
+                        ToDoc.Reason = ToDoc.AppendReason("ActionMoveOrCopy Dir Null");
                         await docInsertTranformBlock.SendAsync(ToDoc).ConfigureAwait(false);
                         Interlocked.Increment(ref _filesmatched);
                     }
@@ -273,13 +274,13 @@ namespace HOK.Elastic.FileSystemCrawler
                                 existingdoc.SetFileSystemInfoFromId();
                                 existingdoc.Acls = ToDoc.Acls;
                                 existingdoc.Category = ToDoc.Category;
-                                existingdoc.Reason = "ActionMoveOrCopy and actioncontentnone";
+                                existingdoc.Reason = existingdoc.AppendReason( "ActionMoveOrCopy and actioncontentnone");
                                 await docReindexTransformBlock.SendAsync(existingdoc).ConfigureAwait(false);//I think this should be docinserttransform....as we aren't reindexing anything that currently exists at that ID
                                 Interlocked.Increment(ref _filesmatched);
                             }
                             else
                             {
-                                ToDoc.Reason = "ActionMoveOrCopy and newcontent";
+                                ToDoc.Reason = ToDoc.AppendReason( "ActionMoveOrCopy and newcontent");
                                 await docInsertTranformBlock.SendAsync(ToDoc).ConfigureAwait(false);//can't think of why we were insterting the existingdoc instead of the todoc......
                                 Interlocked.Increment(ref _filesmatched);
                             }
@@ -292,7 +293,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     }
                     else
                     {
-                        ToDoc.Reason = "ActionMoveOrCopy Filedoc null";
+                        ToDoc.Reason = ToDoc.AppendReason( "ActionMoveOrCopy Filedoc null");
                         await docInsertTranformBlock.SendAsync(ToDoc).ConfigureAwait(false);
                         Interlocked.Increment(ref _filesmatched);
                     }
@@ -328,14 +329,15 @@ namespace HOK.Elastic.FileSystemCrawler
                 if (existingdoc == null || auditEvent.ContentAction == ActionContent.Write)
                 {
                     //new document that's not currently in the index or is existing document that was a file with content update (write)
-                    newIfso.Reason = auditEvent.ContentAction == ActionContent.Write ? "ActionUpdateOrNew Write" : "ActionUpdateOrNew Null";
+                    newIfso.Reason =  auditEvent.ContentAction == ActionContent.Write ? "ActionUpdateOrNew Write" : "ActionUpdateOrNew Null";
                     await docInsertTranformBlock.SendAsync(newIfso).ConfigureAwait(false);
                     Interlocked.Increment(ref _filesmatched);
                 }
                 else//existing document...or NOT actioncontent.write ...therefore possibly acls set?
                 {
+                    newIfso.Reason = existingdoc.Reason;
                     Interlocked.Increment(ref _filesmatched);
-                    newIfso.Reason = "ActionUpdateOrNew existingdoc or non-write";
+                    newIfso.Reason = newIfso.AppendReason( "ActionUpdateOrNew existingdoc or non-write");
                     await docUpdateExistingTransformBlock.SendAsync(newIfso).ConfigureAwait(false);
                     if (auditEvent.IsDir)
                     {
@@ -352,7 +354,7 @@ namespace HOK.Elastic.FileSystemCrawler
                                 newIfso = DocumentHelper.MakeBasicDoc(item.Id, item.IndexName.Equals(_discoveryEndPoint.IndexHelper.IndexNameDir, StringComparison.OrdinalIgnoreCase));
                                 if (newIfso != null)
                                 {
-                                    newIfso.Reason = "ActionUpdateOrNew affected child doc";//TODO no evidence of these documents as .dir indicies...
+                                    newIfso.Reason = newIfso.AppendReason( "ActionUpdateOrNew affected child doc");//TODO no evidence of these documents as .dir indicies...
                                     await docUpdateExistingTransformBlock.SendAsync(newIfso).ConfigureAwait(false);
                                 }
                             }
