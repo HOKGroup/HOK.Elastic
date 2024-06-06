@@ -201,7 +201,7 @@ namespace HOK.Elastic.DAL
                 (_v) => new CreateApiKeyRequest
                 {
                     Name = apiKeyGuid,
-                    Expiration = "1h",
+                    Expiration = "10h",
                     Roles = new ApiKeyRoles
                            {
                                {
@@ -230,7 +230,7 @@ namespace HOK.Elastic.DAL
                     Id = keyResponse.Id,
                     Secret = keyResponse.ApiKey,
                     Expiration = keyResponse.Expiration.Value,
-                    ExpirationSunset = keyResponse.Expiration.Value.AddMinutes(-1)
+                    ExpirationSunset = keyResponse.Expiration.Value.AddMinutes(-10)
                 };
             }
             else

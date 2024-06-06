@@ -198,47 +198,6 @@ namespace HOK.Elastic.DAL
             }
         }
 
-
-        //public IEnumerable<T> FindGuardianDocuments<T>(string guardianPath, DateTime from, DateTime to, int pageSize = 100) where T : class, IFSO
-        //{
-        //    //TODO to change to searchafter with PIT
-        //    List<T> fsos = new List<T>();
-        //    for (int i = 0; i < pageSize * 100; i++)//tood change the upper-limit we shoudln't limit the results...or think about it.
-        //    {
-        //        var response = client.Search<T>
-        //                (search => search
-        //                    .Index(AllIndicies)
-        //                    .From(i * pageSize)
-        //                    .Size(pageSize)
-        //                    .Source(src => SourceFilterDescriptors<T>.IncludeDefaults)
-        //                    .Query(q => +q
-        //                            //.DateRange(doc => doc.Field(field => field.last_write_timeUTC).GreaterThan(from).LessThanOrEquals(to)) && +q
-        //                            .Term(t => t.Field(field => field.Acls.GuardianPath).Value(guardianPath.ToLowerInvariant()))
-        //                            )
-        //                        );
-        //        if (response.Hits.Count > 0)
-        //        {
-        //            foreach (var hit in response.Hits)
-        //            {
-        //                var doc = hit.Source as T;
-        //                doc.FailureCount++;
-        //                doc.IndexName = hit.Index;
-        //                yield return doc;
-        //            }
-        //            if (response.Hits.Count < pageSize)
-        //            {
-        //                //this is the last iteration where we got hits.
-        //                yield break;
-        //            }
-        //        }
-        //        else
-        //        {
-        //            yield break;
-        //        }
-        //    }
-        //}
-
-
         public IEnumerable<T> FindGuardianDocuments<T>(string guardianPath, DateTime from, DateTime to, int pageSize = 100) where T : class, IFSO
         {
             int counter = 0;
@@ -303,17 +262,6 @@ namespace HOK.Elastic.DAL
         /// </summary>
         /// <param name="pageSize"></param>
         /// <returns>Fully Populated Model</returns>
-        //public IEnumerable<T> FindDescendentsForMoving<T>(string path) where T : class,IFSO
-        //{
-        //    var docs = FindDescendentsForMoving<T>(path, 1000);
-        //    foreach (var page in docs)
-        //    {
-        //        foreach (var doc in page)
-        //        {
-        //            yield return doc;
-        //        }
-        //    }
-        //}
 
         public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
@@ -638,7 +586,7 @@ namespace HOK.Elastic.DAL
             PointInTimeDescriptor pointInTime = null;
             string pitID = null;
             IHit<T> lastHit = null;
-            int pageSize = 1000;
+            int pageSize = 50;
 
             string indexFilter;
             DateTime? maximumDate = null;
@@ -694,9 +642,16 @@ namespace HOK.Elastic.DAL
                         foreach (var hit in response.Hits)
                         {
                             docCount++;
-                            var doc = hit.Source as T;
-                            doc.IndexName = hit.Index;
-                            yield return doc;
+                            var doc = hit?.Source as T;
+                            if (doc != null)
+                            {
+                                doc.IndexName = hit.Index;
+                                yield return doc;
+                            }
+                            else
+                            {
+                                if(ilwarn)_il.LogWarn("Couldn't cast source to T",hit.Id,hit.Source);
+                            }
                         }
                         lastHit = response.Hits.LastOrDefault();
                         if (ilinfo) _il.LogInfo($"Found {docCount} {indexFilter} docs missing content.", directoryPublishedPath, null);
