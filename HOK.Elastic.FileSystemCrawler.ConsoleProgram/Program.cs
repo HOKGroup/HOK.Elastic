@@ -4,6 +4,7 @@ using HOK.Elastic.FileSystemCrawler.Models;
 using HOK.Elastic.Logger;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using NLog;
 using NLog.Extensions.Logging;
 using System;
 using System.Diagnostics;
@@ -66,6 +67,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     #region ManageLogFiles
                     _loggerFactory = LoggerFactory.Create(x => x.AddNLog("nlog.config"));
                     _il = _loggerFactory.CreateLogger<ILogger>();
+                    LogManager.Configuration.Variables["job_directory"] = jobDirectoryInfo.FullName;
                     ildebug = _il != null && _il.IsEnabled(LogLevel.Debug);
                     ilinfo = _il != null && _il.IsEnabled(LogLevel.Information);
                     ilwarn = _il != null && _il.IsEnabled(LogLevel.Warning);
