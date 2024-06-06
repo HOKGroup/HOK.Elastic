@@ -450,7 +450,5 @@ namespace HOK.Elastic.FileSystemCrawler
                 }
             }
         }
-
-
     }
 }

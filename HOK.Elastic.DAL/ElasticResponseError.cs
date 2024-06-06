@@ -1,6 +1,9 @@
-﻿using Nest;
+﻿using Elasticsearch.Net;
+using HOK.Elastic.DAL.Models;
+using Nest;
 using System;
 using System.Linq;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading;
 
@@ -8,37 +11,59 @@ using System.Threading;
 
 namespace HOK.Elastic.DAL
 {
-   
+
     public class ElasticResponseError
-        {
+    {
         private static readonly Regex ExtractStatusCode = new Regex(@"^(.*?)\.\sCall\:\sStatus\scode\s(\d{1,3})", RegexOptions.IgnoreCase);
         public string OriginalMessage { get; set; }
-            /// <summary>
-            /// Truncated to 300chars
-            /// </summary>
-            public string ServerErrorReason { get; set; }
-            public int? HttpStatusCode { get; set; }
-            public string InnerMessage { get; set; }
-            public string Type { get; set; }
+        /// <summary>
+        /// Truncated to 300chars
+        /// </summary>
+        public string ServerErrorReason { get; set; }
+        public int? HttpStatusCode { get; set; }
+        public string InnerMessage { get; set; }
+        public string Type { get; set; }
+        [JsonIgnore]
+        public Exception? Exception { get; set; }
         private ElasticResponseError() { }
 
-        public ElasticResponseError (IResponse ir)
+
+        public ElasticResponseError(Nest.BulkResponseItemBase ir)
         {
-            
-            if(ir.TryGetServerErrorReason(out string reason))
+            OriginalMessage = ir.Result;
+
+            if (ir.Error != null)
             {
-                ServerErrorReason = new string(reason.Take(300).ToArray());
+                InnerMessage = ir.Error.Reason;
+                if (ir.Error.RootCause.Any())
+                {
+                    InnerMessage = InnerMessage + string.Join(";", ir.Error.RootCause);
+                }
+                Type = ir.Error.Type;
+            }
+            HttpStatusCode = ir.Status;//I suspect this isn't correct but let's try it for now.
+
+            //don't populate the exception otherwise we will easily trigger a toomanyexceptions limit cancellation. 
+        }
+        public ElasticResponseError(IResponse ir)
+        {
+            if (ir.ServerError != null)
+            {
+                HttpStatusCode = ir.ServerError.Status;
+                Type = ir.ServerError.Error?.Type ?? "default";
+                ServerErrorReason = new string(ir.ServerError.Error?.Reason?.Take(300).ToArray());
+            }
+            if (ir.OriginalException != null)
+            {
+                Exception = ir.OriginalException;
+                OriginalMessage = ir.OriginalException.Message;
+                InnerMessage = ir.OriginalException?.InnerException?.Message;
             }
             else
             {
-                ServerErrorReason = new string(ir.ServerError?.Error?.Reason?.Take(300).ToArray());
+                Exception = new ElasticsearchClientException("nooriginalexception");
             }
-            OriginalMessage = ir.OriginalException?.Message;            
-            
-            HttpStatusCode = ir.ServerError?.Status;
-            InnerMessage = ir.OriginalException?.InnerException?.Message;
-            Type = ir.ServerError?.Error.Type;   
-            if (!HttpStatusCode.HasValue && OriginalMessage != null)
+            if (ir.ServerError == null && OriginalMessage != null)
             {
                 //while they addressed the issue it looks like atleast this 
                 //https://github.com/elastic/elasticsearch/issues/2902
@@ -63,10 +88,10 @@ namespace HOK.Elastic.DAL
         //}}
 
         public static ElasticResponseError GetError(IResponse ir)
-        {            
+        {
             return new ElasticResponseError(ir);
         }
-   
+
 
         public bool IsBecauseBusy()
         {
@@ -76,7 +101,6 @@ namespace HOK.Elastic.DAL
             }
             else return false;
         }
-        
     }
 }
 

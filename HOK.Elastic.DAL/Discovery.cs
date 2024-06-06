@@ -422,6 +422,18 @@ namespace HOK.Elastic.DAL
                         lastHit = response.Hits.LastOrDefault();
                         pitID = response.PointInTimeId;
                     }
+                    else
+                    {
+                        var err = new ElasticResponseError(response);
+                        if (ilerror)
+                        {
+                            _il.LogErr(nameof(FindDescendants), directoryPath, err, err.Exception);
+                        }
+                        if (err.IsBecauseBusy())
+                        {
+                            Pause("MissingContent");
+                        }
+                    }
                     _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindDescendants), counter++, directoryPath);
                 } while (withPIT && lastHit != null);
 
@@ -512,90 +524,7 @@ namespace HOK.Elastic.DAL
             return false;
         }
 
-        ///// <summary>
-        ///// Similar to GetIFSOdocumentsLackingContentV2, but takes in a raw JSON query string to fetch documents,
-        ///// instead of a directory path
-        ///// </summary>
-        ///// <typeparam name="T"></typeparam>
-        ///// <param name="directoryPublishedPath"></param>
-        ///// <param name="failureCountFilter"></param>
-        ///// <param name="minimumDate"></param>
-        ///// <returns></returns>
-        //public IEnumerable<T> GetIFSOsByQueryOld<T>(string jsonQueryString, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSO
-        //{
-        //    string scrolltimeout = "30m";
-        //    //Its value (e.g. 1m, see Time units) does not need to be long enough to process all data
-        //    //it just needs to be long enough to process the previous batch of results.
-        //    string indexName = GetIndexName<T>();
-        //    DateTime? maximumDate = null;
-        //    if (!minimumDate.HasValue) minimumDate = new DateTime(1955, 01, 01);
-        //    if (failureCountFilter > 0)
-        //    {
-        //        //if we are processing items with failureCountFilter greater than zero, it means we are looping through items that were just inserted by an incremental or event crawl(in metadataonly mode). Therefore, we should ignore very recent timestamps as they could be items we have just recently inserted and failed at.
-        //        maximumDate = DateTime.Now.Subtract(TimeSpan.FromHours(1));
-        //    }
-        //    ISearchResponse<T> response;
-        //    try
-        //    {
-        //        response = client.Search<T>(s => s
-        //                        .Index(indexName)
-        //                        .Source(src => SourceFilterDescriptors<T>.IncludeDefaults)//added to address Elasticsearch.Net.Utf8Json.JsonParsingException: expected:',', actual:'null' when trying to deserialize null attachment property. TODO, we could use same as getdescendantsformoving (or something like it).
-        //                        .Scroll(scrolltimeout)
-        //                        .Size(100)
-        //                        .Sort(sort => sort.Descending("project.fullName.keyword"))
-        //                        .Query(q => +q
-        //                            .Raw(jsonQueryString) && +q
-        //                            .DateRange(d => d.Field(field => field.Last_write_timeUTC).GreaterThan(minimumDate.Value)) && +q
-        //                            .DateRange(d => d.Field(field => field.Timestamp).LessThan(maximumDate)) && +q
-        //                     )
-        //               );
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        if (ilerror) _il.LogErr($"Failed Get on Index {indexName}:", jsonQueryString, null, ex);
-        //        response = null;
-        //    }
-
-        //    while (response != null && response.Documents.Any())
-        //    {
-        //        int count = 0;
-        //        foreach (var hit in response.Hits)
-        //        {
-        //            count++;
-        //            var doc = hit.Source as T;
-        //            //doc.SetFileSystemInfoFromId();                    
-        //            doc.IndexName = hit.Index;
-        //            yield return doc;
-        //        }
-        //        if (ilinfo) _il.LogInfo($"Found {count} {indexName} docs missing content.", null, jsonQueryString);
-        //        try
-        //        {
-        //            response = client.Scroll<T>(scrolltimeout, response.ScrollId);
-        //        }
-        //        catch (Exception ex)
-        //        {
-        //            if (ilerror) _il.LogErr($"Failed Get on Index {indexName}:", jsonQueryString, null, ex);
-        //        }
-        //    }
-        //    if (response.IsValid == false)
-        //    {
-        //        var err = ElasticResponseError.GetError(response);
-        //        if (ilerror)
-        //        {
-        //            _il.LogErr("MissingContent", jsonQueryString, err);
-        //        }
-        //        if (err.IsBecauseBusy())
-        //        {
-        //            Pause("MissingContent");
-        //        }
-        //    }
-        //    client.ClearScroll(new ClearScrollRequest(response.ScrollId));
-        //    if (ilinfo) _il.LogInfo($"Doc {indexName} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", jsonQueryString);
-        //    yield break;
-        //}
-
-
-    
+     
 
         public IEnumerable<T> GetIFSOsByQuery<T>(string jsonQueryString, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSO
         {
@@ -658,10 +587,10 @@ namespace HOK.Elastic.DAL
                     }
                     else
                     {
-                        var err = ElasticResponseError.GetError(response);
+                        var err = new ElasticResponseError(response);
                         if (ilerror)
                         {
-                            _il.LogErr("MissingContent", jsonQueryString, err);
+                            _il.LogErr("MissingContent", jsonQueryString, err,err.Exception);
                         }
                         if (err.IsBecauseBusy())
                         {
@@ -769,7 +698,7 @@ namespace HOK.Elastic.DAL
                             doc.IndexName = hit.Index;
                             yield return doc;
                         }
-                        lastHit = response.Hits.Last();
+                        lastHit = response.Hits.LastOrDefault();
                         if (ilinfo) _il.LogInfo($"Found {docCount} {indexFilter} docs missing content.", directoryPublishedPath, null);
                     }
                     else
@@ -777,7 +706,7 @@ namespace HOK.Elastic.DAL
                         var err = ElasticResponseError.GetError(response);
                         if (ilerror)
                         {
-                            _il.LogErr("MissingContent", directoryPublishedPath, err);
+                            _il.LogErr("MissingContent", directoryPublishedPath, err,err.Exception);
                         }
                         if (err.IsBecauseBusy())
                         {

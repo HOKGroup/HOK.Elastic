@@ -234,7 +234,8 @@ namespace HOK.Elastic.DAL
                                       failures.Add(o);
                                       if (ilwarn)
                                       {
-                                          _il.LogWarn("Bulk fail", response.Id, response.Error?.Reason);
+                                          var err = new ElasticResponseError(response);
+                                          _il.LogWarn("Bulk fail", response.Id, err);
                                       }
                                   })
                                   );

@@ -44,19 +44,22 @@ namespace HOK.Elastic.DAL.Models
         public int FailureCount { get; set; }
         public string FailureReason { get; set; }
 
-        public string AppendReason (string newReason)
+        public string AppendReason(string newReason)
         {
-            if(string.IsNullOrEmpty(Reason))
+            if (string.IsNullOrEmpty(Reason))
             {
                 return newReason;
-            }else
+            }
+            else
             {
-                var index = Reason.IndexOf(newReason, StringComparison.Ordinal);//we could improve this later. The intent is 'Reason: IncrementalCrawl|MissingContent2|ActionUpdateMove' etc.
+                var index = Reason.IndexOf( newReason, StringComparison.Ordinal);//we could improve this later. The intent is 'Reason: IncrementalCrawl|MissingContent2|ActionUpdateMove' etc.
+
+              
                 if (index != -1)
-                {                    
+                {
                     int number;
-                    var digits = Reason.Skip(index + newReason.Length).TakeWhile(x=>char.IsDigit(x)).ToArray();
-                    if(digits.Length > 0)
+                    var digits = Reason.Skip(index + newReason.Length).TakeWhile(x => char.IsDigit(x)).ToArray();
+                    if (digits.Length > 0)
                     {
                         number = Convert.ToInt32(new string(digits));
                         number += 1;
@@ -65,13 +68,17 @@ namespace HOK.Elastic.DAL.Models
                     {
                         number = 2;
                     }
-                    var newreason = Reason.Substring(0, index) + Reason.Substring(index + newReason.Length + digits.Length);
-                    newreason = (string.Empty.Equals(newreason)?"" :"|") + newReason + number;
-                    return newreason;
+                    var reason = Reason.Substring(0, index) + Reason.Substring(index + newReason.Length + digits.Length);
+                    if (reason.EndsWith(";") || reason.EndsWith("|"))
+                        {
+                        reason = reason.Substring(0, reason.Length - 1);
+                    }
+                    reason = reason + (string.Empty.Equals(reason) ? "" : ";") + newReason + number;
+                    return reason;
                 }
                 else
                 {
-                    return Reason + "|" + newReason;
+                    return Reason + ";" + newReason;
                 }
             }
         }
@@ -191,7 +198,7 @@ namespace HOK.Elastic.DAL.Models
             if (lowercasePath.StartsWith(PathHelper.PublishedRoot))
             {
                 _commonPathComponent = lowercasePath.Substring(PathHelper.PublishedRoot.Length);
-            }            
+            }
             else if (lowercasePath.StartsWith(PathHelper.ContentRoot))
             {
                 _commonPathComponent = lowercasePath.Substring(PathHelper.ContentRoot.Length);

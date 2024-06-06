@@ -51,6 +51,7 @@ namespace HOK.Elastic.DAL
             settings.EnableDebugMode();
             settings.DisableDirectStreaming();
 #endif
+            settings.EnableApiVersioningHeader();
             settings.RequestTimeout(TimeSpan.FromMinutes(5));//todo change this to a setting             
             this.client = new ElasticClient(settings);
      
