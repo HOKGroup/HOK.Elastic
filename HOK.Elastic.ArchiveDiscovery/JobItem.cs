@@ -1,5 +1,5 @@
 ﻿using Nest;
-using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 
 namespace HOK.Elastic.ArchiveDiscovery
 {

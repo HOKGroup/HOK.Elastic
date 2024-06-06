@@ -1,20 +1,21 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using HOK.Elastic.ArchiveDiscovery;
-using HOK.Elastic.FileSystemCrawler.WebAPI.DAL.Models;
+using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using NLog.Extensions.Logging;
 using System.Text.RegularExpressions;
 
-HOK.Elastic.Logger.Log4NetLogger logger=default;
+ILogger? logger = null;
+ILoggerFactory _loggerFactory;
 try
 {
-    var xml = HOK.Elastic.Logger.Log4NetProvider.Parselog4NetConfigFile("log4net.config");
-    log4net.Config.XmlConfigurator.Configure(xml);
     var config = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json", false)
                     .Build();
-    logger = new HOK.Elastic.Logger.Log4NetLogger("main");
+    _loggerFactory = LoggerFactory.Create(x => x.AddNLog("nlog.config"));
+    logger = _loggerFactory.CreateLogger<ILogger>();
 
     var webapiUrl = (string)config["webAPI"];
     var regexofficePattern = (string)config["officematchregex"];
@@ -46,7 +47,7 @@ try
 }
 catch (Exception ex)
 {
-    if(logger!=default && logger.IsEnabled(LogLevel.Critical))
+    if(logger != null && logger.IsEnabled(LogLevel.Critical))
     {
         logger.LogErr("Fatal Exception", null, ex);
     }

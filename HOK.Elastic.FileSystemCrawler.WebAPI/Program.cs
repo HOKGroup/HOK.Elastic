@@ -14,7 +14,6 @@ using Newtonsoft.Json;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using System.Text;
 using NLog.Extensions.Logging;
-using log4net.Repository.Hierarchy;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
