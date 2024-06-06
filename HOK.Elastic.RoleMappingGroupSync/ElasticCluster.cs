@@ -1,4 +1,5 @@
 ﻿using Elasticsearch.Net;
+using Microsoft.Extensions.Logging;
 using Nest;
 using System;
 using System.Collections.Generic;
@@ -11,7 +12,7 @@ namespace HOK.Elastic.RoleMappingGroupSync
         public class Elastic : HOK.Elastic.DAL.Base
         {
             private string _SIDPrefixBase;
-            public Elastic(string SIDPrefixBase, IConnectionPool connectionPool, Logger.Log4NetLogger logger) : base(new DAL.PipeLineNameHelper("notused-rolemmappinggroupsync"), new DAL.IndexNameHelper("notused-rolemappinggroupsync"),connectionPool, logger)
+            public Elastic(string SIDPrefixBase, IConnectionPool connectionPool, ILogger logger) : base(new DAL.PipeLineNameHelper("notused-rolemmappinggroupsync"), new DAL.IndexNameHelper("notused-rolemappinggroupsync"),connectionPool, logger)
             {
                 if (string.IsNullOrEmpty(SIDPrefixBase)) throw new ArgumentException(nameof(SIDPrefixBase) + " can't be null");
                 _SIDPrefixBase = SIDPrefixBase;

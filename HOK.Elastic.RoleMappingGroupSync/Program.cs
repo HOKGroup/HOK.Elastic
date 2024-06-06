@@ -1,6 +1,5 @@
 using Elasticsearch.Net;
-using HOK.Elastic.Logger;
-//using Microsoft.Extensions.Configuration;
+using NLog.Extensions.Logging;
 using Microsoft.Extensions.Logging;
 using Nest;
 using System;
@@ -15,7 +14,8 @@ namespace HOK.Elastic.RoleMappingGroupSync
 {
     partial class Program
     {
-        private static Log4NetLogger _il;
+        private static ILogger _il;
+        private static ILoggerFactory _loggerFactory;
         /// <summary>
         /// variables we need to set from config file.
         /// </summary>
@@ -40,8 +40,8 @@ namespace HOK.Elastic.RoleMappingGroupSync
                 }
                 var conf = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
                 var configFilePath = conf.FilePath;
-                _il = new Logger.Log4NetLogger("ConsoleProgram", Logger.Log4NetProvider.Parselog4NetConfigFile("app.config"));
-                log4net.Config.XmlConfigurator.Configure();
+                _loggerFactory = LoggerFactory.Create(x => x.AddNLog("nlog.config"));
+                _il = _loggerFactory.CreateLogger<ILogger>();
                 string serverUrl = args.First();
                 //load settings.json
                 if (File.Exists(ROLEMAPPINGSETTINGS))
