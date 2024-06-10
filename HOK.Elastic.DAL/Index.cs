@@ -585,6 +585,10 @@ namespace HOK.Elastic.DAL
                     this.client.Indices.Refresh(IndexHelper.PrefixWildcard, x => x.Index(IndexHelper.AllIndexNames));//to avoid getting the same documents again
                     docGroup = FindDescendants(directoryPath, extantChildren,SourceFilterDescriptors<FSO>.JustIds, pageSize, true);//search with PIT on next iteration.
                 }
+                else
+                {
+                    exit = true;
+                }
             }
             return totalDeletedCount;
         }

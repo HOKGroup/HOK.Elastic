@@ -31,14 +31,12 @@ namespace HOK.Elastic.DAL.Models
         public string PublishedPath => _dfsPath ?? GetPublishedPath();
         [Ignore]
         public string PathForCrawlingContent => _contentPath ?? GetContentPath();
-
-
-        public string Name { get { return _name; } set {  } }
+        public string Name { get { return _name; } set { _name = value?.ToLowerInvariant();  } }
         /// <summary>
         /// Parent folder stored in lower-case. Supports easily querying contents of folder, while we do incremental crawl. example, find all the children and see if it matches what's on disk.
         /// </summary>
         //[Keyword(Normalizer = InitializationIndex.LOWERCASE, IgnoreAbove = 512)]overridden by fluentapi
-        public string Parent { get { return _parent; } set {  } }
+        public string Parent { get { return _parent; } set { _parent = value?.ToLowerInvariant();  } }
         /// <summary>
         /// Security ACL for this item
         /// </summary>
