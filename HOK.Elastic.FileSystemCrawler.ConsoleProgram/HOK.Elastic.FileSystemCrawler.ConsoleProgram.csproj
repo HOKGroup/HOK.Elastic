@@ -60,7 +60,9 @@
     <Content Include="appsettings.json" Condition="Exists('appsettings.json')">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <None Update="nlog.config" CopyToOutputDirectory="Always" />
+    <None Update="nlog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="_kctest\jobSettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
