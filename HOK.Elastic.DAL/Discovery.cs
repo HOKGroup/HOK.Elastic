@@ -186,7 +186,7 @@ namespace HOK.Elastic.DAL
                     }
                     if (counter > 0&&ildebug)
                     {
-                        _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindChildrenPIT), counter++, directoryPath);
+                        _il.LogDebugInfo($"{nameof(FindChildrenPIT)} loop #{counter++} returning documents", directoryPath);
                     }
                 } while (withPIT && lastHit != null);
 
@@ -199,7 +199,7 @@ namespace HOK.Elastic.DAL
                 }
                 if (docCount > 0 && ilinfo)
                 {
-                    _il.LogInformation("{0} returned {1} documents in '{2}'", nameof(FindChildrenPIT), docCount, directoryPath);
+                    _il.LogInfo($"{nameof(FindChildrenPIT)} returned {docCount} documents", directoryPath);
                 }
             }
         }
@@ -251,7 +251,7 @@ namespace HOK.Elastic.DAL
                     }
                     if (counter > 0 && ildebug)
                     {
-                        _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindChildrenPIT), counter++, guardianPath);
+                        _il.LogDebugInfo($"{nameof(FindChildrenPIT)} loop #{counter++} returning documents in '{2}'", guardianPath);
                     }
                 } while (lastHit != null);
 
@@ -264,7 +264,7 @@ namespace HOK.Elastic.DAL
                 }
                 if (docCount > 0 && ilinfo)
                 {
-                    _il.LogInformation("{0} returned aprox {1} documents in '{2}'", nameof(FindChildrenPIT), docCount, guardianPath);
+                    _il.LogInfo($"{nameof(FindChildrenPIT)} returned aprox {docCount} documents", guardianPath);
                 }
             }
         }
@@ -400,7 +400,7 @@ namespace HOK.Elastic.DAL
                     }
                     if (counter > 0 && ildebug)
                     {
-                        _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindDescendants), counter++, directoryPath);
+                        _il.LogDebugInfo($"{nameof(FindDescendants)} loop #{counter++} returning documents in '{2}'", directoryPath);
                     }
                 } while (withPIT && lastHit != null);
 
@@ -412,15 +412,16 @@ namespace HOK.Elastic.DAL
                     var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
                 }
             }
-            if (ilinfo)
+            if (ilinfo&&docCount>0)
             {
-                if (docCount>0&& exceptTheseExtantChildren != null && exceptTheseExtantChildren.Any())
+                if ( exceptTheseExtantChildren != null && exceptTheseExtantChildren.Any())
                 {
-                    _il.LogInformation("{0} returned aprox {1} abandoned documents in '{2}'", nameof(FindDescendants), docCount, directoryPath);
+
+                    _il.LogInfo($"{nameof(FindDescendants)} returned aprox {docCount} abandoned documents", directoryPath);
                 }
-                else
+                else if(ildebug)
                 {
-                    _il.LogInformation("{0} returned aprox {1} documents in '{2}'", nameof(FindDescendants), docCount, directoryPath);
+                    _il.LogDebugInfo($"{nameof(FindDescendants)} returned aprox {docCount} documents", directoryPath);
                 }
             }
         }
@@ -487,7 +488,7 @@ namespace HOK.Elastic.DAL
             {
                 return true;
             }
-            if (ilerror) _il.LogError("Query Based Missing Content: Query Invalid:{0}{1}", jsonQueryString, null);
+            if (ilerror) _il.LogErr("Query Based Missing Content: Query Invalid","N/A", jsonQueryString, null);
             return false;
         }
 
