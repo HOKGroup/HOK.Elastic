@@ -438,6 +438,9 @@ namespace HOK.Elastic.DAL
         {
             var response = this.client.DeleteByQuery<FSO>(d => d
                 .Index(index)
+                .MaximumDocuments(keys.Length)
+                .Conflicts(Conflicts.Proceed)
+                .RequestsPerSecond(100)
                 .Query(q => +q
                     .Ids(i => i.Values(keys))
                     )
