@@ -184,7 +184,10 @@ namespace HOK.Elastic.DAL
                         lastHit = search.Hits.LastOrDefault();
                         pitID = search.PointInTimeId;
                     }
-                    _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindChildrenPIT), counter++, directoryPath);
+                    if (counter > 0&&ildebug)
+                    {
+                        _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindChildrenPIT), counter++, directoryPath);
+                    }
                 } while (withPIT && lastHit != null);
 
             }
@@ -194,7 +197,10 @@ namespace HOK.Elastic.DAL
                 {
                     var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
                 }
-                _il.LogInformation("{0} returned aprox {1} documents in '{2}'", nameof(FindChildrenPIT), docCount, directoryPath);
+                if (docCount > 0 && ilinfo)
+                {
+                    _il.LogInformation("{0} returned {1} documents in '{2}'", nameof(FindChildrenPIT), docCount, directoryPath);
+                }
             }
         }
 
@@ -243,7 +249,10 @@ namespace HOK.Elastic.DAL
                         lastHit = response.Hits.LastOrDefault();
                         pitID = response.PointInTimeId;
                     }
-                    _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindChildrenPIT), counter++, guardianPath);
+                    if (counter > 0 && ildebug)
+                    {
+                        _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindChildrenPIT), counter++, guardianPath);
+                    }
                 } while (lastHit != null);
 
             }
@@ -253,7 +262,10 @@ namespace HOK.Elastic.DAL
                 {
                     var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
                 }
-                _il.LogInformation("{0} returned aprox {1} documents in '{2}'", nameof(FindChildrenPIT), docCount, guardianPath);
+                if (docCount > 0 && ilinfo)
+                {
+                    _il.LogInformation("{0} returned aprox {1} documents in '{2}'", nameof(FindChildrenPIT), docCount, guardianPath);
+                }
             }
         }
 
@@ -386,7 +398,10 @@ namespace HOK.Elastic.DAL
                             Pause("MissingContent");
                         }
                     }
-                    _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindDescendants), counter++, directoryPath);
+                    if (counter > 0 && ildebug)
+                    {
+                        _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(FindDescendants), counter++, directoryPath);
+                    }
                 } while (withPIT && lastHit != null);
 
             }
@@ -399,7 +414,7 @@ namespace HOK.Elastic.DAL
             }
             if (ilinfo)
             {
-                if (exceptTheseExtantChildren != null && exceptTheseExtantChildren.Any())
+                if (docCount>0&& exceptTheseExtantChildren != null && exceptTheseExtantChildren.Any())
                 {
                     _il.LogInformation("{0} returned aprox {1} abandoned documents in '{2}'", nameof(FindDescendants), docCount, directoryPath);
                 }
