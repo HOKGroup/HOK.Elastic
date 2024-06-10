@@ -67,6 +67,7 @@ namespace HOK.Elastic.DAL
             var lastCheck = 0;
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
             bool exit = false;
+            bool firstTimePITUsed = true;
             var docGroup = FindChildrenPIT<FSO>(directoryPath, sourceFilter, pageSize, false);//No PIT
             DirectoryContents directoryContents = null;
             while (!exit)
@@ -81,7 +82,7 @@ namespace HOK.Elastic.DAL
                             foreach (var item in group)
                             {
                                 docCount++;
-                                if (directoryContents == null)
+                                if (directoryContents == null )
                                 {
                                     if (item.Id.Equals(directoryPath, StringComparison.OrdinalIgnoreCase))
                                     {
@@ -116,6 +117,11 @@ namespace HOK.Elastic.DAL
                     if (docCount == pageSize)
                     {
                         docGroup = FindChildrenPIT<FSO>(directoryPath, sourceFilter, pageSize, true);//with PIT
+                        if (firstTimePITUsed)
+                        {
+                            directoryContents = null;
+                            firstTimePITUsed = false;
+                        }
                     }
                     else
                     {
