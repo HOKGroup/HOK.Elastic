@@ -80,6 +80,7 @@ namespace HOK.Elastic.DAL
 
                             foreach (var item in group)
                             {
+                                docCount++;
                                 if (directoryContents == null)
                                 {
                                     if (item.Id.Equals(directoryPath, StringComparison.OrdinalIgnoreCase))
@@ -110,13 +111,16 @@ namespace HOK.Elastic.DAL
                                     directoryContents.Contents.Add(new DirectoryContents.Content(item.Id, item.IndexName, item.Acls, item.Last_write_timeUTC, item.FailureCount));
                                 }
                             }
-                        }
-                        if (docCount == pageSize)
-                        {
-                            docGroup = FindChildrenPIT<FSO>(directoryPath, sourceFilter, pageSize, true);//No PIT
-                        }
+                        }                       
                     }
-                    exit = true;
+                    if (docCount == pageSize)
+                    {
+                        docGroup = FindChildrenPIT<FSO>(directoryPath, sourceFilter, pageSize, true);//with PIT
+                    }
+                    else
+                    {
+                        exit = true;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -197,10 +201,10 @@ namespace HOK.Elastic.DAL
                 {
                     var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
                 }
-                if (docCount > 0 && ilinfo)
-                {
-                    _il.LogInfo($"{nameof(FindChildrenPIT)} returned {docCount} documents", directoryPath);
-                }
+                //if (docCount > 0 && ilinfo)
+                //{
+                //    _il.LogInfo($"{nameof(FindChildrenPIT)} returned {docCount} documents", directoryPath);
+                //}
             }
         }
 
