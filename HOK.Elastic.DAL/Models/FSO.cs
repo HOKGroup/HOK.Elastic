@@ -16,7 +16,15 @@ namespace HOK.Elastic.DAL.Models
         /// Id is stored in lower-case and is the filename(to prevent duplicates so we have a 1-1 mapping with the fileystem) not auto-generated Id's are slower however.
         /// </summary>
         ///
-        public string Id { get { return _Id; } set { _Id = value.ToLowerInvariant(); } }
+        public string Id { 
+            get { return _Id; }
+            set { 
+                _Id = value.ToLowerInvariant();
+                SetPaths(_Id);
+                _name = Path.GetFileName(_Id);
+                _parent = Path.GetDirectoryName(_Id);
+            }        
+        }
         [Ignore]
         public string PathForCrawling => _crawlPath ?? GetCrawlPath();
         [Ignore]
@@ -25,12 +33,12 @@ namespace HOK.Elastic.DAL.Models
         public string PathForCrawlingContent => _contentPath ?? GetContentPath();
 
 
-        public string Name { get { return _name; } set { _name = value.ToLowerInvariant(); } }
+        public string Name { get { return _name; } set {  } }
         /// <summary>
         /// Parent folder stored in lower-case. Supports easily querying contents of folder, while we do incremental crawl. example, find all the children and see if it matches what's on disk.
         /// </summary>
         //[Keyword(Normalizer = InitializationIndex.LOWERCASE, IgnoreAbove = 512)]overridden by fluentapi
-        public string Parent { get { return _parent; } set { _parent = value.ToLowerInvariant(); } }
+        public string Parent { get { return _parent; } set {  } }
         /// <summary>
         /// Security ACL for this item
         /// </summary>

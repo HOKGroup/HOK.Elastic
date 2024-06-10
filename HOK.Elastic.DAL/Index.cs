@@ -509,7 +509,7 @@ namespace HOK.Elastic.DAL
             var lastCheck = 0;
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
             bool exit = false;
-            var docGroup = FindDescendants(directoryPath, extantChildren, SourceFilterDescriptors<FSO>.JustIds, pageSize, false);//No PIT
+			var docGroup = FindDescendants(directoryPath, extantChildren, SourceFilterDescriptors<FSO>.JustIds, pageSize, false);//No PIT for first query
 
             while (!exit)
             {
@@ -583,7 +583,7 @@ namespace HOK.Elastic.DAL
                 if (totalDeletedCount == pageSize)//number should match for nonPIT first run unless there were documentst that existed that shouldn't have - in which case we want to exit anyways.
                 {
                     this.client.Indices.Refresh(IndexHelper.PrefixWildcard, x => x.Index(IndexHelper.AllIndexNames));//to avoid getting the same documents again
-                    docGroup = FindDescendants(directoryPath, extantChildren,SourceFilterDescriptors<FSO>.JustIds, pageSize, true);//search with PIT going forward.
+                    docGroup = FindDescendants(directoryPath, extantChildren,SourceFilterDescriptors<FSO>.JustIds, pageSize, true);//search with PIT on next iteration.
                 }
             }
             return totalDeletedCount;

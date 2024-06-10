@@ -288,12 +288,14 @@ namespace HOK.Elastic.DAL
             string pitID = null;
             IHit<IFSO> lastHit = null;
             PointInTimeDescriptor pointInTime = null;
+            int maxClauseCount = 900;//1024 is the default limit..use 900 as a safe buffer.
+            var extraClauseExtants = exceptTheseExtantChildren.Skip(maxClauseCount).ToList();
 
             var mustNots = new List<Func<QueryContainerDescriptor<FSO>, QueryContainer>>();
             if (exceptTheseExtantChildren != null)
             {
                 //if there are good children don't return the children or the parent.
-                foreach (var childPath in exceptTheseExtantChildren)
+                foreach (var childPath in exceptTheseExtantChildren.Take(maxClauseCount))
                 {
                     mustNots.Add(q => q.MatchPhrase(w => w.Field(f => f.Id).Query(childPath)));
                 }
@@ -339,7 +341,9 @@ namespace HOK.Elastic.DAL
                         //For paths with derived folder names (not necessarily children folders) the id field matchphrase query used above will return superfluous documents.
                         //For example, when the documents should be within the path '.\\a\\', elastic matchphrase will also return  '.\\a nother folder\\..' as well as '.\\a big folder\\' as abandoned items and comparing to known/good/extant children.
                         //To resolve this, rather than use wildcard query filtering for a '\\' delimiter...which is expensive, we just filter the results client-side based on string value of id.
-                        var docs = response.Hits.Where(x => x.Id.Length > directoryPath.Length && x.Id[directoryPath.Length] == '\\').Select(x =>
+                        var docs = response.Hits.Where(x =>!extraClauseExtants.Contains(x.Id) &&
+                        
+                        x.Id.Length > directoryPath.Length && x.Id[directoryPath.Length] == '\\').Select(x =>
                         {
                             FSO doc;                            
                             if(x.Index.EndsWith(IndexNameHelper.DIR))
