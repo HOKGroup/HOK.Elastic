@@ -580,7 +580,7 @@ namespace HOK.Elastic.DAL
                 }
                 catch (Exception ex)
                 {
-                    _il.LogError(ex, ex.Message);
+                    _il.LogErr(ex.Message, directoryPath, null, ex);
                     exit = true;
                 }
                 if (totalDeletedCount == pageSize)//number should match for nonPIT first run unless there were documentst that existed that shouldn't have - in which case we want to exit anyways.

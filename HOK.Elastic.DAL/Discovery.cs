@@ -312,6 +312,10 @@ namespace HOK.Elastic.DAL
             PointInTimeDescriptor pointInTime = null;
             int maxClauseCount = 900;//1024 is the default limit..use 900 as a safe buffer.
             var extraClauseExtants = exceptTheseExtantChildren.Skip(maxClauseCount).ToList();
+            if(extraClauseExtants.Any())
+            {
+                if(ilwarn)_il.LogWarn(nameof(FindDescendants)+ "had too many clause/extantchildren and will not be included in query; but will be filtered in code.",directoryPath,extraClauseExtants.Count);
+            }
 
             var mustNots = new List<Func<QueryContainerDescriptor<FSO>, QueryContainer>>();
             if (exceptTheseExtantChildren != null)
@@ -363,8 +367,8 @@ namespace HOK.Elastic.DAL
                         //For paths with derived folder names (not necessarily children folders) the id field matchphrase query used above will return superfluous documents.
                         //For example, when the documents should be within the path '.\\a\\', elastic matchphrase will also return  '.\\a nother folder\\..' as well as '.\\a big folder\\' as abandoned items and comparing to known/good/extant children.
                         //To resolve this, rather than use wildcard query filtering for a '\\' delimiter...which is expensive, we just filter the results client-side based on string value of id.
-                        var docs = response.Hits.Where(x =>!extraClauseExtants.Contains(x.Id) &&
-                        
+                        var docs = response.Hits.Where(x =>!extraClauseExtants.Where(e => x.Id.StartsWith(e)).Any() &&
+
                         x.Id.Length > directoryPath.Length && x.Id[directoryPath.Length] == '\\').Select(x =>
                         {
                             FSO doc;                            
