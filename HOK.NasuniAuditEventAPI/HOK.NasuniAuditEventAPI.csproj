@@ -10,7 +10,7 @@
     <Content Remove="appsettings.json" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="appsettings.json">
+    <None Include="appsettings.json" Condition="Exists('appsettings.json')">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
