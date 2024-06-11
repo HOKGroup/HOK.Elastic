@@ -299,7 +299,7 @@ namespace HOK.Elastic.DAL
 
         public IEnumerable<List<FSO>> FindDescendentsForMoving(string path, int pageSize)
         {
-            var documents = FindDescendants(path, null, SourceFilterDescriptors<FSO>.IncludeAlls, pageSize);
+            var documents = FindDescendants(path, new List<string>(), SourceFilterDescriptors<FSO>.IncludeAlls, pageSize);
             return documents;
         }
 
