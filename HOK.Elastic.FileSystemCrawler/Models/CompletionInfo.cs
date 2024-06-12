@@ -1,6 +1,7 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
+using System.Text.Json;
 
 namespace HOK.Elastic.FileSystemCrawler.Models
 {
@@ -63,13 +64,20 @@ namespace HOK.Elastic.FileSystemCrawler.Models
                 return TimespanDuration.TotalSeconds;
             }
         }
-       
+
+        public Exception LastException { get; internal set; }
+
         public enum ExitCode
         {
             None = 0,
             OK = 1,
             Cancel = 2,
             Fatal = 3
+        }
+        public override string ToString()
+        {
+            var json = JsonSerializer.Serialize<CompletionInfo>(this);
+            return json;
         }
     }
 }

@@ -121,6 +121,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     {
                         if (ilerror) _il.LogErr("aggregate exception:", "", null, ex);
                     }
+                    completionInfo.LastException = ae;
                     completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;
                 }
                 catch (OperationCanceledException ex)
@@ -131,6 +132,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 catch (Exception ex)
                 {
                     if (ilfatal) _il.LogFatal("Fatal Exception...quiting now", "", null, ex);
+                    completionInfo.LastException = ex;
                     completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;                    
                 }
             }
@@ -148,6 +150,7 @@ namespace HOK.Elastic.FileSystemCrawler
             {
                 InputPathLoader.ClearUnfinishedPaths(_args.InputPathLocation);
             }
+            if (ilinfo) _il.LogInfo(completionInfo.ToString());
             return completionInfo;
         }
 

@@ -104,6 +104,7 @@ namespace HOK.Elastic.FileSystemCrawler
             }
             catch (AggregateException aex)
             {
+                completionInfo.LastException = aex;
                 completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;
                 if (ilerror)
                 {
@@ -116,6 +117,7 @@ namespace HOK.Elastic.FileSystemCrawler
             }
             catch (Exception ex)
             {
+                completionInfo.LastException = ex;
                 completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;
                 if (ilfatal)
                 {

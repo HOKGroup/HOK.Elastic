@@ -15,6 +15,7 @@ using HOK.Elastic.DAL;
 using System.IO;
 using NLog.Extensions.Logging;
 using NLog.Config;
+using System.Diagnostics;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI
 {
@@ -118,10 +119,10 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         public async Task MonitorAsync(CancellationToken cancellationToken)
         {
 #if DEBUG
-            if (Jobs.Count() < 20)
-            {
-                LoadSomeRandomTestJobs(3);
-            }
+            //if (Jobs.Count() < 20)
+            //{
+            //    LoadSomeRandomTestJobs(3);
+            //}
 
 #endif
             DateTime trigger = DateTime.MinValue;
@@ -129,11 +130,12 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             {
                 if (DateTime.Now.Subtract(trigger) > TimeSpan.FromMinutes(5))
                 {
+                    if (isDebug) _logger.LogDebug($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
                     trigger = DateTime.Now;
                     Save();
                     CleanupOldJobs();
                 }
-                if (isInfo) _logger.LogInfo($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
+                
                 if (buffer.Count < MaxJobs)
                 {
                     var next = _jobs.Values.Where(x => x.Status == HostedJobInfo.State.unstarted).Take(MaxJobs - buffer.Count);
@@ -334,7 +336,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 HOK.Elastic.DAL.Models.PathHelper.SetProjectExtractRgx(workerargs.ProjectExtractRegex);
                 HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
                 string safepath = workerargs.JobName + workerargs.JobNotes;
-                System.IO.Path.GetInvalidPathChars().Select(x => safepath = safepath.Replace(x, ' '));
+                System.IO.Path.GetInvalidFileNameChars().Select(x => safepath = safepath.Replace(x, ' '));
                 workerargs.InputPathLocation = System.IO.Path.Combine(_jobsFolder, safepath + hostedJobInfo.GetHashCode());
                 hostedJobInfo.SettingsJobArgsDTO.InputPathLocation = workerargs.InputPathLocation;//TODO refactor inputpathcrawls and events.
                 Directory.CreateDirectory(workerargs.InputPathLocation);//CreateFolder if it doesn't exist.
@@ -343,17 +345,15 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 var jobLoggerPath = Path.Combine(workerargs.InputPathLocation,"joblog.log");
                 jobLogConfig = GetJobLogConfig("WebAPI" + hostedJobInfo.Id + workerargs.JobName,jobLoggerPath);
                 var jobLogger = jobLogConfig.Item3;
-                if (jobLogger.IsEnabled(LogLevel.Debug)) jobLogger.LogDebug("+Job Log Starting+");
-                IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
-                PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
-                var index = new HOK.Elastic.DAL.Index(pipeLineNameHelper, indexNameHelper,workerargs.ElasticIndexURI.First(), jobLogger);
-                var discovery = new HOK.Elastic.DAL.Discovery(pipeLineNameHelper, indexNameHelper,workerargs.ElasticDiscoveryURI.First(), jobLogger);
-
                 if (jobLogger.IsEnabled(LogLevel.Information))
                 {
                     jobLogger.LogInformation("Constructing....");
                     jobLogger.LogInformation($"Joblocation={workerargs.InputPathLocation}");
                 }
+                IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
+                PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
+                var index = new HOK.Elastic.DAL.Index(pipeLineNameHelper, indexNameHelper,workerargs.ElasticIndexURI.First(), jobLogger);
+                var discovery = new HOK.Elastic.DAL.Discovery(pipeLineNameHelper, indexNameHelper,workerargs.ElasticDiscoveryURI.First(), jobLogger);
                 SecurityHelper sh = new SecurityHelper(jobLogger);
                 DocumentHelper dh = new DocumentHelper(true, sh, index, jobLogger);
                 IWorkerBase iWorker;
@@ -377,6 +377,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 {
                     case CompletionInfo.ExitCode.None:
                         hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
+                        hostedJobInfo.Exception = hostedJobInfo.CompletionInfo.LastException;
                         break;
                     case CompletionInfo.ExitCode.OK:
                         hostedJobInfo.Status = HostedJobInfo.State.complete;
@@ -385,7 +386,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                         hostedJobInfo.Status = HostedJobInfo.State.cancelled;
                         break;
                     case CompletionInfo.ExitCode.Fatal:
-                        hostedJobInfo.Status = HostedJobInfo.State.completedWithException;                        
+                        hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
+                        hostedJobInfo.Exception = hostedJobInfo.CompletionInfo.LastException;
                         break;
                     default:
                         break;
@@ -409,7 +411,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 //try and notify if set
                 if (!string.IsNullOrEmpty(email))
                 {
-                    var completionInfo = JsonConvert.SerializeObject(hostedJobInfo.CompletionInfo);
+                    var completionInfo = hostedJobInfo.CompletionInfo.ToString();
                     var mail = EmailService.MakeMessage(_emailService.DefaultSender, email, $"CrawlJob Complete on {Environment.MachineName} {hostedJobInfo.SettingsJobArgsDTO.JobName}", $"{hostedJobInfo.Status}\r\n\r\n***\r\n\r\n{completionInfo}\r\n\r\nException: {(hostedJobInfo.HasException ? hostedJobInfo.GetException().ToString() : "No Fatal Exceptions...")}");
                     _emailService.Send(mail);
                 }
@@ -421,24 +423,26 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             return hostedJobInfo;//do we make it here when there's been an exception.
         }
        private static SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
-        private Tuple<NLog.Targets.Target,LoggingRule,ILogger> GetJobLogConfig(string jobName,string logPath)
+        private Tuple<NLog.Targets.Target, LoggingRule, ILogger> GetJobLogConfig(string jobName, string logPath)
         {
             var target = new NLog.Targets.FileTarget()
             {
                 Name = jobName,
                 FileName = logPath,
-                FileNameKind = NLog.Targets.FilePathKind.Relative,
-                ArchiveAboveSize =  10 * 1024^2,
+                FileNameKind = NLog.Targets.FilePathKind.Absolute,
+                ArchiveAboveSize = 10 * 1024 ^ 2,
                 ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Sequence,
-            };
-            var rule = new LoggingRule(jobName + "rule") { Final = true };
-            rule.EnableLoggingForLevels(NLog.LogLevel.Debug, NLog.LogLevel.Fatal);
-            rule.LoggerNamePattern = jobName;
-            rule.Targets.Add(target);          
+            };          
+            
             try
             {
                 semaphore.Wait(_cts.Token);
-                 NLog.LogManager.Configuration.LoggingRules.Insert(0, rule);//add at beginning of ruleset so that rules in nlog.config file can supercede(filter for example)
+                NLog.LogManager.Configuration.AddTarget(target);
+                var rule = new LoggingRule(jobName + "rule") { LoggerNamePattern = jobName, Final = true };
+                rule.EnableLoggingForLevels(NLog.LogLevel.Debug, NLog.LogLevel.Fatal);
+                rule.Targets.Add(target);
+                NLog.LogManager.Configuration.LoggingRules.Insert(0, rule);//add at beginning of ruleset so that rules in nlog.config file can supercede(filter for example)
+                NLog.LogManager.ReconfigExistingLoggers();
                 var logger = Program.LoggerFactory.CreateLogger(jobName);
                 return new Tuple<NLog.Targets.Target, LoggingRule, ILogger>(target, rule, logger);
             }
@@ -447,6 +451,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 semaphore.Release();
             }
         }
+
         private void RemoveNlogJobLogger(Tuple<NLog.Targets.Target, LoggingRule, ILogger> loggerSetup)
         {
             var target = loggerSetup.Item1;
