@@ -4,8 +4,11 @@ trigger:
       - main
       - dev
   paths:
-    exclude:
-      - HOK.Elastic.RoleMappingGroupSync/*
+    include:
+      - HOK.Elastic.DAL/*
+      - HOK.Elastic.FileSystemCrawler/*
+      - HOK.Elastic.FileSystemCrawler.ConsoleProgram/*
+      - HOK.Elastic.Logger/*
 
 pool:
   vmImage: 'windows-latest'

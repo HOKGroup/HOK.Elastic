@@ -24,7 +24,7 @@ steps:
 - task: DotNetCoreCLI@2
   inputs:
     command: 'publish'
-    publishWebProjects: true
+    publishWebProjects: false
     projects: 'HOK.NasuniAuditEventAPI/HOK.NasuniAuditEventAPI.csproj'
     arguments: '--configuration $(buildConfiguration) -r $(runtime) --version-suffix "ci-build-$(Build.SourceVersion)" --output $(Build.ArtifactStagingDirectory)'
     zipAfterPublish: false
