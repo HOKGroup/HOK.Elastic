@@ -284,21 +284,17 @@ namespace HOK.Elastic.DAL
                     if (err.HttpStatusCode == 404)
                     {
                         IFSO exist;
-                        if (doc.IndexName == IndexHelper.IndexNameFsoDoc || doc.IndexName == IndexHelper.IndexNameFsoMsg)
+                       List<string> indexNames = new List<string>() { IndexHelper.IndexNameFsoFile, IndexHelper.IndexNameFsoMsg, IndexHelper.IndexNameFsoDoc, IndexHelper.IndexNameDir };
+                        foreach(var indexName in indexNames)
                         {
-                            exist = GetById<FSOfile>(doc.Id, IndexHelper.IndexNameFsoFile);
-                        }
-                        else
-                        {
-                            _il.LogErr("Unable to update1", doc.Id, err);
-                            return;//TODO
-                        }
-
-                        if (exist != null)
-                        {
-                            Delete(exist.Id, IndexHelper.IndexNameFsoFile);
-                            doc.Reason = doc.AppendReason(" relocate from fsofile.");
-                            Insert(doc);//because of the 404 above, this would never be an update.
+                            exist = GetById<FSO>(doc.Id, indexName);
+                            if(exist!=null)
+                            {
+                                    Delete(exist.Id, exist.IndexName);
+                                    doc.Reason = doc.AppendReason(" relocate from " + exist.IndexName);
+                                    Insert(doc);//because of the 404 above, this would never be an update.
+                                break;
+                            }
                         }
                     }
                     else
@@ -308,105 +304,6 @@ namespace HOK.Elastic.DAL
                 }
             }
         }
-
-
-        #endregion
-
-        #region Moves
-
-
-
-        ////        /// <summary>
-        ////        /// Called by Nausni Audit Events - Full path to the directory will match on anything with the same parent. We use this during incremental crawl
-        ////        /// </summary>
-        ////        /// <param name="pageSize"></param>
-        ////        /// <returns>Fully Populated Model</returns>
-        ////        public IEnumerable<T> FindDescendentsForMovingOLD<T>(string path, int pageSize) where T : class, IFSO
-        ////        {
-        ////            int desiredTake = pageSize;
-        ////            T doc;
-        ////            string scrolltimeout = "10h";
-        ////            string indexName = GetIndexName<T>().ToString();
-        ////            ISearchResponse<T> searchResponse = null;
-        ////            searchResponse = client.Search<T>(d => d
-        ////                        .Index(indexName)
-        ////                        .Size(pageSize)//in 10m 
-        ////                        .Scroll(scrolltimeout)
-        ////                        .Source(a => a.Includes(i => i.Fields(JustId)))
-        ////                        .Query(q => q
-        ////                           .Bool(b => b
-        ////                              .Filter(bf => bf
-        ////                               .Term("parent.smbtreelower", path)//was parent.keyword
-        ////                               )
-        ////                              )
-        ////                           )
-        ////                        );
-        ////            while (searchResponse != null && searchResponse.Documents.Any())
-        ////            {
-        ////#if DEBUG
-        ////                var scrollTime = DateTime.Now;
-        ////#endif
-        ////                var scrollSearchIds = searchResponse.Hits.Select(x => x.Id).ToList();
-        ////                List<T> docs = new List<T>();
-        ////                while (scrollSearchIds.Any())
-        ////                {
-        ////                    try
-        ////                    {
-        ////                        var results = client.MultiGet(m => m.Index(indexName).GetMany<T>(scrollSearchIds.Take(pageSize), (op, id) => op.Index(indexName)));
-        ////                        foreach (var hit in results.Hits)
-        ////                        {
-        ////                            doc = hit.Source as T;
-        ////                            docs.Add(doc);
-        ////                        }
-        ////                        scrollSearchIds.RemoveRange(0, Math.Min(scrollSearchIds.Count, pageSize));
-        ////                    }
-        ////                    catch (Exception ex)
-        ////                    {
-        ////                        if (pageSize == 1)//we are working with a single document.
-        ////                        {
-        ////                            var id = scrollSearchIds.First();
-        ////                            scrollSearchIds.RemoveRange(0, 1);//we need to remove the actual document!                
-        ////                            if (ex is UnexpectedElasticsearchClientException)
-        ////                            {
-        ////                                if (ex.Message.Contains("expected"))
-        ////                                {
-        ////                                    Delete(id, indexName);
-        ////                                    if (ilwarn) _il.LogWarn("Deleting document because" + ex.Message, id);
-        ////                                }
-        ////                            }
-        ////                            pageSize = desiredTake;
-        ////                        }
-        ////                        pageSize = Math.Max(1, pageSize / 3);
-        ////                    }
-        ////                }
-        ////                foreach (var d in docs)
-        ////                {
-        ////                    yield return d;
-        ////                }
-        ////#if DEBUG
-        ////                if (ildebug)
-        ////                {
-        ////                    _il.LogDebugInfo("OurScroll took: " + DateTime.Now.Subtract(scrollTime).TotalMinutes.ToString());
-        ////                }
-        ////#endif
-        ////                searchResponse = client.Scroll<T>(scrolltimeout, searchResponse.ScrollId);
-        ////            }
-        ////            if (searchResponse != null)
-        ////            {
-        ////                if (searchResponse.IsValid == false)
-        ////                {
-        ////                    if (ilerror)
-        ////                    {
-        ////                        var err = ElasticResponseError.GetError(searchResponse);
-        ////                        _il.LogErr("Discovery.FindDescendentsForMoving", path, err);
-        ////                        throw new InvalidOperationException(err.ServerErrorReason ?? "unknown scroll error");///hmm do we need to throw an error or can we try again or skip?
-        ////                    }
-        ////                }
-        ////                client.ClearScroll(new ClearScrollRequest(searchResponse.ScrollId));
-        ////            }
-        ////        }
-   
-
         #endregion
 
         #region Deletes

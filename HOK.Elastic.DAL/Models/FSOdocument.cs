@@ -8,7 +8,7 @@ namespace HOK.Elastic.DAL.Models
 {
     public class FSOdocument : FSOfile, IFSOdocument
     {
-        private static readonly HashSet<string> _supportedExtensions = new HashSet<string> { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".ppt", ".pptx", ".wpd", ".rtf", ".txt" };//excluded .log file per teams converstation 2021-02-08
+        private static readonly HashSet<string> _supportedExtensions = new HashSet<string> { ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".ppt", ".pptx", ".wpd",".wbk", ".rtf", ".txt" };//excluded .log file per teams converstation 2021-02-08
 
         [Text(Ignore = true)]
         public static HashSet<string> SupportedExts { get { return _supportedExtensions; } }
