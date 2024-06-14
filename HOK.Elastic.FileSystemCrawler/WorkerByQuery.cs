@@ -25,12 +25,14 @@ namespace HOK.Elastic.FileSystemCrawler
         public WorkerByQuery(IIndex elasticIngest, IDiscovery elasticDiscovery, SecurityHelper sh, DocumentHelper dh, ILogger logger) : base(elasticIngest, elasticDiscovery, dh, sh, logger)
         {
             //calculate desired free memory for future reference to avoid consuming too much memory
-            ulong installedMemory;
+            //ulong installedMemory;
             NativeMethods.MEMORYSTATUSEX memStatus = new NativeMethods.MEMORYSTATUSEX();
             if (NativeMethods.GlobalMemoryStatusEx(memStatus))
             {
-                installedMemory = memStatus.ullTotalPhys;
-                _desiredMaxMemoryKB = Math.Round((installedMemory / 1024) * 0.2);
+                var availablePhysKB = memStatus.ullAvailPhys/1024;
+                _desiredMaxMemoryKB = availablePhysKB>(_desiredMaxMemoryKB*2) ? availablePhysKB-_desiredMaxMemoryKB : _desiredMaxMemoryKB;
+                var installedMemoryKB = memStatus.ullTotalPhys/1024;
+                _desiredMaxMemoryKB = Math.Min(Math.Round(installedMemoryKB * 0.2), _desiredMaxMemoryKB);
             }
             if (ilinfo) _il.LogInfo("Max Ram limit before inserting documents", null, _desiredMaxMemoryKB);
         }

@@ -360,7 +360,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 if (workerargs.CrawlMode == CrawlMode.EventBased)
                 {
                     iWorker = new WorkerEventStream(index, discovery, sh, dh, jobLogger);
-                }else if(workerargs.CrawlMode==CrawlMode.QueryBasedReIndex)
+                }else if(workerargs.CrawlMode==CrawlMode.QueryBasedReIndex||workerargs.CrawlMode==CrawlMode.FindMissingContent||workerargs.CrawlMode==CrawlMode.EmailOnlyMissingContent)
                 {
                     iWorker = new WorkerByQuery(index,discovery,sh, dh, jobLogger);
                 }
