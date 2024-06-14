@@ -110,16 +110,19 @@ namespace HOK.Elastic.FileSystemCrawler
                     {
                         if (ilerror) _il.LogErr("aggregate exception:", "", null, ex);
                     }
+                    completionInfo.LastException = ae;
                     completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;
                 }
                 catch (OperationCanceledException ex)
                 {
                     completionInfo.exitCode = CompletionInfo.ExitCode.Cancel;
+                    completionInfo.LastException = ex;
                     if (ilfatal) _il.LogFatal("Cancelling", "", null, ex);
                 }
                 catch (Exception ex)
                 {
                     if (ilfatal) _il.LogFatal("Fatal Exception...quiting now", "", null, ex);
+                    completionInfo.LastException = ex;
                     completionInfo.exitCode = CompletionInfo.ExitCode.Fatal;
                 }
             }
