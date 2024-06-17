@@ -3,6 +3,7 @@ using Nest;
 using Newtonsoft.Json;
 using System;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Threading;
 
 namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
@@ -19,6 +20,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Models
         public long? DocCount => this.CompletionInfo?.FileCount + this.CompletionInfo?.DirCount;
         public SettingsJobArgsDTO SettingsJobArgsDTO { get; set; }
         public CompletionInfo CompletionInfo { get; set; }
+        public string LogPath { get=> Path.Combine(this.SettingsJobArgsDTO.InputPathLocation, "joblog.log"); }
         public State Status { get; set; }
         public enum State
         {

@@ -1,0 +1,19 @@
+﻿@model Tuple<string,string> 
+
+@{
+    ViewData["Title"] = "View Log";
+}
+<h1>Details</h1>
+<h4>HostedJobInfo Details</h4>
+
+<div class="row">
+    
+    <div class="row">
+      Job:  @Html.DisplayTextFor(model => model.Item1)
+    </div>
+    <div class="row">
+        @Html.DisplayTextFor(model=>model.Item2)       
+    </div>
+    <br />
+</div>
+

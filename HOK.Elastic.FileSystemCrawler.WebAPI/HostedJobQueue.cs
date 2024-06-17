@@ -342,8 +342,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 Directory.CreateDirectory(workerargs.InputPathLocation);//CreateFolder if it doesn't exist.
                 //end of unchecked requirements stuff that causes problems.
            
-                var jobLoggerPath = Path.Combine(workerargs.InputPathLocation,"joblog.log");
-                jobLogConfig = GetJobLogConfig("WebAPI" + hostedJobInfo.Id + workerargs.JobName,jobLoggerPath);
+               //var jobLoggerPath = Path.Combine(workerargs.InputPathLocation,"joblog.log");
+                //hostedJobInfo.LogPath = Path.Combine(workerargs.InputPathLocation, "joblog.log");
+                jobLogConfig = GetJobLogConfig("WebAPI" + hostedJobInfo.Id + workerargs.JobName, hostedJobInfo.LogPath);
                 var jobLogger = jobLogConfig.Item3;
                 if (jobLogger.IsEnabled(LogLevel.Information))
                 {

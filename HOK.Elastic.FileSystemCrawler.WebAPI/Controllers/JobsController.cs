@@ -4,6 +4,7 @@ using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Extensions;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
@@ -240,6 +241,32 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
                 throw new Exception("Upload Failed", ex);
             }
             return RedirectToAction("Create");
+        }
+        [HttpGet]
+        public async Task<ActionResult> ViewLog(int id)
+        {
+            var job = _hostedJobScheduler.Get(id);
+            if (job!=null)
+            {
+                if (System.IO.File.Exists(job.LogPath))
+                {
+                    string logText = "";
+                    using (FileStream stream = System.IO.File.Open(job.LogPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    {
+                        byte[] buffer = new byte[stream.Length];
+                        await stream.ReadAsync(buffer);
+                        logText = System.Text.Encoding.ASCII.GetString(buffer);
+                        return View(new Tuple<string,string>(job.SettingsJobArgsDTO.JobName,logText));
+                    }
+                }
+                else
+                {
+                    return View(new Tuple<string, string>(job.SettingsJobArgsDTO.JobName,  $"'{job.LogPath} didn't exist"));
+                }
+            }else
+            {
+                return NotFound(new Tuple<string, string>(id.ToString(), $"'{job.Id} didn't exist"));
+            }          
         }
     }
 }
