@@ -5,9 +5,14 @@
 }
 <h1>View Log</h1>
     <div class="row">
-    <h4>> Job:  @Html.DisplayTextFor(model => model.Item1)</h4>
+        <h4>>Job:  @Html.DisplayTextFor(model => model.Item1)</h4>
+    </div>
+    <div class="row">
+        <ul>        
+        <li><a asp-action="Index">Back To Index</a></li>
+        <li><a href="javascript:window.location.reload();">Refresh Page</a></li>
+        </ul>
     </div>
     <div class="row">
         @Html.DisplayTextFor(model=>model.Item2)       
     </div>
-

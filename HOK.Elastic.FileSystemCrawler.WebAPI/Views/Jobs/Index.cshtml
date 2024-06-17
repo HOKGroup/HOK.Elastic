@@ -3,10 +3,8 @@
 @{
     ViewData["Title"] = "View";
 }
-
 <h1>Index</h1>
 <h4>HostedJobQueue</h4>
-
 <div class="row">
     <div class="col-md-12">
         <a asp-action="Index">Refresh</a>
@@ -83,7 +81,7 @@
                         <td>
                             @Html.ActionLink("Details", "Details", new { id=item.Id }) |                            
                             @Html.ActionLink("Download", "Download", new { id=item.Id }) |
-                            @Html.ActionLink("View Log...", "ViewLog", new { id = item.Id }) |
+                            @Html.ActionLink("View Log", "ViewLog", new { id = item.Id }) |
                             @Html.ActionLink("Delete", "Delete", new { id=item.Id }) |
                             @Html.ActionLink("Cancel", "Cancel", new { id=item.Id })
                         </td>
