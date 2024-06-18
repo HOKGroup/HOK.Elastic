@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks.Dataflow;
 using System.Threading.Tasks;
 using System.IO;
+using System.Globalization;
 
 namespace HOK.Elastic.DAL
 {
@@ -207,10 +208,6 @@ namespace HOK.Elastic.DAL
                 {
                     var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
                 }
-                //if (docCount > 0 && ilinfo)
-                //{
-                //    _il.LogInfo($"{nameof(FindChildrenPIT)} returned {docCount} documents", directoryPath);
-                //}
             }
         }
 
@@ -367,8 +364,9 @@ namespace HOK.Elastic.DAL
                         //For paths with derived folder names (not necessarily children folders) the id field matchphrase query used above will return superfluous documents.
                         //For example, when the documents should be within the path '.\\a\\', elastic matchphrase will also return  '.\\a nother folder\\..' as well as '.\\a big folder\\' as abandoned items and comparing to known/good/extant children.
                         //To resolve this, rather than use wildcard query filtering for a '\\' delimiter...which is expensive, we just filter the results client-side based on string value of id.
-                        var docs = response.Hits.Where(x =>!extraClauseExtants.Where(e => x.Id.StartsWith(e)).Any() &&
-
+                        var docs = response.Hits.Where(x =>
+                        x.Id.StartsWith(directoryPath) &&
+                        !extraClauseExtants.Where(e => x.Id.StartsWith(e)).Any() &&
                         x.Id.Length > directoryPath.Length && x.Id[directoryPath.Length] == '\\').Select(x =>
                         {
                             FSO doc;                            

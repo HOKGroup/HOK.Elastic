@@ -185,7 +185,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     {
                         if (HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(directory.PathForCrawling))
                         {
-                            if (ildebug) _il.LogDebugInfo("Ignoring", directory.PathForCrawling);
+                            if (ildebug) _il.LogWarn("Ignoring", directory.PathForCrawling);
                             continue;
                         }
                         var di = new DirectoryInfo(directory.PathForCrawling);
@@ -327,14 +327,19 @@ namespace HOK.Elastic.FileSystemCrawler
                             }
                             else
                             {
+#if DEBUG
                                 if (elasticContents.Count > currentItemsAsPublishedPaths.Count||true==true)
                                 {
+#else
+                                if (elasticContents.Count > currentItemsAsPublishedPaths.Count)
+                                {
+#endif
                                     var deletedItems = await DeleteAbandonedItemsAsync(elasticContents, directory, currentItemsAsPublishedPaths);
                                     Interlocked.Add(ref _deleted, deletedItems);
                                 }
                             }
                         }
-                        #endregion
+#endregion
                     }
                     catch (AggregateException ae)
                     {
