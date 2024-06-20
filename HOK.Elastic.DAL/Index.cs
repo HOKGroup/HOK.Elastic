@@ -453,7 +453,7 @@ namespace HOK.Elastic.DAL
                                     }
                                     if (exists)
                                     {
-                                        throw new Exception($"Unexpected Query failure.....'{doc.Id}' shouldn't exist but does.");
+                                        if (ilwarn) _il.LogWarn("Unexepected existing document", doc.Id);//lock files for example are transient and appear occasionally
                                     }
                                     else
                                     {
@@ -461,10 +461,8 @@ namespace HOK.Elastic.DAL
                                         if (!deleteBlock.Post(doc))
                                         {
                                             _il.LogWarn("Couldn't POST...shouldn't be possible");
-                                            // _il.LogTrace("Deleting abandonded '{0}'", doc.Id);
                                         }
                                     }
-
                                     return localCount;
 
                                 }, localCount => Interlocked.Add(ref totalDeletedCount, localCount));

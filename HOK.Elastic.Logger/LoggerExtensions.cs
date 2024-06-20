@@ -1,12 +1,11 @@
 ﻿using HOK.Elastic.Logger;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
 using System.IO;
 
 namespace Microsoft.Extensions.Logging
 {
-    public static class LoggerExtensions
+    public static partial class LoggerExtensions
     {
         private static JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings()
         {
@@ -51,38 +50,6 @@ namespace Microsoft.Extensions.Logging
             }
             writer.WriteEndObject();
             return sw.ToString();
-        }
-
-
-        public class ExceptionSerializable
-        {
-            public string Message { get; set; }
-            public string StackTrace { get; set; }
-            public string Type { get; set; }
-            public ExceptionSerializable InnerException { get; set; }
-            public List<ExceptionSerializable> InnerExceptions { get; set; } = new List<ExceptionSerializable>();
-            public static ExceptionSerializable Get(Exception exception)
-            {
-                if (exception == null) return null;
-                var exceptionSerialze = new ExceptionSerializable();
-                exceptionSerialze.Message = exception.Message;
-                exceptionSerialze.StackTrace = exception.StackTrace;
-                exceptionSerialze.Type = exception.GetType().Name;
-                if (exception.InnerException != null)
-                {
-                    exceptionSerialze.InnerExceptions.Add(Get(exception.InnerException));
-                }
-                if (exception is AggregateException)
-                {
-                    var ae = exception as AggregateException;
-                    foreach (var e in ae.InnerExceptions)
-                    {
-                        exceptionSerialze.InnerExceptions.Add(Get(e));
-                    }
-                }
-
-                return exceptionSerialze;
-            }
         }
        
 

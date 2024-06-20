@@ -365,7 +365,7 @@ namespace HOK.Elastic.DAL
                         //For example, when the documents should be within the path '.\\a\\', elastic matchphrase will also return  '.\\a nother folder\\..' as well as '.\\a big folder\\' as abandoned items and comparing to known/good/extant children.
                         //To resolve this, rather than use wildcard query filtering for a '\\' delimiter...which is expensive, we just filter the results client-side based on string value of id.
                         var docs = response.Hits.Where(x =>
-                        x.Id.StartsWith(directoryPath) &&
+                        x.Id.StartsWith(directoryPath) &&//although directorypath is included as part of the query, sometimes unicode characters of similar(but different) paths are returned (Chinese character for 'Architecture' and 'Structural Engineering' are both returned when searching for 'Architecture' as an example.)
                         !extraClauseExtants.Where(e => x.Id.StartsWith(e)).Any() &&
                         x.Id.Length > directoryPath.Length && x.Id[directoryPath.Length] == '\\').Select(x =>
                         {

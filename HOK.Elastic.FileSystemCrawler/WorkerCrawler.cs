@@ -84,9 +84,6 @@ namespace HOK.Elastic.FileSystemCrawler
             docInsertTranformBlock.LinkTo(docInsert, linkOptions, item => !DocumentHelper.IsBatchable(item));
             docInsertTranformBlock.LinkTo(DataflowBlock.NullTarget<IFSO>(), linkOptions);
             docDeleteAction = new ActionBlock<IFSO[]>(v => completionInfo.Deleted=+ _indexEndPoint.DeleteGroup(v), new ExecutionDataflowBlockOptions { MaxDegreeOfParallelism = 1, BoundedCapacity = insertBoundedCapacity });
- 
-
-        
             docDeleteBatchBlock = new BatchBlock<IFSO>(100);
             docDeleteBatchBlock.LinkTo(docDeleteAction, linkOptions);
 
@@ -327,19 +324,15 @@ namespace HOK.Elastic.FileSystemCrawler
                             }
                             else
                             {
-#if DEBUG
-                                if (elasticContents.Count > currentItemsAsPublishedPaths.Count||true==true)
+                                if (elasticContents.Count > currentItemsAsPublishedPaths.Count||true==true)//eventually we 
                                 {
-#else
-                                if (elasticContents.Count > currentItemsAsPublishedPaths.Count)
-                                {
-#endif
+
                                     var deletedItems = await DeleteAbandonedItemsAsync(elasticContents, directory, currentItemsAsPublishedPaths);
                                     Interlocked.Add(ref _deleted, deletedItems);
                                 }
                             }
                         }
-#endregion
+                        #endregion
                     }
                     catch (AggregateException ae)
                     {
