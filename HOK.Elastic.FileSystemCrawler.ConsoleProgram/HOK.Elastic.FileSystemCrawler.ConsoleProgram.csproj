@@ -66,6 +66,12 @@
     <None Update="_kctest\jobSettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="_aptest\jobSettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="_lontest\jobSettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="_tortest\jobSettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
