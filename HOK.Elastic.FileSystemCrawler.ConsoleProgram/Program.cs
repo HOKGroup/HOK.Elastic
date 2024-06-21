@@ -78,6 +78,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     ilwarn = _il != null && _il.IsEnabled(LogLevel.Warning);
                     ilerror = _il != null && _il.IsEnabled(LogLevel.Error);
                     ilfatal = _il != null && _il.IsEnabled(LogLevel.Critical);
+                    if(ilinfo)_il.LogInfo("starting",jobDirectoryInfo.FullName);
                     #endregion
                     #region PopulateWorkerArgs
                     var workerargs = new SettingsJobArgs()
