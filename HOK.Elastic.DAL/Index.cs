@@ -431,6 +431,7 @@ namespace HOK.Elastic.DAL
                             {
                                 if (ilwarn) _il.LogWarning("More than {0} abandoned documents deleted under '{1}' ", WARNIFDELETEMORETHAN, directoryPath);
                                 exit = true;
+                                break;
                             }
                             else
                             {

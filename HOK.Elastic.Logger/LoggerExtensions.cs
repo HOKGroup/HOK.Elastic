@@ -10,7 +10,7 @@ namespace Microsoft.Extensions.Logging
         private static JsonSerializerSettings jsonSerializerSettings = new JsonSerializerSettings()
         {
             ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore
-            ,DefaultValueHandling=DefaultValueHandling.Ignore,
+            ,DefaultValueHandling=DefaultValueHandling.Include,//crawl metric logs entries didn't include 'FileCount' property when default/0 when DefaultValueHandling.Ignore.
             NullValueHandling=NullValueHandling.Ignore,
             Formatting = Formatting.Indented
 

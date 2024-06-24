@@ -251,7 +251,7 @@ namespace HOK.Elastic.FileSystemCrawler
                                 FileSkipped = Interlocked.Read(ref _filesskipped),
                                 Deleted = Interlocked.Read(ref _deleted)
                             });
-                            statusUpdateTimer = DateTime.Now.Add(TimeSpan.FromSeconds(5));//every x amount of time, write a status update.
+                            statusUpdateTimer = DateTime.Now.Add(TimeSpan.FromSeconds(30));//every x amount of time, write a status update.
                             if (unfinishedPathTimer < DateTime.Now)
                             {
                                 unfinishedPathTimer = DateTime.Now.Add(TimeSpan.FromMinutes(5));//every x amount of time, write out the paths so we can resume them.

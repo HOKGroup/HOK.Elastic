@@ -29,7 +29,7 @@ namespace HOK.Elastic.DAL
         }
 
         public bool PreFlightFail()
-        {            
+        {
             bool fail = false;
             string[] indicies = IndexHelper.AllIndexNames;
             for (int i = 0; i < indicies.Length; i++)
@@ -42,7 +42,7 @@ namespace HOK.Elastic.DAL
                 }
             }
 #if DEBUG
-          //  PromptToDelete();
+            //  PromptToDelete();
 #endif
             return fail;
         }
@@ -102,7 +102,7 @@ namespace HOK.Elastic.DAL
                 }
             }
         }
-   
+
         public void BuildIndexFSODirectory()
         {
             CreateIndexResponse createFileResponse = client.Indices.Create(IndexHelper.IndexNameDir, i => i
@@ -136,7 +136,7 @@ namespace HOK.Elastic.DAL
                 .Custom(EMAILADDRESS, a => a
                     .Tokenizer(EMAILADDRESS).Filters(LOWERCASE, EDGENGRAM10))
                 .Custom(EMAILADDRESSSEARCH, sa => sa
-                     .Tokenizer(EMAILADDRESS).Filters(LOWERCASE,TRUNCATE10))
+                     .Tokenizer(EMAILADDRESS).Filters(LOWERCASE, TRUNCATE10))
                 );
 
             CreateIndexResponse createFileResponse = client.Indices.Create(IndexHelper.IndexNameFsoMsg, i => i
@@ -147,8 +147,8 @@ namespace HOK.Elastic.DAL
                 .Analysis(analysis => analysis = emailAnalysisDescriptor)
                 .DefaultPipeline(PipeLineNameHelper.PIPEEmail)
                 .FinalPipeline(PipeLineNameHelper.PIPEvalidate)
-                )                
-            .Map<FSOemail>(map => map      
+                )
+            .Map<FSOemail>(map => map
                 .Properties(
                     property => property = GetDefaultPropertyMappingDescriptor<FSOemail>()
                         //[Text(Analyzer = InitializationIndex.EMAILADDRESS, SearchAnalyzer = InitializationIndex.EMAILADDRESSSEARCH)]
@@ -161,7 +161,7 @@ namespace HOK.Elastic.DAL
                 .AutoMap()
                 .Dynamic(false)
                 )
-            ); 
+            );
             WriteResponse(createFileResponse, false);
         }
 
@@ -179,12 +179,12 @@ namespace HOK.Elastic.DAL
                 .Map<FSOfile>(map => map
                     .Properties(property => property = GetDefaultPropertyMappingDescriptor<FSOfile>())
                     .AutoMap<FSOfile>()
-                    .Dynamic(false)                    
+                    .Dynamic(false)
                     )
             );
             WriteResponse(createFileResponse, false);
         }
-    
+
         public void BuildIndexFSODocument(bool runningInteractively)
         {
             int shards = runningInteractively ? GetUserInteractiveInput("How many shards for document index?", 1, 64) : 1;
@@ -197,16 +197,16 @@ namespace HOK.Elastic.DAL
                    .DefaultPipeline(PipeLineNameHelper.PIPEDocument)
                    .FinalPipeline(PipeLineNameHelper.PIPEvalidate)
                     )
-                .Map<FSOdocument>(map => map                    
+                .Map<FSOdocument>(map => map
                     .Properties(property => property = GetDefaultPropertyMappingDescriptor<FSOdocument>())
                     .AutoMap<FSOdocument>()
-                    .Dynamic(false)                    
+                    .Dynamic(false)
                 )
            );
             WriteResponse(createFileResponse, false);
         }
 
-        private TypeMappingDescriptor<T> GetTypeMappingDescriptor<T>() where T : class,IFSO
+        private TypeMappingDescriptor<T> GetTypeMappingDescriptor<T>() where T : class, IFSO
         {
             TypeMappingDescriptor<T> typeMappingDescriptor = new TypeMappingDescriptor<T>();
             typeMappingDescriptor.AutoMap(typeof(T));
@@ -242,36 +242,36 @@ namespace HOK.Elastic.DAL
                                 .Keyword(k => k.Name("keyword").Normalizer(LOWERCASE).IgnoreAbove(512))
                                 )
                             )
-                        .Object<ProjectId>(o=>o
-                            .Name(n=>n.Project)
+                        .Object<ProjectId>(o => o
+                            .Name(n => n.Project)
                             .AutoMap()
-                            .Properties(p=>p                            
-                            .Text(t=>t
-                                .Name(n=>n.FullName)//in v3 maybe we could make project.number have a keyword field.
+                            .Properties(p => p
+                            .Text(t => t
+                                .Name(n => n.FullName)//in v3 maybe we could make project.number have a keyword field.
                                 .Analyzer(NONWHITESPACEEDGE)
                                 .SearchAnalyzer(NONWHITESPACEEDGESEARCH)
-                                .Fields(f=>f
-                                    .Keyword(k=>k.Name("keyword").Normalizer(LOWERCASE))//specifying keyword name results in 
+                                .Fields(f => f
+                                    .Keyword(k => k.Name("keyword").Normalizer(LOWERCASE))//specifying keyword name results in 
                                     )
                                 )
                             .Text(t => t
-                                .Name(n=>n.Number)//in v3 maybe we could make project.number have a keyword field.
+                                .Name(n => n.Number)//in v3 maybe we could make project.number have a keyword field.
                                 .Analyzer(NONWHITESPACEEDGE)
                                 .SearchAnalyzer(NONWHITESPACEEDGESEARCH)
                                 .Fields(f => f
                                     .Keyword(k => k.Name("keyword"))
                                     )
                                 )
-                            )   
+                            )
                         )
                         .FieldAlias(fa => fa
                             .Name("wBS1")
-                            .Path(pa=>pa.Project.Number)
+                            .Path(pa => pa.Project.Number)
                         )
                         ;
             return propertyMappingDescriptor;
         }
-  
+
 
         /// <summary>
         /// In future, we could compare the analyzer in code with cluster and warn on mismatch
