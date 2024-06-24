@@ -311,7 +311,7 @@ namespace HOK.Elastic.DAL
             var extraClauseExtants = exceptTheseExtantChildren.Skip(maxClauseCount).ToList();
             if(extraClauseExtants.Any())
             {
-                if(ilwarn)_il.LogWarn(nameof(FindDescendants)+ "had too many clause/extantchildren and will not be included in query; but will be filtered in code.",directoryPath,extraClauseExtants.Count);
+                if(ilwarn)_il.LogWarn(nameof(FindDescendants)+ " had too many clause/extantchildren and will not be included in query; but will be filtered in code.",directoryPath,extraClauseExtants.Count);
             }
 
             var mustNots = new List<Func<QueryContainerDescriptor<FSO>, QueryContainer>>();

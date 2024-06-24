@@ -320,7 +320,7 @@ namespace HOK.Elastic.DAL
                     var logPathGroupings = docsByIndex.GroupBy(files => Path.GetDirectoryName(files.Id), x => Path.GetFileName(x.Id));
                     foreach (var group in logPathGroupings)
                     {
-                        _il.LogDebugInfo($"{nameof(DeleteGroup)} {docsByIndex.Key} items", group.Key,string.Join(",", group.ToList()));
+                        _il.LogDebugInfo($"{nameof(DeleteGroup)} items", group.Key,new Tuple<string,List<string>>(docsByIndex.Key,group.ToList()));//string.Join(",", group.ToList()));
                     }
                 }
             }
