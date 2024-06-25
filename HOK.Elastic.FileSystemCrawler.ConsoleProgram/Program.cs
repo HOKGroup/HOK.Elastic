@@ -312,7 +312,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             }
             else if (ildebug)
             {
-                _il.LogDebugInfo("Cancellation already requested.");
+                _il.LogDbgInfo("Cancellation already requested.");
             }
         }
 

@@ -56,7 +56,7 @@ namespace HOK.NasuniAuditEventAPI.Controllers
             var listOfItemsToRemove = events.Select(x => x.Path).ToList();
             if (_logger.IsEnabled(LogLevel.Debug))
             {
-                _logger.LogDebugInfo($"{HttpContext.Connection.RemoteIpAddress} Fetching Top: {queryOptions?.Top?.RawValue}", null, string.Join(";", listOfItemsToRemove));
+                _logger.LogDbgInfo($"{HttpContext.Connection.RemoteIpAddress} Fetching Top: {queryOptions?.Top?.RawValue}", null, string.Join(";", listOfItemsToRemove));
             }
             else if (_logger.IsEnabled(LogLevel.Information))
             {
@@ -68,7 +68,7 @@ namespace HOK.NasuniAuditEventAPI.Controllers
                 {
                     if (_logger.IsEnabled(LogLevel.Debug))
                     {
-                        _logger.LogDebugInfo("Removing from Queue", null, string.Join(";", listOfItemsToRemove.Select(x => System.IO.Path.GetFileName(x))));
+                        _logger.LogDbgInfo("Removing from Queue", null, string.Join(";", listOfItemsToRemove.Select(x => System.IO.Path.GetFileName(x))));
                     }
                     if (listOfItemsToRemove.Any())
                     {

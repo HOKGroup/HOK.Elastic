@@ -53,7 +53,7 @@ namespace Microsoft.Extensions.Logging
         }
        
 
-        public static void LogDebugInfo(this ILogger log, string text, string path = "", object data = null)
+        public static void LogDbgInfo(this ILogger log, string text, string path = "", object data = null)
         {
             log.LogDebug(GetJson(text, path, data));
         }

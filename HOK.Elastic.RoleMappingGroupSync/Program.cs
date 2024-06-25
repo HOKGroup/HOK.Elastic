@@ -92,7 +92,7 @@ namespace HOK.Elastic.RoleMappingGroupSync
                 var adUsers = GetADusers();
                 if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
                 {
-                    _il.LogDebugInfo(string.Format("Found '{0}' users", adUsers.Count));
+                    _il.LogDbgInfo(string.Format("Found '{0}' users", adUsers.Count));
                 }
                 foreach (var user in adUsers)
                 {
@@ -104,7 +104,7 @@ namespace HOK.Elastic.RoleMappingGroupSync
                     {
                         if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
                         {
-                            _il.LogDebugInfo("Already present", user.DN);
+                            _il.LogDbgInfo("Already present", user.DN);
                         }
                         bool metadataNeedsUpdating = false;
 
@@ -138,7 +138,7 @@ namespace HOK.Elastic.RoleMappingGroupSync
                             {
                                 if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
                                 {
-                                    _il.LogDebugInfo("Updating rolemapping for user due to username mismatch.", user.ElasticFriendlyName);
+                                    _il.LogDbgInfo("Updating rolemapping for user due to username mismatch.", user.ElasticFriendlyName);
                                 }
                                 ourElasticCluster.PutUserRoleMapping(new string[] { user.ElasticFriendlyName }, user.Name, user.ElasticFriendlyName);
                             }
@@ -155,7 +155,7 @@ namespace HOK.Elastic.RoleMappingGroupSync
                         {
                             if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
                             {
-                                _il.LogDebugInfo("Updating query for role", user.ElasticFriendlyName);
+                                _il.LogDbgInfo("Updating query for role", user.ElasticFriendlyName);
                             }
                             ourElasticCluster.PutUserRole(user.ElasticFriendlyName, tokenGroupSIDs, key);
                         }

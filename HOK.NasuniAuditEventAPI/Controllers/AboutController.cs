@@ -19,7 +19,7 @@ namespace HOK.NasuniAuditEventAPI.Controllers
         {
             if (_logger.IsEnabled(LogLevel.Debug))
             {
-                _logger.LogDebugInfo("About", Request.GetDisplayUrl(), _eventReader);
+                _logger.LogDbgInfo("About", Request.GetDisplayUrl(), _eventReader);
             }
             return View(_eventReader);
         }

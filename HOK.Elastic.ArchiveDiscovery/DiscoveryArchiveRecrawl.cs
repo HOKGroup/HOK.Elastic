@@ -34,7 +34,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             {
                 if (ilerror) _il.LogErr("Failed", null, search.Exception?.Flatten().Message ?? response.ServerError?.Error.ToString());
             }
-            if (ildebug) _il.LogDebug("Offices:" + string.Join(',', offices));
+            if (ildebug) _il.LogDbgInfo("Offices:","",offices);
             return offices;
         }
 
@@ -72,7 +72,7 @@ namespace HOK.Elastic.ArchiveDiscovery
 #if DEBUG
                 if (ildebug)
                 {
-                    _il.LogDebugInfo("OurScroll took: " + DateTime.Now.Subtract(scrollTime).TotalMinutes.ToString());
+                    _il.LogDbgInfo("OurScroll took: " + DateTime.Now.Subtract(scrollTime).TotalMinutes.ToString());
                 }
 #endif
                 searchResponse = client.Scroll<FSOdirectory>(scrolltimeout, searchResponse.ScrollId);

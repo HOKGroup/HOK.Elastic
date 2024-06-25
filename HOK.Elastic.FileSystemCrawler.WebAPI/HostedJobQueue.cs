@@ -130,7 +130,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             {
                 if (DateTime.Now.Subtract(trigger) > TimeSpan.FromMinutes(5))
                 {
-                    if (isDebug) _logger.LogDebug($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
+                    if (isDebug) _logger.LogDbgInfo($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
                     trigger = DateTime.Now;
                     Save();
                     CleanupOldJobs();
@@ -182,7 +182,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 }
                 catch (Exception ex)
                 {
-                    if (isError) _logger.LogError(ex,"Error removing" + job.Id  +  "(" + job.SettingsJobArgsDTO.JobName + ")");
+                    if (isError) _logger.LogErr("Error removing" + job.Id  +  "(" + job.SettingsJobArgsDTO.JobName + ")","",null,ex);
                 }
             }
         }
@@ -201,7 +201,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                    
                 }catch (Exception ex)
                 {
-                    if (isWarn) _logger.LogWarning(ex, "Couldn't delete old job at '{0}'",oldJobPath);
+                    if (isWarn) _logger.LogWarn("Couldn't delete old job",oldJobPath,new HOK.Elastic.Logger.ExceptionSerializable(ex));
                 }
             }
         }
@@ -212,7 +212,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             HostedJobInfo job = new HostedJobInfo(settingsJobArgsDTO, _cts.Token);
             job.Id = GetNextId();
             _jobs[job.Id] = job;
-            if (isInfo) _logger.LogInformation($">>>>>>>Inserting {job.Id} : {job}");
+            if (isInfo) _logger.LogInfo($">>>>>>>Inserting {job.Id} : {job}");
             return job.Id;
         }
 
@@ -291,9 +291,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 try
                 {
                     string json = System.IO.File.ReadAllText(_persistFile);
-                    if (isDebug) _logger.LogDebug(json);
+                    if (isDebug) _logger.LogDbgInfo(json);
                     var jobs = JsonConvert.DeserializeObject<HostedJobInfo[]>(json);
-                    if (isDebug) _logger.LogDebug($"job count = {jobs.Count()}");
+                    if (isDebug) _logger.LogDbgInfo($"job count = {jobs.Count()}");
 
                     foreach (var job in jobs.OrderBy(x => x.Id))
                     {
@@ -348,8 +348,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 var jobLogger = jobLogConfig.Item3;
                 if (jobLogger.IsEnabled(LogLevel.Information))
                 {
-                    jobLogger.LogInformation("Constructing....");
-                    jobLogger.LogInformation($"Joblocation={workerargs.InputPathLocation}");
+                    jobLogger.LogInfo("Constructing....");
+                    jobLogger.LogInfo($"Joblocation={workerargs.InputPathLocation}");
                 }
                 IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
                 PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
@@ -398,7 +398,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
             catch (Exception ex)
             {
-                if (isError) _logger.LogError(ex, $"Running {hostedJobInfo.Id}");
+                if (isError) _logger.LogErr($"Running {hostedJobInfo.Id}","",null,ex);
                 hostedJobInfo.Exception = ex;
                 hostedJobInfo.Status = HostedJobInfo.State.completedWithException;
             }
@@ -419,7 +419,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
             catch (Exception ex)
             {
-                if (isError) _logger.LogError(ex, $"Couldn't send email notification {hostedJobInfo.Id} to '{email??" "}'");
+                if (isError) _logger.LogErr($"Couldn't send email notification {hostedJobInfo.Id} to '{email??" "}'", "", null, ex);
             }
             return hostedJobInfo;//do we make it here when there's been an exception.
         }
@@ -466,7 +466,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private void Finish(HostedJobInfo jobInfo)
         {
             Interlocked.Increment(ref _jobsCompleted);
-            if (isInfo) _logger.LogInformation("Completed {JobInfo}", jobInfo);
+            if (isInfo) _logger.LogInfo("Completed {JobInfo}", jobInfo);
             var workerargs = SettingsJobArgsDTO.UnDTO(jobInfo.SettingsJobArgsDTO);
             var outputPath = workerargs.InputPathLocation;
             Save();
@@ -478,7 +478,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
             catch (Exception ex)
             {
-                if (isError) _logger.LogError($"Couldn't save {filename} with {jobInfo.ToString()}", ex);
+                if (isError) _logger.LogErr($"Couldn't save {filename} with {jobInfo.ToString()}","",null, ex);
             }
             OnTaskCompleted(jobInfo.Id);
         }

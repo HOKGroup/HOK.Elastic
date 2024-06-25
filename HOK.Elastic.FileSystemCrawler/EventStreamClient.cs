@@ -54,7 +54,7 @@ namespace HOK.Elastic.FileSystemCrawler
 
                 if (httpRESTResponseFromService == null || !httpRESTResponseFromService.Any())
                 {
-                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug)) _il.LogDebugInfo("No API items returned...", null, null);
+                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug)) _il.LogDbgInfo("No API items returned...", null, null);
 #if DEBUG
                     await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
 #else
@@ -75,7 +75,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     {
                         thetaskInfo.InputPaths.Add(item);
                     }
-                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug)) _il.LogDebugInfo($"Found {thetaskInfo.InputPaths.Count} work items", "", null);
+                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug)) _il.LogDbgInfo($"Found {thetaskInfo.InputPaths.Count} work items", "", null);
                     CompletionInfo iterationCompletionInfo = await workerEventStream.RunAsync(thetaskInfo).ConfigureAwait(false);
                     totalCompletionInfo.Deleted += iterationCompletionInfo.Deleted;
                     totalCompletionInfo.DirCount += iterationCompletionInfo.DirCount;
@@ -143,13 +143,13 @@ namespace HOK.Elastic.FileSystemCrawler
                 else
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogInformation( "Error in {0}", nameof(GetEvents),content);
+                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogInfo( "Error in "+ nameof(GetEvents),,content);
                 }
             }
             catch (Exception ex)
             {
                 var result = await response?.Content.ReadAsStringAsync();
-                if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogError(ex,"Error in {0}",nameof(GetEvents),result.Take(300));
+                if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogErr("Error in" + nameof(GetEvents),,result.Take(50),ex);
             }
             return null;
         }

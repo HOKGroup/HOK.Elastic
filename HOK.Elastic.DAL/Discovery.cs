@@ -99,7 +99,7 @@ namespace HOK.Elastic.DAL
                                     else
                                     {
                                         //this isn't expected.
-                                        if (ilwarn) _il.LogWarning("Root document wasn't returned {0} ", directoryPath);
+                                        if (ilwarn) _il.LogWarn("Root document wasn't returned {0} ", directoryPath);
                                         directoryContents = new DirectoryContents()
                                         {
                                             Id = directoryPath,
@@ -131,7 +131,7 @@ namespace HOK.Elastic.DAL
                 }
                 catch (Exception ex)
                 {
-                    if (ilerror) _il.LogError(ex, "Unexpected Error in {0} because {1}", nameof(FindRootAndChildren), ex.Message);
+                    if (ilerror) _il.LogErr($"Unexpected Error in {nameof(FindRootAndChildren)} because {ex.Message}", "",null,ex );
                 }
             }
             return directoryContents;
@@ -197,7 +197,7 @@ namespace HOK.Elastic.DAL
                     }
                     if (counter > 0&&ildebug)
                     {
-                        _il.LogDebugInfo($"{nameof(FindChildrenPIT)} loop #{counter++} returning documents", directoryPath);
+                        _il.LogDbgInfo($"{nameof(FindChildrenPIT)} loop #{counter++} returning documents", directoryPath);
                     }
                 } while (withPIT && lastHit != null);
 
@@ -258,7 +258,7 @@ namespace HOK.Elastic.DAL
                     }
                     if (counter > 0 && ildebug)
                     {
-                        _il.LogDebugInfo($"{nameof(FindChildrenPIT)} loop #{counter++} returning documents in '{2}'", guardianPath);
+                        _il.LogDbgInfo($"{nameof(FindChildrenPIT)} loop #{counter++} returning documents in '{2}'", guardianPath);
                     }
                 } while (lastHit != null);
 
@@ -412,7 +412,7 @@ namespace HOK.Elastic.DAL
                     }
                     if (counter > 0 && ildebug)
                     {
-                        _il.LogDebugInfo($"{nameof(FindDescendants)} loop #{counter++} returning documents in '{2}'", directoryPath);
+                        _il.LogDbgInfo($"{nameof(FindDescendants)} loop #{counter++} returning documents in '{2}'", directoryPath);
                     }
                 } while (withPIT && lastHit != null);
 
@@ -433,7 +433,7 @@ namespace HOK.Elastic.DAL
                 }
                 else if(ildebug)
                 {
-                    _il.LogDebugInfo($"{nameof(FindDescendants)} returned aprox {docCount} documents", directoryPath);
+                    _il.LogDbgInfo($"{nameof(FindDescendants)} returned aprox {docCount} documents", directoryPath);
                 }
             }
         }
@@ -577,7 +577,7 @@ namespace HOK.Elastic.DAL
                             Pause("MissingContent");
                         }
                     }
-                    _il.LogDebug("{0} loop #{1} returning documents in '{2}'", nameof(GetIFSOsByQuery), counter++, jsonQueryString);
+                    _il.LogDbgInfo($"{nameof(GetIFSOsByQuery)} loop #{counter++} returning documents in '{indexFilter}'","",jsonQueryString);
                     if (ilinfo) _il.LogInfo($"Doc {indexFilter} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", jsonQueryString);
 
                 } while (lastHit != null);
@@ -588,7 +588,8 @@ namespace HOK.Elastic.DAL
                 if (pit != null)
                 {
                     var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
-                    if (ilinfo) _il.LogInformation("Closed" + closeResponse);
+                    //if (ilinfo) _il.LogInformation("Closed" + closeResponse);
+                    if(ilinfo) _il.LogInfo("Closed" + closeResponse);
                 }
                 if (ilinfo) _il.LogInfo($"Doc {indexFilter} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", jsonQueryString);
             }
@@ -708,7 +709,7 @@ namespace HOK.Elastic.DAL
                 if (pit != null)
                 {
                     var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
-                    if (ilinfo) _il.LogInformation("Closed" + closeResponse);
+                    if (ilinfo) _il.LogInfo("Closed" + closeResponse);
                 }
                 if (ilinfo) _il.LogInfo($"Doc {indexFilter} missing content query for items newer then {minimumDate.Value.Year} and failure count {failureCountFilter}", directoryPublishedPath);
             }
@@ -735,7 +736,7 @@ namespace HOK.Elastic.DAL
             }
             else
             {
-                _il.LogWarning("Unable to get PIT");
+                _il.LogWarn("Unable to get PIT");
                 return null;
             }
         }

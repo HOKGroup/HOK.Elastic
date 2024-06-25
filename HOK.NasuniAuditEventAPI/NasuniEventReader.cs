@@ -240,7 +240,7 @@ namespace HOK.NasuniAuditEventAPI
                                 {
                                     if (_logger.IsEnabled(LogLevel.Debug))
                                     {
-                                        _logger.LogDebugInfo("skipping", nasuniAuditRecord.path, line);
+                                        _logger.LogDbgInfo("skipping", nasuniAuditRecord.path, line);
                                     }
                                     PathSkipped++;
                                 }

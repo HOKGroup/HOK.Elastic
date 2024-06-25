@@ -124,7 +124,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 Interlocked.Increment(ref _misses);
                 if (isDebugEnabled)
                 {
-                    _il.LogDebugInfo($"We missed but have {_misses} misses and {_hits} hits so far");
+                    _il.LogDbgInfo($"We missed but have {_misses} misses and {_hits} hits so far");
                 }
 #endif
             }

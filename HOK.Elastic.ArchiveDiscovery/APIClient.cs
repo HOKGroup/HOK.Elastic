@@ -72,7 +72,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                 var result = await response.Content.ReadFromJsonAsync<HostedJobInfo>();
                 if (result != null)
                 {
-                    if (ilDebug) _il.LogDebugInfo("Retrieved task info", null, result);
+                    if (ilDebug) _il.LogDbgInfo("Retrieved task info", null, result);
                     return result;
                 }
             }

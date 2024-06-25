@@ -37,17 +37,17 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         {
             if (isDebug)
             {
-                _logger.LogDebugInfo("Index", Request.GetDisplayUrl(), _hostedJobScheduler.Jobs);
+                _logger.LogDbgInfo("Index", Request.GetDisplayUrl(), _hostedJobScheduler.Jobs);
             }
             var jobs = _hostedJobScheduler.Jobs;
             if (jobs != null)
             {
-                if (isInfo) _logger.LogInformation($"Getting{jobs.Count()} jobs");
+                if (isInfo) _logger.LogInfo($"Getting{jobs.Count()} jobs");
                 return View(jobs.OrderBy(x=>x.Id).ToList());
             }
             else
             {
-                if (isInfo) _logger.LogInformation($"Null jobs");
+                if (isInfo) _logger.LogInfo($"Null jobs");
                 return View();
             }
         }
@@ -62,7 +62,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                if (isErr) _logger.LogError(ex, $"{nameof(Details)} requested id={id}");
+                if (isErr) _logger.LogErr($"{nameof(Details)} requested id={id}","",null,ex);
                 return NotFound(ex.Message);
             }            
         }
@@ -132,7 +132,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             }
             catch(Exception ex)
             {
-                if (isErr) _logger.LogError(ex, $"{nameof(Create)} attempted to create failed.");
+                if (isErr) _logger.LogErr($"{nameof(Create)} attempted to create failed.","",null,ex);
                 throw;
             }
             return View(settingsJobArgsDTO);
@@ -156,14 +156,14 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
                     if (!hostedJobInfo.IsCompleted)
                     {
                         hostedJobInfo.Cancel();
-                        if (isInfo) _logger.LogInformation($"Canceled Id:{hostedJobInfo.Id} JobName:{hostedJobInfo.SettingsJobArgsDTO.JobName}");
+                        if (isInfo) _logger.LogInfo($"Canceled Id:{hostedJobInfo.Id} JobName:{hostedJobInfo.SettingsJobArgsDTO.JobName}");
                     }                   
                 }
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                if (isErr) _logger.LogError(ex, "Error cancelling..");
+                if (isErr) _logger.LogErr( "Error cancelling..","",null,ex);
                 return View(hostedJobInfo);
             }
         }
@@ -187,7 +187,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
                     //if (!hostedJobInfo.IsCompleted)
                     //{
                         var removed = _hostedJobScheduler.Remove(id);
-                        if (isInfo) _logger.LogInformation("Removed" + removed);
+                        if (isInfo) _logger.LogInfo("Removed" + removed);
                     //}
                 }
                 return RedirectToAction(nameof(Index));

@@ -88,7 +88,7 @@ namespace HOK.Elastic.DAL
             }
             else
             {
-                if (ildebug) _il.LogDebugInfo("Index.InsertFile", item.Id, true);
+                if (ildebug) _il.LogDbgInfo("Index.InsertFile", item.Id, true);
             }
         }
 
@@ -106,7 +106,7 @@ namespace HOK.Elastic.DAL
             }
             else
             {
-                if (ildebug) _il.LogDebugInfo("Index.Insertdirectory", item.Id, true);
+                if (ildebug) _il.LogDbgInfo("Index.Insertdirectory", item.Id, true);
             }
         }
 
@@ -123,7 +123,7 @@ namespace HOK.Elastic.DAL
             }
             else
             {
-                if (ildebug) _il.LogDebugInfo("Index.InsertEmail", item.Id);
+                if (ildebug) _il.LogDbgInfo("Index.InsertEmail", item.Id);
             }
         }
 
@@ -166,7 +166,7 @@ namespace HOK.Elastic.DAL
                 }
                 else
                 {
-                    if (ildebug) _il.LogDebugInfo("Index.InsertTika", item.Id);
+                    if (ildebug) _il.LogDbgInfo("Index.InsertTika", item.Id);
                 }
             }
         }
@@ -185,7 +185,7 @@ namespace HOK.Elastic.DAL
             }
             else
             {
-                if (ildebug) _il.LogDebugInfo("Index.InsertTika-Nocontent", item.Id);
+                if (ildebug) _il.LogDbgInfo("Index.InsertTika-Nocontent", item.Id);
             }
         }
 
@@ -224,7 +224,7 @@ namespace HOK.Elastic.DAL
                                           }
                                           if (response.Items.Any() && ilwarn)
                                           {
-                                              _il.LogDebugInfo($"Bulk success {response.Items.Count()}");
+                                              _il.LogDbgInfo($"Bulk success {response.Items.Count()}");
                                           }
                                       }
                                   })
@@ -245,7 +245,7 @@ namespace HOK.Elastic.DAL
                       {
                           if (ildebug)
                           {
-                              _il.LogDebugInfo($"Bulked {next.Items.Count:N0} of {group.Count():N0} items, in {next.Retries.ToString()} retries, up to item '{next.Items.Last().Id}'", next.Items.First().Id, null);//we could pass dws here but it will fillup the logs
+                              _il.LogDbgInfo($"Bulked {next.Items.Count:N0} of {group.Count():N0} items, in {next.Retries.ToString()} retries, up to item '{next.Items.Last().Id}'", next.Items.First().Id, null);//we could pass dws here but it will fillup the logs
                           }
                       });
                 }
@@ -320,7 +320,7 @@ namespace HOK.Elastic.DAL
                     var logPathGroupings = docsByIndex.GroupBy(files => Path.GetDirectoryName(files.Id), x => Path.GetFileName(x.Id));
                     foreach (var group in logPathGroupings)
                     {
-                        _il.LogDebugInfo($"{nameof(DeleteGroup)} items", group.Key,new Tuple<string,List<string>>(docsByIndex.Key,group.ToList()));//string.Join(",", group.ToList()));
+                        _il.LogDbgInfo($"{nameof(DeleteGroup)} items", group.Key,new Tuple<string,List<string>>(docsByIndex.Key,group.ToList()));//string.Join(",", group.ToList()));
                     }
                 }
             }
@@ -383,19 +383,19 @@ namespace HOK.Elastic.DAL
             {
                 if (response.Deleted > WARNIFDELETEMORETHAN)
                 {
-                    if (ilwarn) _il.LogWarning("Deleted {1} from {0}", directoryPublishedPath, response.Deleted);
+                    if (ilwarn) _il.LogWarn("Deleted", directoryPublishedPath, response.Deleted);
                 }
                 else if (response.Deleted > CRITICALDELETEMORETHAN)
                 {
-                    if (ilerror) _il.LogCritical("Deleted an alarming lot of items from {0}! ({1})", directoryPublishedPath, response.Deleted);
+                    if (ilerror) _il.LogFatal("Deleted an alarming lot of items from {0}! ({1})", directoryPublishedPath, response.Deleted);
                 }
                 else if (response.Failures.Any())
                 {
-                    if (ilwarn) _il.LogWarning("Deleted {1} from {0} but had {2} failures", directoryPublishedPath, response.Deleted, response.Failures.Count );
+                    if (ilwarn) _il.LogWarn($"Deleted {response.Deleted} but had failures", directoryPublishedPath, response.Failures.Count );
                 }
                 else
                 {
-                    if (ildebug) _il.LogDebugInfo("Deleted {1} from {0}", directoryPublishedPath, response.Deleted);
+                    if (ildebug) _il.LogDbgInfo("Deleted", directoryPublishedPath, response.Deleted);
                 }
             }
             return response.Deleted;
@@ -429,7 +429,7 @@ namespace HOK.Elastic.DAL
                             }
                             if (totalDeletedCount > WARNIFDELETEMORETHAN)
                             {
-                                if (ilwarn) _il.LogWarning("More than {0} abandoned documents deleted under '{1}' ", WARNIFDELETEMORETHAN, directoryPath);
+                                if (ilwarn) _il.LogWarn("Exceeded abandoned documents deleted...exiting loop", directoryPath,WARNIFDELETEMORETHAN);
                                 exit = true;
                                 break;
                             }

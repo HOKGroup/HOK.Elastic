@@ -290,7 +290,7 @@ namespace HOK.Elastic.DAL
             foreach (var a in analysis.Analyzers)
             {
                 var methods = a.GetType().GetMembers();
-                if (ildebug) _il.LogDebugInfo(a.Key, a.Value?.Type, methods);
+                if (ildebug) _il.LogDbgInfo(a.Key, a.Value?.Type, methods);
             }
             return true;
         }

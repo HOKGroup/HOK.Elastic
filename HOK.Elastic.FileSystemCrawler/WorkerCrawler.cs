@@ -227,7 +227,7 @@ namespace HOK.Elastic.FileSystemCrawler
                                     {
                                         ///skip alcs 
 #if DEBUG
-                                        if (ildebug) _il.LogDebugInfo("dir acls equal skip", directory.PublishedPath);
+                                        if (ildebug) _il.LogDbgInfo("dir acls equal skip", directory.PublishedPath);
 #endif
                                     }
                                 }
@@ -244,7 +244,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         #region WriteOutPathsRegion
                         if (statusUpdateTimer < DateTime.Now)
                         {
-                            if (ildebug) _il.LogDebugInfo("Crawled", directory.PathForCrawlingContent, new CrawlMetrics()
+                            if (ildebug) _il.LogDbgInfo("Crawled", directory.PathForCrawlingContent, new CrawlMetrics()
                             {
                                 DirCount = _dircount,
                                 FileCount = Interlocked.Read(ref _filesmatched),
@@ -377,7 +377,7 @@ namespace HOK.Elastic.FileSystemCrawler
             }
             finally
             {
-                if (ildebug) _il.LogDebugInfo($"Recursion Complete. {_dircount} directories, {Interlocked.Read(ref _filesmatched)} files with {Interlocked.Read(ref _filesskipped)} skipped");
+                if (ildebug) _il.LogDbgInfo($"Recursion Complete. {_dircount} directories, {Interlocked.Read(ref _filesmatched)} files with {Interlocked.Read(ref _filesskipped)} skipped");
             }
             //TODO handle access denied errors - specifically error 53 intermittent network errors. Track number of retries? In          
         }

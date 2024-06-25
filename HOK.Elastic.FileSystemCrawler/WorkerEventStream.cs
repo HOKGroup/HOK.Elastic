@@ -42,7 +42,7 @@ namespace HOK.Elastic.FileSystemCrawler
             {
                 if (ildebug)
                 {
-                    _il.LogDebugInfo("Starting", "", _args);
+                    _il.LogDbgInfo("Starting", "", _args);
                 }
                 _il.LogInfo("Discovery" + _discoveryEndPoint.GetClientStatus());
                 _il.LogInfo("IndexNodes" + _indexEndPoint.GetClientStatus());
@@ -84,7 +84,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 int count = 0;
                 foreach (InputPathEventStream path in args.InputPaths)
                 {
-                    if (ildebug) _il.LogDebugInfo("Bufferblock Add", path.Path, path);
+                    if (ildebug) _il.LogDbgInfo("Bufferblock Add", path.Path, path);
                     await bb.SendAsync(path).ConfigureAwait(false);
                     count++;
                 }
@@ -139,7 +139,7 @@ namespace HOK.Elastic.FileSystemCrawler
             {
                 if (auditEvent.IsDir ? HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(auditEvent.Path) : HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreFile(auditEvent.Path))
                 {
-                    if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy PathTo ShouldIgnore", auditEvent.Path, null);
+                    if (ildebug) _il.LogDbgInfo("ActionMoveOrCopy PathTo ShouldIgnore", auditEvent.Path, null);
                     if (!auditEvent.IsDir ? HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(auditEvent.PathFrom) : HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreFile(auditEvent.PathFrom))
                     {
                         ActionDelete(auditEvent);
@@ -159,7 +159,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 }
                 ToDoc = DocumentHelper.ReindexTransform(ToDoc);
 
-                if (ildebug) _il.LogDebugInfo("ActionMoveOrCopy OK", auditEvent.Path, auditEvent);
+                if (ildebug) _il.LogDbgInfo("ActionMoveOrCopy OK", auditEvent.Path, auditEvent);
                 if (auditEvent.IsDir)
                 {
                     var fromPublishedPath = PathHelper.GetPublishedPath(auditEvent.PathFrom);
@@ -197,7 +197,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             }
                                                         
                             fso.Reason = fso.AppendReason("ActionMoveOrCopy Child");
-                            if (ildebug) _il.LogDebugInfo(fso.Reason, oldPath, newPublishedPath);
+                            if (ildebug) _il.LogDbgInfo(fso.Reason, oldPath, newPublishedPath);
                             await docReindexTransformBlock.SendAsync(fso).ConfigureAwait(false);
 
                             if (fso is FSOdirectory)
@@ -259,7 +259,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     var existingdoc = GetExistingDocument(auditEvent);
                     if (existingdoc != null)
                     {
-                        _il.LogDebugInfo("ActionMoveOrCopy File Reindex", existingdoc.Id, ToDoc.Id);
+                        _il.LogDbgInfo("ActionMoveOrCopy File Reindex", existingdoc.Id, ToDoc.Id);
                         if (auditEvent.PresenceAction == ActionPresence.Move)
                         {
                             if (!File.Exists(auditEvent.PathFrom))//this was path which would be the field for destination....which is incorrect
@@ -315,7 +315,7 @@ namespace HOK.Elastic.FileSystemCrawler
 
                 if (auditEvent.IsDir ? HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreDirectory(auditEvent.Path) : HOK.Elastic.DAL.Models.PathHelper.ShouldIgnoreFile(auditEvent.Path))
                 {
-                    _il.LogDebugInfo("ActionUpdateOrNew ShouldIgnore", auditEvent.Path, null);
+                    _il.LogDbgInfo("ActionUpdateOrNew ShouldIgnore", auditEvent.Path, null);
                     Interlocked.Increment(ref _filesskipped);
                     return;
                 }
@@ -323,7 +323,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 newIfso = DocumentHelper.MakeBasicDoc(auditEvent.Path, auditEvent.IsDir);
                 if (newIfso == null)
                 {
-                    _il.LogDebugInfo("ActionUpdateOrNew NotFound", auditEvent.Path, null);
+                    _il.LogDbgInfo("ActionUpdateOrNew NotFound", auditEvent.Path, null);
                     Interlocked.Increment(ref _filesnotfound);
                     return;
                 }
@@ -364,7 +364,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         if (counter > 0)
                         {
                             Interlocked.Add(ref _filesmatched, counter);
-                            if (ildebug) _il.LogDebugInfo(string.Format("Updated {0} items as a result of guardian path change", counter), auditEvent.Path, counter);
+                            if (ildebug) _il.LogDbgInfo(string.Format("Updated {0} items as a result of guardian path change", counter), auditEvent.Path, counter);
                         }
                     }
                     else
@@ -381,7 +381,7 @@ namespace HOK.Elastic.FileSystemCrawler
 
         private void ActionDelete(InputPathEventStream auditEvent)
         {
-            _il.LogDebugInfo("ActionDelete", auditEvent.Path, auditEvent.ToString());
+            _il.LogDbgInfo("ActionDelete", auditEvent.Path, auditEvent.ToString());
             try
             {
                 var existingdoc = GetExistingDocument(auditEvent);
@@ -391,7 +391,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     {
                         if (!Directory.Exists(auditEvent.Path) && IsCrawlServerOnline(auditEvent.Path))//only if the directory actually doesn't exist should we proceed to delete
                         {
-                            if (ildebug) _il.LogDebugInfo("Deleting directory contents", existingdoc.Id, null);
+                            if (ildebug) _il.LogDbgInfo("Deleting directory contents", existingdoc.Id, null);
                             //changed this method call to include all indicies so it deletes files and folders that don't exist.
                             var deletedCount = _indexEndPoint.DeleteDirectoryDescendants(existingdoc.Id, _discoveryEndPoint.IndexHelper.AllIndexNames);
                             Interlocked.Add(ref _deleted, deletedCount);
@@ -401,7 +401,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     {
                         if (!File.Exists(auditEvent.Path) && IsCrawlServerOnline(auditEvent.Path))//only if the file doesn't actually exist should we delete
                         {
-                            if (ildebug) _il.LogDebugInfo("Deleting file.", existingdoc.Id, null);
+                            if (ildebug) _il.LogDbgInfo("Deleting file.", existingdoc.Id, null);
                             Interlocked.Add(ref _deleted, _indexEndPoint.Delete(existingdoc.Id, existingdoc.IndexName));
                         }
                     }

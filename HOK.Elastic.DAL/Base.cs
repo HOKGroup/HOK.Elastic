@@ -131,7 +131,7 @@ namespace HOK.Elastic.DAL
             {
                 if (iresponse.IsValid)
                 {
-                    if (ildebug) _il.LogDebugInfo($"call: '{iresponse.ApiCall.Uri.AbsoluteUri}'");
+                    if (ildebug) _il.LogDbgInfo($"call: '{iresponse.ApiCall.Uri.AbsoluteUri}'");
                 }
                 else
                 {
@@ -224,7 +224,7 @@ namespace HOK.Elastic.DAL
 
             if (keyResponse.IsValid)
             {
-                if (ildebug) _il.LogDebugInfo("API Key generated for:" + String.Join(",",indexNames));
+                if (ildebug) _il.LogDbgInfo("API Key generated for:" + String.Join(",",indexNames));
                 return new ApiKey
                 {
                     Id = keyResponse.Id,
@@ -248,7 +248,7 @@ namespace HOK.Elastic.DAL
                 _il.LogWarn("Unable to invalidate API key");
                 return false;
             }
-            _il.LogDebug("Invalidated API key");
+            _il.LogDbgInfo("Invalidated API key");
             return true;
         }
 

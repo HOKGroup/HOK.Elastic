@@ -36,12 +36,12 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             var jobs = _hostedJobScheduler.Jobs;
             if (jobs != null)
             {
-                if (isInfo) _logger.LogInformation($"Getting{jobs.Count()} jobs");
+                if (isInfo) _logger.LogInfo($"Getting{jobs.Count()} jobs");
                 return Ok(jobs.ToList());
             }
             else
             {
-                if (isInfo) _logger.LogInformation($"Null job collection");
+                if (isInfo) _logger.LogInfo($"Null job collection");
                 return NotFound();
             }
         }    

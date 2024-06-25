@@ -446,12 +446,12 @@ namespace HOK.Elastic.FileSystemCrawler
                 _deleted += _indexEndPoint.Delete(item.Id, item.IndexName);//TODO - we probably want to ensure that we can't delete large number of items due to communication failure(item.Id, item.IndexName);
                 if (item is FSOdirectory)
                 {
-                    if (ildebug) _il.LogDebugInfo("Directory Not Found", item.Id);
+                    if (ildebug) _il.LogDbgInfo("Directory Not Found", item.Id);
                     _deleted += _indexEndPoint.DeleteDirectoryDescendants(item.Id,_indexEndPoint.IndexHelper.AllIndexNames);
                 }
                 else
                 {
-                    if (ildebug) _il.LogDebugInfo("File Not Found", item.Id);
+                    if (ildebug) _il.LogDbgInfo("File Not Found", item.Id);
                 }
             }
         }

@@ -21,7 +21,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             isWarn = logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Warning);
             isError = logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error);
             _logger = logger;
-            if (isInfo) _logger.LogInformation("Initialized");
+            if (isInfo) _logger.LogInfo("Initialized");
             _host = host;
             _port = port;
             _defaultSender = defaultSender;
@@ -49,11 +49,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     }
                     catch (Exception ex)
                     {
-                        if (isError) _logger.LogError("Error sending email because" + ex.Message);
+                        if (isError) _logger.LogErr("Error sending email because" + ex.Message);
                     }
                 }
             }
-            if (isInfo) _logger.LogInformation($"Sent {counter} emails");
+            if (isInfo) _logger.LogInfo($"Sent {counter} emails");
         }
 
         public static MailMessage MakeMessage(string from, string to, string subject, string body)

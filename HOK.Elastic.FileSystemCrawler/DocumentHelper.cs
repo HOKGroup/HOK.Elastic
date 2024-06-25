@@ -54,7 +54,7 @@ namespace HOK.Elastic.FileSystemCrawler
             try
             {
                 _indexNode.BulkInsert(items);
-                if(ildebug)_il.LogDebugInfo("BulkInserted","N/A",items.Count() );
+                if(ildebug)_il.LogDbgInfo("BulkInserted","N/A",items.Count() );
             }
             catch (Exception ex)
             {
