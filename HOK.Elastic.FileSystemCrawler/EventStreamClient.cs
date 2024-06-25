@@ -143,13 +143,13 @@ namespace HOK.Elastic.FileSystemCrawler
                 else
                 {
                     var content = await response.Content.ReadAsStringAsync();
-                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogInfo( "Error in "+ nameof(GetEvents),,content);
+                    if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogInfo( "Error in "+ nameof(GetEvents),"",content);
                 }
             }
             catch (Exception ex)
             {
                 var result = await response?.Content.ReadAsStringAsync();
-                if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogErr("Error in" + nameof(GetEvents),,result.Take(50),ex);
+                if (_il.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Error)) _il.LogErr("Error in" + nameof(GetEvents),"",result.Take(50),ex);
             }
             return null;
         }
