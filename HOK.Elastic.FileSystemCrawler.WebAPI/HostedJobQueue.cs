@@ -466,7 +466,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private void Finish(HostedJobInfo jobInfo)
         {
             Interlocked.Increment(ref _jobsCompleted);
-            if (isInfo) _logger.LogInfo("Completed {JobInfo}", jobInfo);
+            if (isInfo) _logger.LogInfo($"Completed {jobInfo}");
             var workerargs = SettingsJobArgsDTO.UnDTO(jobInfo.SettingsJobArgsDTO);
             var outputPath = workerargs.InputPathLocation;
             Save();
