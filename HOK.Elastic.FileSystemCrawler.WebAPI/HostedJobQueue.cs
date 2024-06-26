@@ -35,6 +35,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         private string _logsFolder = null; 
         private readonly DateTime _startTimeUTC;
         private IEmailService _emailService;
+        private SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
 
         private int _jobsCompleted;
         public TimeSpan UpTime => DateTime.UtcNow - _startTimeUTC;
@@ -272,41 +273,51 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
         #region Private Methods
         private void Save()//just a basic,best-effort to persist existing jobs (perhaps jobs that have completed but haven'customLogger been looked at etc.)
         {
-            try
-            {
-                var json = JsonConvert.SerializeObject(_jobs.Values, Formatting.Indented, new JsonSerializerSettings() { });
-                System.IO.File.WriteAllText(_persistFile, json, new UTF8Encoding(false));
-            }
-            catch (Exception ex)
-            {
-                if (isWarn) _logger.LogWarn("Error saving job", null, ex.Message);
-            }
-        }
-
-
-        private void Load()
-        {
-            if (System.IO.File.Exists(_persistFile))
+            if (_semaphore.Wait(500))
             {
                 try
                 {
-                    string json = System.IO.File.ReadAllText(_persistFile);
-                    if (isDebug) _logger.LogDbgInfo(json);
-                    var jobs = JsonConvert.DeserializeObject<HostedJobInfo[]>(json);
-                    if (isDebug) _logger.LogDbgInfo($"job count = {jobs.Count()}");
+                    var json = JsonConvert.SerializeObject(_jobs.Values, Formatting.Indented, new JsonSerializerSettings() { });
+                    System.IO.File.WriteAllText(_persistFile, json, new UTF8Encoding(false));
+                }
+                catch (Exception ex)
+                {
+                    if (isWarn) _logger.LogWarn("Error saving job", null, ex.Message);
+                }
+                finally
+                {
+                    _semaphore.Release();
+                }
+            }
+        }
 
-                    foreach (var job in jobs.OrderBy(x => x.Id))
-                    {
-                        if (job.Status < HostedJobInfo.State.cancelled) job.Status = HostedJobInfo.State.unstarted;//retry completing job that started but hadn't been previously marked as cancelled, completed or otherwise.
-                        if (!_jobs.TryAdd(job.Id, job))
+        private void Load()
+        {
+            if (System.IO.File.Exists(_persistFile)&&_semaphore.Wait(2000))
+            {
+                try
+                {              
+                        string json = System.IO.File.ReadAllText(_persistFile);
+                        if (isDebug) _logger.LogDbgInfo(json);
+                        var jobs = JsonConvert.DeserializeObject<HostedJobInfo[]>(json);
+                        if (isDebug) _logger.LogDbgInfo($"job count = {jobs.Count()}");
+
+                        foreach (var job in jobs.OrderBy(x => x.Id))
                         {
-                            if (isWarn) _logger.LogWarn($"Couldn't add jobid={job.Id} from '{_persistFile}' as it already exists");
-                        }
-                    }
+                            if (job.Status < HostedJobInfo.State.cancelled) job.Status = HostedJobInfo.State.unstarted;//retry completing job that started but hadn't been previously marked as cancelled, completed or otherwise.
+                            if (!_jobs.TryAdd(job.Id, job))
+                            {
+                                if (isWarn) _logger.LogWarn($"Couldn't add jobid={job.Id} from '{_persistFile}' as it already exists");
+                            }
+                        }                 
                 }
                 catch (Exception ex)
                 {
                     if (isError) _logger.LogErr($"Error loading {_persistFile}", null, null, ex);
+                }
+                finally
+                {
+                    _semaphore.Release();
                 }
             }
         }
