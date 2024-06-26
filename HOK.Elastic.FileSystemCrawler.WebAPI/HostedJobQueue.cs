@@ -279,7 +279,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             }
             catch (Exception ex)
             {
-                if (isError) _logger.LogErr("Error saving job", null, null, ex);
+                if (isWarn) _logger.LogWarn("Error saving job", null, ex.Message);
             }
         }
 

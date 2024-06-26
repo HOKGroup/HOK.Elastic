@@ -315,15 +315,16 @@ namespace HOK.Elastic.DAL
             foreach (var docsByIndex in docGroupedByIndex)
             {
                 count = +Delete(docsByIndex.Select(x => x.Id).ToArray(), docsByIndex.Key);
-                if (ildebug)
-                {
-                    var logPathGroupings = docsByIndex.GroupBy(files => Path.GetDirectoryName(files.Id), x => Path.GetFileName(x.Id));
-                    foreach (var group in logPathGroupings)
-                    {
-                        _il.LogDbgInfo($"{nameof(DeleteGroup)} items", group.Key,new Tuple<string,List<string>>(docsByIndex.Key,group.ToList()));//string.Join(",", group.ToList()));
-                    }
-                }
+                //if (ildebug)
+                //{
+                //    var logPathGroupings = docsByIndex.GroupBy(files => Path.GetDirectoryName(files.Id), x => Path.GetFileName(x.Id));
+                //    foreach (var group in logPathGroupings)
+                //    {
+                //        _il.LogDbgInfo($"{nameof(DeleteGroup)} items", group.Key,new Tuple<string,List<string>>(docsByIndex.Key,group.ToList()));
+                //    }
+                //}
             }
+            if(ildebug) _il.LogDbgInfo($"{nameof(DeleteGroup)} items","N/A",count);
             return count;
         }
         public long Delete(string key, string index)//should we specify only a single, targeted index?//TODO change this to a FILTER query for performance.
@@ -454,7 +455,7 @@ namespace HOK.Elastic.DAL
                                     }
                                     if (exists)
                                     {
-                                        if (ilwarn) _il.LogWarn("Unexepected existing document", doc.Id);//lock files for example are transient and appear occasionally
+                                        if (ilwarn) _il.LogWarn("Unexepected existing document!", doc.Id);//lock files for example are transient and appear occasionally
                                     }
                                     else
                                     {
