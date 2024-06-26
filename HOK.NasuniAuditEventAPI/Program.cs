@@ -66,6 +66,7 @@ isDebug = logger.IsEnabled(LogLevel.Debug);
 isInfo = logger.IsEnabled(LogLevel.Information);
 isWarn = logger.IsEnabled(LogLevel.Warning);
 isError = logger.IsEnabled(LogLevel.Error);
+if(isInfo)logger.LogWarn("Starting " + nameof(nasuniEventStreamReader));
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
