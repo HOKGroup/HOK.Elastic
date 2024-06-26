@@ -284,28 +284,30 @@ namespace HOK.Elastic.DAL
 
         public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
-            foreach (var page in FindDescendentsForMoving(path, 1000))
+            foreach (var doc in FindDescendants<FSOemail>(path, new List<string>(), SourceFilterDescriptors<FSOemail>.IncludeAlls, 1000))//;//move 'most valuable' documents first.
             {
-                foreach (var doc in page)
-                {
-                    yield return doc;
-                }
+                yield return doc;
             }
-           
+            foreach (var doc in FindDescendants<FSOdocument>(path, new List<string>(), SourceFilterDescriptors<FSOdocument>.IncludeAlls, 1000))//;//move 'most valuable' documents first.
+            {
+                yield return doc;
+            }
+            foreach (var doc in FindDescendants<FSOfile>(path, new List<string>(), SourceFilterDescriptors<FSOfile>.IncludeAlls, 1000))//;//move 'most valuable' documents first.
+            {
+                yield return doc;
+            }
+            foreach (var doc in FindDescendants<FSOdirectory>(path, new List<string>(), SourceFilterDescriptors<FSOdirectory>.IncludeAlls, 1000))//;//move 'most valuable' documents first.
+            {
+                yield return doc;
+            }
         }
 
-        public IEnumerable<List<FSO>> FindDescendentsForMoving(string path, int pageSize)
-        {
-            var documents = FindDescendants(path, new List<string>(), SourceFilterDescriptors<FSO>.IncludeAlls, pageSize);
-            return documents;
-        }
-
-        public IEnumerable<List<FSO>> FindDescendants(string directoryPath, List<string> exceptTheseExtantChildren, SourceFilterDescriptor<FSO> sourceFilter, int pageSize = 100, bool withPIT = false)
+        public IEnumerable<T> FindDescendants<T>(string directoryPath, List<string> exceptTheseExtantChildren, SourceFilterDescriptor<T> sourceFilter, int pageSize = 100, bool withPIT = false)where T : class, IFSO
         {
             int counter = 0;
             long docCount = 0;
             string pitID = null;
-            IHit<IFSO> lastHit = null;
+            IHit<T> lastHit = null;
             PointInTimeDescriptor pointInTime = null;
             int maxClauseCount = 900;//1024 is the default limit..use 900 as a safe buffer.
             var extraClauseExtants = exceptTheseExtantChildren.Skip(maxClauseCount).ToList();
@@ -314,7 +316,7 @@ namespace HOK.Elastic.DAL
                 if(ilwarn)_il.LogWarn(nameof(FindDescendants)+ " had too many clause/extantchildren and will not be included in query; but will be filtered in code.",directoryPath,extraClauseExtants.Count);
             }
 
-            var mustNots = new List<Func<QueryContainerDescriptor<FSO>, QueryContainer>>();
+            var mustNots = new List<Func<QueryContainerDescriptor<T>, QueryContainer>>();
             if (exceptTheseExtantChildren != null)
             {
                 //if there are good children don't return the children or the parent.
@@ -325,7 +327,7 @@ namespace HOK.Elastic.DAL
                 mustNots.Add(a => a.Term(new Field("id.keyword"), directoryPath));
             }
 
-            string indexFilter = GetIndexFilterName<IFSO>();
+            string indexFilter = GetIndexFilterName<T>();
 
             try
             {
@@ -340,7 +342,7 @@ namespace HOK.Elastic.DAL
                 }
                 do
                 {
-                    var response = client.Search<FSO>(s => s
+                    var response = client.Search<T>(s => s
                         .Index(indexFilter)
                         .Size(pageSize)
                         .Source(s=> sourceFilter)
@@ -369,32 +371,17 @@ namespace HOK.Elastic.DAL
                         !extraClauseExtants.Where(e => x.Id.StartsWith(e)).Any() &&
                         x.Id.Length > directoryPath.Length && x.Id[directoryPath.Length] == '\\').Select(x =>
                         {
-                            FSO doc;                            
-                            if(x.Index.EndsWith(IndexNameHelper.DIR))
-                            {
-                                doc = new FSOdirectory();
-                            }
-                            else if(x.Index.EndsWith(IndexNameHelper.FSOMSG))
-                            {
-                                doc = new FSOemail();
-                            }
-                            else if(x.Index.EndsWith(IndexNameHelper.FSODOC))
-                            {
-                                doc = new FSOdocument();
-                            }
-                            else
-                            {
-                                doc = new FSOfile();
-                                //we could set doc.indexname to indexhelper.fsodocindexname..to account for aliases specified in the appsettings.json..but maybe not needed.
-                            }                
-                            FSOdocument.CopyProperties(x.Source, doc);
+                            var doc = x.Source;
                             doc.IndexName = x.Index;
                             return doc;
                         }
                         );
                         var doclist = docs.ToList();
                         docCount = +doclist.Count;
-                        yield return doclist;
+                        foreach(var returndoc in doclist)
+                        {
+                           yield return returndoc;
+                        }
                         lastHit = response.Hits.LastOrDefault();
                         pitID = response.PointInTimeId;
                     }

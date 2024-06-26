@@ -1,5 +1,6 @@
 ﻿// See https://aka.ms/new-console-template for more information
 using HOK.Elastic.ArchiveDiscovery;
+using HOK.Elastic.DAL.Models;
 using HOK.Elastic.FileSystemCrawler.WebAPI.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -22,8 +23,8 @@ try
     var dfsArchiveSuffix = (string)config["pathArchiveSuffix"];
     var dfsProdSuffix = (string)config["pathProdSuffix"];
 
-    var settingsJobArgsDTO = System.Text.Json.JsonSerializer.Deserialize<SettingsJobArgsDTO>(File.ReadAllText("appsettings.json"));
-    if (settingsJobArgsDTO == null) throw new ArgumentException("Couldn't deserialize appsettings.json into settingsjobargsdto");
+    var workerargs = System.Text.Json.JsonSerializer.Deserialize<SettingsJobArgsDTO>(File.ReadAllText("appsettings.json"));
+    if (workerargs == null) throw new ArgumentException("Couldn't deserialize appsettings.json into settingsjobargsdto");
     Regex officePattern = null;
     if (!string.IsNullOrWhiteSpace(regexofficePattern) )
     {
@@ -33,14 +34,21 @@ try
     if(logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Information))
     {       
         logger.LogInfo("Startup_webapi", "appsettings.json", webapiUrl);
-        logger.LogInfo("Startup_SettingsJobConfig", "appsettings.json", settingsJobArgsDTO);
-        logger.LogInfo($"Running with'{regexofficePattern}' pattern. Pathprefix = '{settingsJobArgsDTO.PublishedPath}' prod suffix = '{dfsProdSuffix}'  archive suffix = '{dfsArchiveSuffix}'");
+        logger.LogInfo("Startup_SettingsJobConfig", "appsettings.json", workerargs);
+        logger.LogInfo($"Running with'{regexofficePattern}' pattern. Pathprefix = '{workerargs.PublishedPath}' prod suffix = '{dfsProdSuffix}'  archive suffix = '{dfsArchiveSuffix}'");
     }
+
+    PathHelper.Set(workerargs.PublishedPath, workerargs.PathForCrawlingContent, workerargs.PathForCrawling);
+    HOK.Elastic.DAL.Models.PathHelper.SetPathInclusion(workerargs.PathInclusionRegex);
+    HOK.Elastic.DAL.Models.PathHelper.SetFileNameExclusion(workerargs.FileNameExclusionRegex);
+    HOK.Elastic.DAL.Models.PathHelper.SetOfficeExtractRgx(workerargs.OfficeSiteExtractRegex);
+    HOK.Elastic.DAL.Models.PathHelper.SetProjectExtractRgx(workerargs.ProjectExtractRegex);
+    HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
 
     Worker worker = new Worker(webapiUrl);
     await worker.RunAsync(
-        settingsJobArgsDTO: settingsJobArgsDTO,
-        pathPrefix: settingsJobArgsDTO.PublishedPath,
+        settingsJobArgsDTO: workerargs,
+        pathPrefix: workerargs.PublishedPath,
         pathProdSuffix: dfsProdSuffix,
         pathArchiveSuffix: dfsArchiveSuffix,
         officePattern);
