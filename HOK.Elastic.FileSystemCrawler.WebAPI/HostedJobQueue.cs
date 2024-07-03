@@ -159,7 +159,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public void CleanupOldJobs()
         {
-            int leaveSomeOldJobs =10;
+            int leaveSomeOldJobs =300;
             IEnumerable<HostedJobInfo> oldJobs;
             //remove completed jobs older than 7 days.
             oldJobs = _jobs.Values.Where(x => x.IsCompleted && x.WhenCompleted != null && x.WhenCompleted != DateTime.MinValue && x.WhenCompleted < DateTime.Now.Subtract(TimeSpan.FromDays(7))).ToList();
@@ -197,7 +197,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 {
                     if(Directory.Exists(oldJobPath))
                     {
-                        Directory.Delete(oldJobPath, true);
+                       // Directory.Delete(oldJobPath, true);
                     }
                    
                 }catch (Exception ex)
@@ -443,7 +443,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 Name = jobName,
                 FileName = logPath,
                 FileNameKind = NLog.Targets.FilePathKind.Absolute,
-                ArchiveAboveSize = 10 * 1024 ^ 2,
+                ArchiveAboveSize = 15 * 1024 ^ 3,
                 ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Sequence,
             };          
             
