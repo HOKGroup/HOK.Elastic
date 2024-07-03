@@ -144,7 +144,8 @@ namespace HOK.Elastic.ArchiveDiscovery
                     else
                     {
                         if (ilInfo) _il.Info("no items waiting to be sent to API");
-                        break;
+                        context.Save();
+                        return true;
                     }
                 }
                 #endregion

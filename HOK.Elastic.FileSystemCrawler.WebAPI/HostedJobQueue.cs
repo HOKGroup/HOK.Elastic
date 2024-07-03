@@ -282,7 +282,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 }
                 catch (Exception ex)
                 {
-                    if (isWarn) _logger.LogWarn("Error saving job", null, ex.Message);
+                    if (isWarn) _logger.LogWarn("Error saving job", _persistFile, ex.Message);
                 }
                 finally
                 {
@@ -348,14 +348,15 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
                 string safepath = workerargs.JobName + workerargs.JobNotes;
                 System.IO.Path.GetInvalidFileNameChars().Select(x => safepath = safepath.Replace(x, ' '));
+                safepath = new string(safepath.Take(30).ToArray());
                 workerargs.InputPathLocation = System.IO.Path.Combine(_jobsFolder, safepath + hostedJobInfo.GetHashCode());
-                hostedJobInfo.SettingsJobArgsDTO.InputPathLocation = workerargs.InputPathLocation;//TODO refactor inputpathcrawls and events.
                 Directory.CreateDirectory(workerargs.InputPathLocation);//CreateFolder if it doesn't exist.
+                hostedJobInfo.SettingsJobArgsDTO.InputPathLocation = workerargs.InputPathLocation;//TODO refactor inputpathcrawls and events.                
                 //end of unchecked requirements stuff that causes problems.
            
                //var jobLoggerPath = Path.Combine(workerargs.InputPathLocation,"joblog.log");
                 //hostedJobInfo.LogPath = Path.Combine(workerargs.InputPathLocation, "joblog.log");
-                jobLogConfig = GetJobLogConfig("WebAPI" + hostedJobInfo.Id + workerargs.JobName, hostedJobInfo.LogPath);
+                jobLogConfig = GetJobLogConfig(hostedJobInfo.LogPath, "WebAPI" + workerargs.JobName + "_" + hostedJobInfo.Id);
                 var jobLogger = jobLogConfig.Item3;
                 if (jobLogger.IsEnabled(LogLevel.Information))
                 {
@@ -435,7 +436,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             return hostedJobInfo;//do we make it here when there's been an exception.
         }
        private static SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
-        private Tuple<NLog.Targets.Target, LoggingRule, ILogger> GetJobLogConfig(string jobName, string logPath)
+        private Tuple<NLog.Targets.Target, LoggingRule, ILogger> GetJobLogConfig(string logPath, string jobName)
         {
             var target = new NLog.Targets.FileTarget()
             {
@@ -481,15 +482,15 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             var workerargs = SettingsJobArgsDTO.UnDTO(jobInfo.SettingsJobArgsDTO);
             var outputPath = workerargs.InputPathLocation;
             Save();
-
             var filename =Path.Combine(outputPath,MakeSafeFileName($"completed{jobInfo.SettingsJobArgsDTO.JobName}.json"));
             try
             {
+                Directory.CreateDirectory(outputPath);//should already exist because of logging but just in case.
                 System.IO.File.AppendAllText(filename, jobInfo.ToString());
             }
             catch (Exception ex)
             {
-                if (isError) _logger.LogErr($"Couldn't save {filename} with {jobInfo.ToString()}","",null, ex);
+                if (isError) _logger.LogErr($"Couldn't save {jobInfo.ToString()}",filename,null, ex);
             }
             OnTaskCompleted(jobInfo.Id);
         }

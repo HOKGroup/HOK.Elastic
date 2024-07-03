@@ -187,9 +187,19 @@ namespace HOK.NasuniAuditEventAPI
                 }
                 catch (Exception ex)
                 {
-                    if (_logger.IsEnabled(LogLevel.Error))
+                    if (ex is IOException)
                     {
-                        _logger.LogErr("Error reading logs", FolderTowatch, null, ex);
+                        if (_logger.IsEnabled(LogLevel.Warning))
+                        {
+                            _logger.LogWarn("Error reading logs", FolderTowatch, null);
+                        }
+                    }
+                    else
+                    {
+                        if (_logger.IsEnabled(LogLevel.Error))
+                        {
+                            _logger.LogErr("Error reading logs", FolderTowatch, null, ex);
+                        }
                     }
                 }
             }
