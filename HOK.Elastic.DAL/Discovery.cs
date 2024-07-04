@@ -284,25 +284,48 @@ namespace HOK.Elastic.DAL
 
         public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
-            foreach (var doc in FindDescendants<FSOemail>(path, new List<string>(), SourceFilterDescriptors<FSOemail>.IncludeAlls, 1000))//;//move 'most valuable' documents first.
+            foreach(var doc in Something<FSOemail>(path))
             {
                 yield return doc;
             }
-            foreach (var doc in FindDescendants<FSOdocument>(path, new List<string>(), SourceFilterDescriptors<FSOdocument>.IncludeAlls, 1000))//;//move 'most valuable' documents first.
+            foreach (var doc in Something<FSOdocument>(path))
             {
                 yield return doc;
             }
-            foreach (var doc in FindDescendants<FSOfile>(path, new List<string>(), SourceFilterDescriptors<FSOfile>.IncludeAlls, 1000))//;//move 'most valuable' documents first.
+            foreach (var doc in Something<FSOfile>(path))
             {
                 yield return doc;
             }
-            foreach (var doc in FindDescendants<FSOdirectory>(path, new List<string>(), SourceFilterDescriptors<FSOdirectory>.IncludeAlls, 1000))//;//move 'most valuable' documents first.
+            foreach (var doc in Something<FSOdirectory>(path))
             {
                 yield return doc;
             }
         }
 
-        public IEnumerable<T> FindDescendants<T>(string directoryPath, List<string> exceptTheseExtantChildren, SourceFilterDescriptor<T> sourceFilter, int pageSize = 100, bool withPIT = false)where T : class, IFSO
+        private IEnumerable<T> Something<T>(string path)where T:FSO, IFSO
+        {
+            int pageSize = 1000;
+            int docCount = 0;
+            DateTime? maxPageSizeHit=null;
+            foreach (var doc in FindDescendants<T>(path, new List<string>(), SourceFilterDescriptors<T>.IncludeAlls, pageSize))//;//move 'most valuable' documents first.
+            {
+                docCount++;
+                yield return doc;
+                if (docCount == pageSize)
+                {
+                    maxPageSizeHit = doc.Timestamp;                  
+                }
+            }
+            if(maxPageSizeHit != null)
+            {
+                foreach (var doc in FindDescendants<T>(path, new List<string>(), SourceFilterDescriptors<T>.IncludeAlls, pageSize, maxPageSizeHit))//;//move 'most valuable' documents first.
+                {
+                    yield return doc;
+                }
+            }
+        }
+
+        public IEnumerable<T> FindDescendants<T>(string directoryPath, List<string> exceptTheseExtantChildren, SourceFilterDescriptor<T> sourceFilter, int pageSize = 100, DateTime? lastHitBeforeStartingPIT=null)where T : class, IFSO
         {
             int counter = 0;
             long docCount = 0;
@@ -331,7 +354,7 @@ namespace HOK.Elastic.DAL
 
             try
             {
-                if (withPIT)
+                if (lastHitBeforeStartingPIT!=null)
                 {
                     var pp = GetPIT(indexFilter, new Time(TimeSpan.FromMinutes(5)));
                     if (pp != null)
@@ -347,6 +370,7 @@ namespace HOK.Elastic.DAL
                         .Size(pageSize)
                         .Source(s=> sourceFilter)
                             .Query(q => q
+                            .DateRange(d => d.Field(field => field.Timestamp).LessThan(lastHitBeforeStartingPIT??DateTime.Now)) && +q
                      .Bool(b => b
                      .Filter(f => f.MatchPhrase(mp => mp
                          .Field(mf => mf.Id)
@@ -356,7 +380,7 @@ namespace HOK.Elastic.DAL
                      .MustNot(mustNots.ToArray()))
                      )
                             .PointInTime(pitID, x => pointInTime)//null if couldn't do a point in time search.
-                        .Sort(srt => srt.Ascending(f => f.Timestamp))
+                        .Sort(srt => srt.Descending(f => f.Timestamp))
                     .SearchAfter(lastHit?.Sorts ?? null)
                     );
 
@@ -401,7 +425,7 @@ namespace HOK.Elastic.DAL
                     {
                         _il.LogDbgInfo($"{nameof(FindDescendants)} loop #{counter++} returning documents in '{2}'", directoryPath);
                     }
-                } while (withPIT && lastHit != null);
+                } while (lastHitBeforeStartingPIT!=null && lastHit != null);
 
             }
             finally

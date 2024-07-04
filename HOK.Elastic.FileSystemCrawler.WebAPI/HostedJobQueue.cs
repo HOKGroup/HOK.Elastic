@@ -443,7 +443,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 Name = jobName,
                 FileName = logPath,
                 FileNameKind = NLog.Targets.FilePathKind.Absolute,
-                ArchiveAboveSize = 15 * 1024 ^ 3,
+                ArchiveAboveSize = 15728640,
                 ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Sequence,
             };          
             
