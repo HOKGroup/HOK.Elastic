@@ -284,7 +284,7 @@ namespace HOK.Elastic.DAL
 
         public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
-            foreach(var doc in Something<FSOemail>(path))
+            foreach (var doc in Something<FSOemail>(path))
             {
                 yield return doc;
             }
@@ -304,13 +304,13 @@ namespace HOK.Elastic.DAL
 
         private IEnumerable<T> Something<T>(string path)where T:FSO, IFSO
         {
-            int pageSize = 1000;
+            int pageSize = 200;
             int docCount = 0;
             DateTime? maxPageSizeHit=null;
             foreach (var doc in FindDescendants<T>(path, new List<string>(), SourceFilterDescriptors<T>.IncludeAlls, pageSize))//;//move 'most valuable' documents first.
             {
                 docCount++;
-                yield return doc;
+                yield return doc;  
                 if (docCount == pageSize)
                 {
                     maxPageSizeHit = doc.Timestamp;                  
@@ -354,17 +354,20 @@ namespace HOK.Elastic.DAL
 
             try
             {
-                if (lastHitBeforeStartingPIT!=null)
-                {
-                    var pp = GetPIT(indexFilter, new Time(TimeSpan.FromMinutes(5)));
-                    if (pp != null)
-                    {
-                        pitID = pp.Item1;
-                        pointInTime = pp.Item2;
-                    }
-                }
+              
                 do
                 {
+                    if (lastHitBeforeStartingPIT != null&&pitID==null)
+                    {
+                        var pp = GetPIT(indexFilter, new Time(TimeSpan.FromMinutes(5)));
+                        if (pp != null)
+                        {
+                            pitID = pp.Item1;
+                            pointInTime = pp.Item2;
+                        }
+                    }
+
+
                     var response = client.Search<T>(s => s
                         .Index(indexFilter)
                         .Size(pageSize)
@@ -414,12 +417,20 @@ namespace HOK.Elastic.DAL
                         var err = new ElasticResponseError(response);
                         if (ilerror)
                         {
-                            _il.LogErr(nameof(FindDescendants), directoryPath, err, err.Exception);
+                            _il.LogErr(nameof(FindDescendants), directoryPath, err, err?.Exception);
+                            
                         }
                         if (err.IsBecauseBusy())
                         {
                             Pause("MissingContent");
                         }
+                        if (pitID != null)
+                        {
+                            _il.LogErr(nameof(FindDescendants), directoryPath, "renewPIT");
+                            var closeResponse = client.ClosePointInTime(p => p.Id(pitID));
+                            pitID = null;
+                        }
+                        
                     }
                     if (counter > 0 && ildebug)
                     {
@@ -448,8 +459,6 @@ namespace HOK.Elastic.DAL
                 }
             }
         }
-
-
 
         /*
          * 

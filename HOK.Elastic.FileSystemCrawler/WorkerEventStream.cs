@@ -197,7 +197,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             }
                                                         
                             fso.Reason = fso.AppendReason("ActionMoveOrCopy Child");
-                            if (ildebug) _il.LogDbgInfo(fso.Reason, oldPath, newPublishedPath);
+                            //if (ildebug) _il.LogDbgInfo(fso.Reason, oldPath, newPublishedPath);
                             await docReindexTransformBlock.SendAsync(fso).ConfigureAwait(false);
 
                             if (fso is FSOdirectory)
