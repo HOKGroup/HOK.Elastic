@@ -1,8 +1,10 @@
 ﻿using Nest;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace HOK.Elastic.DAL.Models
 {
@@ -13,7 +15,7 @@ namespace HOK.Elastic.DAL.Models
         [Text(Ignore = true)]
         public static HashSet<string> SupportedExts { get { return _supportedExtensions; } }
         public byte[] Content { get; set; }
-        public Attachment Attachment { get; set; }
+        public Attachment? Attachment { get; set; }
         public FSOdocument() : base()
         {
         }

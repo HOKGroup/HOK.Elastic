@@ -284,25 +284,25 @@ namespace HOK.Elastic.DAL
 
         public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
-            foreach (var doc in Something<FSOemail>(path))
+            foreach (var doc in FindDescendantsForMoving<FSOemail>(path))
             {
                 yield return doc;
             }
-            foreach (var doc in Something<FSOdocument>(path))
+            foreach (var doc in FindDescendantsForMoving<FSOdocument>(path))
             {
                 yield return doc;
             }
-            foreach (var doc in Something<FSOfile>(path))
+            foreach (var doc in FindDescendantsForMoving<FSOfile>(path))
             {
                 yield return doc;
             }
-            foreach (var doc in Something<FSOdirectory>(path))
+            foreach (var doc in FindDescendantsForMoving<FSOdirectory>(path))
             {
                 yield return doc;
             }
         }
 
-        private IEnumerable<T> Something<T>(string path)where T:FSO, IFSO
+        private IEnumerable<T> FindDescendantsForMoving<T>(string path)where T:FSO, IFSO
         {
             int pageSize = 200;
             int docCount = 0;
@@ -367,24 +367,21 @@ namespace HOK.Elastic.DAL
                         }
                     }
 
-
                     var response = client.Search<T>(s => s
                         .Index(indexFilter)
                         .Size(pageSize)
                         .Source(s=> sourceFilter)
-                            .Query(q => q
+                        .Query(q => q                            
                             .DateRange(d => d.Field(field => field.Timestamp).LessThan(lastHitBeforeStartingPIT??DateTime.Now)) && +q
-                     .Bool(b => b
-                     .Filter(f => f.MatchPhrase(mp => mp
-                         .Field(mf => mf.Id)
-                         .Query(directoryPath)
-                         )
-                     )
-                     .MustNot(mustNots.ToArray()))
-                     )
-                            .PointInTime(pitID, x => pointInTime)//null if couldn't do a point in time search.
+                            .Bool(b => b
+                                .Filter(f => f.MatchPhrase(mp => mp
+                                    .Field(mf => mf.Id)
+                                    .Query(directoryPath)))
+                                //.Must(x=>x.Exists(e=>e.Field("attachment")))
+                                .MustNot(mustNots.ToArray())))
+                        .PointInTime(pitID, x => pointInTime)//null if not doing a point in time search.
                         .Sort(srt => srt.Descending(f => f.Timestamp))
-                    .SearchAfter(lastHit?.Sorts ?? null)
+                        .SearchAfter(lastHit?.Sorts ?? null)
                     );
 
 
@@ -438,7 +435,7 @@ namespace HOK.Elastic.DAL
                     }
                 } while (lastHitBeforeStartingPIT!=null && lastHit != null);
 
-            }
+            }           
             finally
             {
                 if (pitID != null)

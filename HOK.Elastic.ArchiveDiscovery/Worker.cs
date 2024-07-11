@@ -51,8 +51,7 @@ namespace HOK.Elastic.ArchiveDiscovery
             var offices = (await discoveryArchive.FindOffices());
             if(offices != null&&officeMatch!=null) { offices = offices.Where(x => officeMatch.IsMatch(x)); }
             if (offices != null && offices.Any())
-            {
-                
+            {                
                 foreach (var office in offices)
                 {
                     if (ilInfo) _il.Info($">>>Searching: '{office}'", null, null);
@@ -66,9 +65,17 @@ namespace HOK.Elastic.ArchiveDiscovery
                             var productionDocument = await discoveryArchive.FindArchiveProjectsInProduction(pathPrefix, office,pathProdSuffix, archiveDocument.Project.Number, archiveDocument.Project.Name);
                             if (productionDocument != null)
                             {
-                                var workItem = new JobItem(office, archiveDocument.Project.Number, productionDocument.Id, archiveDocument.Id);
-                                if (ilInfo) _il.Info($">>>Found matching pair PROD>ARCHIVE WorkItem", null, workItem);
-                                context.Value.Add(workItem);
+                                var docCount = await discoveryArchive.GetDocCount(pathPrefix,office,pathProdSuffix,archiveDocument.Project.Number,archiveDocument.Project.Name);
+                                if (docCount > 4000)
+                                {
+                                    var workItem = new JobItem(office, archiveDocument.Project.Number, productionDocument.Id, archiveDocument.Id);
+                                    if (ilInfo) _il.Info($">>>Found matching pair PROD>ARCHIVE {workItem}");
+                                    context.Value.Add(workItem);
+                                }
+                                else
+                                {
+                                    if (ilInfo) _il.Info($"Skipping {archiveDocument.Project.Number} because {docCount} too low.");
+                                }
                             }
                         }
                     }

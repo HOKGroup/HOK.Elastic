@@ -8,6 +8,9 @@ using System.Text;
 using System.Threading;
 using System.Collections.Generic;
 using HOK.Elastic.DAL.Models;
+using System.IO;
+using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace HOK.Elastic.DAL
 {
@@ -32,6 +35,32 @@ namespace HOK.Elastic.DAL
         public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IEnumerable<Uri> elastiSearchServerUrls, ILogger logger) : this(pipeLineNameHelper, indexNameHelper,new StaticConnectionPool(elastiSearchServerUrls), logger)
         {
         }
+
+        
+        public class HandleNullAttachmentBugFixSerializer : IElasticsearchSerializer
+        {
+            //FSOmsg and FSODocuments with 'Attachment' fields that aren't populated/null can't be deserialized by the NEST client causing the whole response to fail. 
+            private JsonSerializerOptions jsonSerializerOptions = new JsonSerializerOptions() { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,PropertyNameCaseInsensitive=true };
+            public T Deserialize<T>(Stream stream) => 
+                JsonSerializer.Deserialize<T>(stream, jsonSerializerOptions);
+
+            public object Deserialize(Type type, Stream stream) => 
+                JsonSerializer.Deserialize(stream,type, jsonSerializerOptions);
+
+            public Task<T> DeserializeAsync<T>(Stream stream, CancellationToken cancellationToken = default(CancellationToken))=>
+               JsonSerializer.DeserializeAsync<T>(stream, jsonSerializerOptions, cancellationToken).AsTask();
+
+            public Task<object> DeserializeAsync(Type type, Stream stream, CancellationToken cancellationToken = default(CancellationToken)) =>
+                JsonSerializer.DeserializeAsync(stream, type,jsonSerializerOptions, cancellationToken).AsTask();
+
+            public void Serialize<T>(T data, Stream stream, SerializationFormatting formatting = SerializationFormatting.Indented) =>
+               JsonSerializer.Serialize<T>(stream,data, jsonSerializerOptions);
+
+            public Task SerializeAsync<T>(T data, Stream stream, SerializationFormatting formatting = SerializationFormatting.Indented,
+                CancellationToken cancellationToken = default(CancellationToken)) =>
+                 JsonSerializer.SerializeAsync<T>(stream, data, jsonSerializerOptions);
+        }
+
         public Base(PipeLineNameHelper pipeLineNameHelper, IndexNameHelper indexNameHelper, IConnectionPool connectionPool, ILogger logger)
         {
             this.connectionPool = connectionPool;
@@ -44,7 +73,7 @@ namespace HOK.Elastic.DAL
             PipeLineNameHelper = pipeLineNameHelper;
             apiKeyGuid = Guid.NewGuid().ToString() + " - " + this.GetType().Name;
             apiKey = GetApiKey();
-            var settings = new ConnectionSettings(connectionPool, new ApiKeyCredentialsHttpConnection(apiKey, GetApiKey));
+            var settings = new ConnectionSettings(connectionPool, new ApiKeyCredentialsHttpConnection(apiKey, GetApiKey), sourceSerializer: (builtin, settings) => new HandleNullAttachmentBugFixSerializer());
             settings.MemoryStreamFactory(Elasticsearch.Net.MemoryStreamFactory.Default); //recycle memorystream linked to mem leakage https://github.com/serilog/serilog-sinks-elasticsearch/issues/368
 #if DEBUG
             settings.DisablePing();//we don't want to do this. But for some reason it seems to fail when connecting to HOK-395 if it's enabled.

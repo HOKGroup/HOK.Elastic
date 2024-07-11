@@ -129,6 +129,29 @@ namespace HOK.Elastic.ArchiveDiscovery
             return null;
         }
 
+         public async Task<long> GetDocCount(string pathprefix,string office,string pathprodsuffix, string projectNumber,string projectName)
+        {
+            Dictionary<string, FSOdirectory> keyValuePairs = new Dictionary<string, FSOdirectory>();
+            string officepath = Path.Combine(pathprefix, office, pathprodsuffix);
+            var search = client.SearchAsync<DAL.Models.FSOdirectory>(s => s
+                .Index(IndexHelper.PrefixWildcard)
+                .Source(s => s.Includes(x => x.Fields(new string[] { "id" })))
+                .Size(5000)//if more than one result we have improper filing. 
+                .Query(q =>                
+                q.Bool(x => x.Filter(f => +f
+                                    .Term(t => t.Office, office) && +f
+                                    .Term("project.number.keyword", projectNumber) 
+           )))
+           );
+            var results = await search.ConfigureAwait(false);
+
+            if (results.IsValid && results.Hits.Any())
+            {
+               return results.Hits.Count();
+            }
+            return 0;
+        }
+
 
         private Dictionary<string, IAggregationContainer> TermsAggregationBuilder(params string[] fieldNames)
         {
