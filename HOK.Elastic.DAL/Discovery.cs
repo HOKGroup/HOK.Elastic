@@ -284,19 +284,20 @@ namespace HOK.Elastic.DAL
 
         public IEnumerable<IFSO> FindDescendentsForMoving(string path)
         {
-            foreach (var doc in FindDescendantsForMoving<FSOemail>(path))
-            {
-                yield return doc;
-            }
-            foreach (var doc in FindDescendantsForMoving<FSOdocument>(path))
-            {
-                yield return doc;
-            }
+           
             foreach (var doc in FindDescendantsForMoving<FSOfile>(path))
             {
                 yield return doc;
             }
             foreach (var doc in FindDescendantsForMoving<FSOdirectory>(path))
+            {
+                yield return doc;
+            }
+            foreach (var doc in FindDescendantsForMoving<FSOemail>(path))
+            {
+                yield return doc;
+            }
+            foreach (var doc in FindDescendantsForMoving<FSOdocument>(path))
             {
                 yield return doc;
             }
@@ -349,6 +350,13 @@ namespace HOK.Elastic.DAL
                 }
                 mustNots.Add(a => a.Term(new Field("id.keyword"), directoryPath));
             }
+            var musts =  new List<Func<QueryContainerDescriptor<T>, QueryContainer>>();//temporary workaround to allow null attachment documents in fsodoc/fsoemail to deserialize in 7.x....maybe fixed in 8 or system.text.json serializer support will be complete.
+            {
+                if(typeof(T)==typefsodoc|| typeof(T)==typefsoemail)
+                {
+                    musts.Add(a => a.Exists(e => e.Field("attachment")));
+                }
+            }
 
             string indexFilter = GetIndexFilterName<T>();
 
@@ -377,7 +385,7 @@ namespace HOK.Elastic.DAL
                                 .Filter(f => f.MatchPhrase(mp => mp
                                     .Field(mf => mf.Id)
                                     .Query(directoryPath)))
-                                //.Must(x=>x.Exists(e=>e.Field("attachment")))
+                                    .Must(musts)
                                 .MustNot(mustNots.ToArray())))
                         .PointInTime(pitID, x => pointInTime)//null if not doing a point in time search.
                         .Sort(srt => srt.Descending(f => f.Timestamp))
