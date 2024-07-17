@@ -25,7 +25,7 @@ try
 
     var workerargs = System.Text.Json.JsonSerializer.Deserialize<SettingsJobArgsDTO>(File.ReadAllText("appsettings.json"));
     if (workerargs == null) throw new ArgumentException("Couldn't deserialize appsettings.json into settingsjobargsdto");
-    Regex officePattern = null;
+    Regex? officePattern = null;
     if (!string.IsNullOrWhiteSpace(regexofficePattern) )
     {
         officePattern = new Regex(regexofficePattern);

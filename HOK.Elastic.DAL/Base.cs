@@ -54,7 +54,7 @@ namespace HOK.Elastic.DAL
             PipeLineNameHelper = pipeLineNameHelper;
             apiKeyGuid = Guid.NewGuid().ToString() + " - " + this.GetType().Name;
             apiKey = GetApiKey();
-           var settings = new ConnectionSettings(connectionPool, new ApiKeyCredentialsHttpConnection(apiKey, GetApiKey));
+            var settings = new ConnectionSettings(connectionPool, new ApiKeyCredentialsHttpConnection(apiKey, GetApiKey));
 
             settings.MemoryStreamFactory(Elasticsearch.Net.MemoryStreamFactory.Default); //recycle memorystream linked to mem leakage https://github.com/serilog/serilog-sinks-elasticsearch/issues/368
 #if DEBUG

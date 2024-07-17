@@ -6,9 +6,10 @@
     public class PipeLineNameHelper
     {
         public string _prefix;
-        public PipeLineNameHelper(string prefix)
+        public PipeLineNameHelper(string prefix,string pipeCategoryRegex)
         {
             _prefix = prefix;
+            PIPECategorizationProjectExtractRgx = pipeCategoryRegex;
         }
 
         public string PIPEEmail

@@ -207,7 +207,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 
             // TODO: Retry Discovery a few times if connection failed
             IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
-            PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
+            PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix,workerargs.PipeCategorizationRegex);
            
             var discovery = new DAL.Discovery(pipeLineNameHelper,indexNameHelper, workerargs.ElasticDiscoveryURI.First(), _loggerFactory.CreateLogger($"{workerargs.JobName}.Discovery"));
             var index = new DAL.Index(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), _loggerFactory.CreateLogger($"{workerargs.JobName}.Index"));
@@ -215,12 +215,13 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
             var documentHelper = new DocumentHelper(workerargs.ReadFileContents ?? false, securityHelper, index, _loggerFactory.CreateLogger($"{workerargs.JobName}.DocumentHelper"));
             try
             {
-                PipeLineNameHelper pipeLineHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
+               // PipeLineNameHelper pipeLineHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix,workerargs.PipeCategorizationRegex);
 
                 using (var initializationPipeline = new InitializationPipeline(pipeLineNameHelper,indexNameHelper, workerargs.ElasticIndexURI.First(), _loggerFactory.CreateLogger($"{workerargs.JobName}.Setup")))
                 {
                     if (!initializationPipeline.CheckForPipeLines())
                     {
+                        
                         initializationPipeline.Put(true);
                     }
                     else

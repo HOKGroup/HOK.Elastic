@@ -43,7 +43,7 @@ namespace HOK.Elastic.ArchiveDiscovery
         internal async Task RunAsync(SettingsJobArgsDTO settingsJobArgsDTO,string pathPrefix,string pathProdSuffix,string pathArchiveSuffix,Regex officeMatch=null)
         {
             IndexNameHelper indexNameHelper = new IndexNameHelper(settingsJobArgsDTO.IndexNamePrefix);
-            PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(settingsJobArgsDTO.IndexNamePrefix);
+            PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(settingsJobArgsDTO.IndexNamePrefix,settingsJobArgsDTO.PipeCategorizationRegex);
             var discoveryuris = settingsJobArgsDTO.ElasticDiscoveryURI.Select(x => new Uri(x)).ToList();
             DiscoveryArchiveRecrawl discoveryArchive = new DiscoveryArchiveRecrawl(pipeLineNameHelper, indexNameHelper, discoveryuris, loggerFactory.CreateLogger(nameof(Worker)));
             var clientStatus = discoveryArchive.GetClientStatus();

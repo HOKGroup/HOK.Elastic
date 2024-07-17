@@ -174,7 +174,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         count = 0;
                         docInsertBatch.TriggerBatch();
                         IndexNameHelper indexNameHelper = new IndexNameHelper(_args.IndexNamePrefix);
-                        PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(_args.IndexNamePrefix);
+                        PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(_args.IndexNamePrefix,_args.PipeCategorizationRegex);
                         this._indexEndPoint = new DAL.Index(pipeLineNameHelper, indexNameHelper, _args.ElasticIndexURI.ToArray(), this._indexEndPoint.Logger);
                         this._discoveryEndPoint = new DAL.Discovery(pipeLineNameHelper, indexNameHelper, _args.ElasticDiscoveryURI.ToArray(), this._discoveryEndPoint.Logger);
                         if (ilwarn) _il.LogWarn($"Almost out of memory...cleared elastic");

@@ -223,7 +223,8 @@ namespace HOK.Elastic.DAL
                             .Analyzer(SMB_PATH_Text)
                             .Fields(f => f
                                 .Keyword(k => k.Name("keyword").Normalizer(LOWERCASE).IgnoreAbove(512))
-                                //.Text(tx => tx.Name("smbtreelower").Analyzer(SMB_PATH_H))//temporary for backwards compatability - not referenced in delete directory descendents.Revisit 2022-05
+                                //.Text(tx => tx.Name("smbtreelower").Analyzer(SMB_PATH_H))
+                                //temporary for backwards compatability - not referenced in delete directory descendents.Revisit 2022-05
                                 )
                             )
                         .Text(t => t

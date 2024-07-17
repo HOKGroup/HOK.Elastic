@@ -364,7 +364,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     jobLogger.LogInfo($"Joblocation={workerargs.InputPathLocation}");
                 }
                 IndexNameHelper indexNameHelper = new IndexNameHelper(workerargs.IndexNamePrefix);
-                PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
+                PipeLineNameHelper pipeLineNameHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix,workerargs.PipeCategorizationRegex);
                 var index = new HOK.Elastic.DAL.Index(pipeLineNameHelper, indexNameHelper,workerargs.ElasticIndexURI.First(), jobLogger);
                 var discovery = new HOK.Elastic.DAL.Discovery(pipeLineNameHelper, indexNameHelper,workerargs.ElasticDiscoveryURI.First(), jobLogger);
                 SecurityHelper sh = new SecurityHelper(jobLogger);
@@ -438,6 +438,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
        private static SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
         private Tuple<NLog.Targets.Target, LoggingRule, ILogger> GetJobLogConfig(string logPath, string jobName)
         {
+            bool locked = false;
             var target = new NLog.Targets.FileTarget()
             {
                 Name = jobName,
@@ -450,6 +451,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             try
             {
                 semaphore.Wait(_cts.Token);
+                locked = true;
                 NLog.LogManager.Configuration.AddTarget(target);
                 var rule = new LoggingRule(jobName + "rule") { LoggerNamePattern = jobName, Final = true };
                 rule.EnableLoggingForLevels(NLog.LogLevel.Debug, NLog.LogLevel.Fatal);
@@ -457,11 +459,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 NLog.LogManager.Configuration.LoggingRules.Insert(0, rule);//add at beginning of ruleset so that rules in nlog.config file can supercede(filter for example)
                 NLog.LogManager.ReconfigExistingLoggers();
                 var logger = Program.LoggerFactory.CreateLogger(jobName);
-                return new Tuple<NLog.Targets.Target, LoggingRule, ILogger>(target, rule, logger);
+                return new Tuple<NLog.Targets.Target, LoggingRule, ILogger>(target, rule, logger);               
             }
             finally
             {
-                semaphore.Release();
+                if(locked) semaphore.Release();
             }
         }
 
