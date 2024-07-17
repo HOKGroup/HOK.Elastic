@@ -182,7 +182,7 @@ namespace HOK.Elastic.DAL
                         .Grok<FSO>(g=> g
                             .Field(f=>f.Id)
                             .PatternDefinitions(pd => pd.Add("CATEGORYPATTERN", PipeLineNameHelper.PIPECategorizationProjectExtractRgx))
-                            .Patterns("%{CATEGORYPATTERN:category}")
+                            .Patterns("%{CATEGORYPATTERN}")
                             .IgnoreFailure(true)
                             .IgnoreMissing(true)
                             )
