@@ -206,7 +206,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             if (dirContentResponse == null)
                             {                                
                                 directory.Reason = directory.AppendReason("incremental newfolder");
-                                if (ilwarn) _il.LogWarn(directory.Reason, directory.Id);
+                                if (ildebug) _il.LogDbgInfo(directory.Reason, directory.Id);
                                 await docInsertTranformBlock.SendAsync(directory).ConfigureAwait(false);
                             }
                             else
@@ -346,7 +346,7 @@ namespace HOK.Elastic.FileSystemCrawler
                         if (ex is DirectoryNotFoundException || ex is PathTooLongException || ex is UnauthorizedAccessException || ex is System.Security.SecurityException)
                         {
                             //these are expected exceptions and so we can just warn
-                            if (ilwarn) _il.LogWarn(ex.Message, directory.PathForCrawling, null);
+                            if (ilwarn) _il.LogWarn("Access Exception " + ex.GetType().Name, directory.PathForCrawling, null);
                         }
                         else
                         {

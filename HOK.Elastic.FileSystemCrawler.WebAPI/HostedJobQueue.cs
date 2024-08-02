@@ -129,7 +129,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             DateTime trigger = DateTime.MinValue;
             while (!cancellationToken.IsCancellationRequested)
             {
-                if (DateTime.Now.Subtract(trigger) > TimeSpan.FromMinutes(5))
+                if (DateTime.Now.Subtract(trigger) > TimeSpan.FromHours(6))
                 {
                     if (isDebug) _logger.LogDbgInfo($"Of {_jobs.Count} jobs, {buffer.Count} are in the buffer and {_jobs.Values.Where(x => x.IsCompleted).Count()} are complete.");
                     trigger = DateTime.Now;
@@ -446,6 +446,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 FileNameKind = NLog.Targets.FilePathKind.Absolute,
                 ArchiveAboveSize = 15728640,
                 ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Sequence,
+                Layout = @"${date::universalTime=true:format=yyyy-MM-ddTHH\\:mm\\:ss.fffZ}|${uppercase:${level}}|${logger}|${message} ${exception:format=tostring}"
             };          
             
             try
