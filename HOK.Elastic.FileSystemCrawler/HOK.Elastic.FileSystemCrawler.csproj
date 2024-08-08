@@ -9,7 +9,7 @@
     <PackageReference Include="Elasticsearch.Net" Version="7.17.5" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
     <PackageReference Include="MsgReader" Version="5.2.0" />
-    <PackageReference Include="NEST" Version="7.17.0" />
+    <PackageReference Include="NEST" Version="7.17.5" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="OpenMcdf" Version="2.3.0" />
     <PackageReference Include="RestSharp" Version="110.2.0" />
