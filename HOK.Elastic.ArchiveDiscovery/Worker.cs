@@ -121,7 +121,7 @@ namespace HOK.Elastic.ArchiveDiscovery
                     ).FirstOrDefault();
                     if (item != null)
                     {
-                        settingsJobArgsDTO.InputEvents = new List<InputPathEventStream>
+                        settingsJobArgsDTO.InputPaths = new List<InputPathEventStream>
                         {
                             new InputPathEventStream()
                             {

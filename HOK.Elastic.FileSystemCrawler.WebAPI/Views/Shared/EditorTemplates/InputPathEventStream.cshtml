@@ -16,18 +16,18 @@
             <span asp-validation-for="Path" class="text-danger"></span>
         </div>
             <div class="form-group">
-                <label asp-for="PathFrom" class="control-label"></label>
+                <label asp-for="PathFrom" class="control-label">Path From (leave blank for incremental and full crawls)</label>
                 <input asp-for="PathFrom" class="form-control" />
                 <span asp-validation-for="PathFrom" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="ContentAction" class="control-label"></label>
+            <label asp-for="ContentAction" class="control-label">Content Action (set to 'Write' for incremental and full crawls)</label>
                 <!--input asp-for="ContentAction" class="form-control" /-->
                 @Html.DropDownListFor(m => m.ContentAction, Html.GetEnumSelectList(typeof(HOK.Elastic.FileSystemCrawler.Models.ActionContent)))
                 <span asp-validation-for="ContentAction" class="text-danger"></span>
             </div>
             <div class="form-group">
-                <label asp-for="PresenceAction" class="control-label"></label>
+                <label asp-for="PresenceAction" class="control-label">Presence Action (set to 'None' for incremental and full crawls)</label>
                 <!--input asp-for="PresenceAction" class="form-control" /-->
                 @Html.DropDownListFor(m => m.PresenceAction, Html.GetEnumSelectList(typeof(HOK.Elastic.FileSystemCrawler.Models.ActionPresence)))
                 <span asp-validation-for="PresenceAction" class="text-danger"></span>
@@ -42,11 +42,11 @@
                 <input asp-for="TimeStampUtc" class="form-control" />
                 <span asp-validation-for="TimeStampUtc" class="text-danger"></span>
             </!--div-->
-            <div class="form-group form-check">
+            <!--div class="form-group form-check">
                 <label class="form-check-label">
                     <input class="form-check-input" asp-for="IsDir" />@Html.DisplayNameFor(model => model.IsDir)
                 </label>
-            </div>     
+            </!--div-->     
             <!--div-- class="form-group">
                 <label asp-for="PathStatus" class="control-label"></label>
                 <input asp-for="PathStatus" class="form-control" />

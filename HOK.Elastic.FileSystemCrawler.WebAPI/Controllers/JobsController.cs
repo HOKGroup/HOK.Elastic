@@ -72,15 +72,13 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
         {
             //provide some default suggestions....
             var defaults = new SettingsJobArgsDTO()
-            {   BulkUploadSize = 5,
-                CrawlMode = CrawlMode.EmailOnlyMissingContent,
+            { BulkUploadSize = 5,
+                CrawlMode = CrawlMode.Incremental,
+                ReadFileContents = true,
                 PublishedPath = "\\\\server\\one\\two\\three",
-                //InputEvents = new List<InputPathEventStream>() { new InputPathEventStream() {Path="c:\\",PathFrom="b:\\" }, new InputPathEventStream() { Path = "d:\\", PathFrom = "e:\\" } }
-                //InputPaths = new InputPathList() { 
-                //    Crawls=new List<InputPathBase>() { new InputPathBase() {Office="TEST",Path="c:\\temp" } } ,
-                //    Events = new List<InputPathEventStream>() { new InputPathEventStream() {Path="c:\\temp",PathFrom="c:\\windows" }, new InputPathEventStream() { Path = "c:\\temp4", PathFrom = "c:\\windows" } }                
-                //},
-               // InputEvent = new InputPathEventStream() { Path = "c:\\temp", PathFrom = "c:\\windows" }
+                InputPaths = new List<InputPathEventStream>() { new InputPathEventStream() {Path="c:\\one\\two\\three\\four\\five\\six",ContentAction=ActionContent.Write } },
+                PathForCrawling = "c:\\one\\two\\three",
+                PathForCrawlingContent = "c:\\server1\\one\\two\\three"
             };
             return View(defaults);
         }
@@ -95,16 +93,16 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
             {
                 if (ModelState.IsValid)
                 {
-                    if (command.Equals("addevent"))
+                    if (command.Equals("addevent")|| command.Equals("addcrawl"))
                     {
-                        if (settingsJobArgsDTO.InputEvents == null) settingsJobArgsDTO.InputEvents = new List<InputPathEventStream>();
-                        settingsJobArgsDTO.InputEvents.Add(new InputPathEventStream() {Path=settingsJobArgsDTO.PublishedPath??"c:\\" });
-                    } 
-                    else if(command.Equals("addcrawl"))
+                        if (settingsJobArgsDTO.InputPaths == null) settingsJobArgsDTO.InputPaths = new List<InputPathEventStream>();
+                        settingsJobArgsDTO.InputPaths.Add(new InputPathEventStream() {Path=settingsJobArgsDTO.PublishedPath??"c:\\" });
+                    }
+                    else if (command.Equals("clearevents"))
                     {
-                        if (settingsJobArgsDTO.InputCrawls == null) settingsJobArgsDTO.InputCrawls = new List<InputPathBase>();
-                        settingsJobArgsDTO.InputCrawls.Add(new InputPathBase() { Path = settingsJobArgsDTO.PublishedPath ?? "c:\\" });
-                    }else if(command.Equals("download"))
+                        settingsJobArgsDTO.InputPaths.Clear();
+                    }
+                    else if(command.Equals("download"))
                     {
                         return Download(settingsJobArgsDTO);
                     }
@@ -184,11 +182,8 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI.Controllers
                 hostedJobInfo = _hostedJobScheduler.Get(hostedJobInfo.Id);
                 if (hostedJobInfo != null)
                 {
-                    //if (!hostedJobInfo.IsCompleted)
-                    //{
                         var removed = _hostedJobScheduler.Remove(id);
                         if (isInfo) _logger.LogInfo("Removed" + removed);
-                    //}
                 }
                 return RedirectToAction(nameof(Index));
             }

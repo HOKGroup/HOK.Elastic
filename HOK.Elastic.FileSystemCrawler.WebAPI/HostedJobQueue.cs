@@ -210,11 +210,21 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
 
         public int Enqueue(SettingsJobArgsDTO settingsJobArgsDTO)
         {
+           UpdateInputPathLocation(settingsJobArgsDTO);
             HostedJobInfo job = new HostedJobInfo(settingsJobArgsDTO, _cts.Token);
             job.Id = GetNextId();
             _jobs[job.Id] = job;
             if (isInfo) _logger.LogInfo($">>>>>>>Inserting {job.Id} : {job}");
             return job.Id;
+        }
+        private void UpdateInputPathLocation(SettingsJobArgsDTO settingsJobArgsDTO)
+        {
+            string safepath = settingsJobArgsDTO.JobName + settingsJobArgsDTO.JobNotes;
+            System.IO.Path.GetInvalidFileNameChars().Select(x => safepath = safepath.Replace(x, ' '));
+            safepath = new string(safepath.Take(30).ToArray());
+            settingsJobArgsDTO.InputPathLocation = System.IO.Path.Combine(_jobsFolder, safepath + settingsJobArgsDTO.GetHashCode());
+            Directory.CreateDirectory(settingsJobArgsDTO.InputPathLocation);//CreateFolder if it doesn't exist.
+
         }
 
         public HostedJobInfo Get(int id)
@@ -346,16 +356,9 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                 HOK.Elastic.DAL.Models.PathHelper.SetOfficeExtractRgx(workerargs.OfficeSiteExtractRegex);
                 HOK.Elastic.DAL.Models.PathHelper.SetProjectExtractRgx(workerargs.ProjectExtractRegex);
                 HOK.Elastic.DAL.Models.PathHelper.IgnoreExtensions = workerargs.IgnoreExtensions?.Distinct().ToHashSet();
-                string safepath = workerargs.JobName + workerargs.JobNotes;
-                System.IO.Path.GetInvalidFileNameChars().Select(x => safepath = safepath.Replace(x, ' '));
-                safepath = new string(safepath.Take(30).ToArray());
-                workerargs.InputPathLocation = System.IO.Path.Combine(_jobsFolder, safepath + hostedJobInfo.GetHashCode());
-                Directory.CreateDirectory(workerargs.InputPathLocation);//CreateFolder if it doesn't exist.
-                hostedJobInfo.SettingsJobArgsDTO.InputPathLocation = workerargs.InputPathLocation;//TODO refactor inputpathcrawls and events.                
-                //end of unchecked requirements stuff that causes problems.
-           
-               //var jobLoggerPath = Path.Combine(workerargs.InputPathLocation,"joblog.log");
-                //hostedJobInfo.LogPath = Path.Combine(workerargs.InputPathLocation, "joblog.log");
+                          
+                //end of unchecked requirements stuff that causes problems           
+
                 jobLogConfig = GetJobLogConfig(hostedJobInfo.LogPath, "WebAPI" + workerargs.JobName + "_" + hostedJobInfo.Id);
                 var jobLogger = jobLogConfig.Item3;
                 if (jobLogger.IsEnabled(LogLevel.Information))
@@ -524,7 +527,7 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     IgnoreExtensions = new List<string>() { ".dat", ".db" },
                     IndexNamePrefix = $"test{rnd}",
                     InputPathLocation = $"d:\\",
-                    InputEvents = new List<InputPathEventStream>() {new InputPathEventStream(){
+                    InputPaths = new List<InputPathEventStream>() {new InputPathEventStream(){
                         IsDir = true,
                         Path = "c:\\archive",
                         PathFrom = "c:\\production",
@@ -553,9 +556,11 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
                     IgnoreExtensions = new List<string>() { ".dat", ".db" },
                     IndexNamePrefix = $"test{rnd}",
                     InputPathLocation = $"d:\\",
-                    InputCrawls = new List<InputPathBase>() {new InputPathBase(){
+                    InputPaths = new List<InputPathEventStream>() {new InputPathEventStream(){
                         Path = "c:\\archive"
                        ,Office = "tor"
+                       ,PresenceAction= ActionPresence.None
+                       ,ContentAction= ActionContent.Write
                             }
                     },
                     PublishedPath = "c:\\",

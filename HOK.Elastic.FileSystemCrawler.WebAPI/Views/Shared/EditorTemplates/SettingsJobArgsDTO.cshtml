@@ -38,34 +38,27 @@
             <div class="form-row">
                 <div class="card border border-primary rounded-sm px-3">
                     <div class="card-body">
-                        <h2 class="card-title">Input Path Events</h2>
+                        <h2 class="card-title">Input Path</h2>
                         <button class="btn btn-outline-secondary" type="submit" name="command" value="addevent">Add</button>
-                        @Html.EditorFor(z=>z.InputEvents)
-                    </div>
-                </div>
-                <div class="card border border-primary rounded-sm px-3">
-                    <div class="card-body">
-                        <h2 class="card-title">Input Path Crawls</h2>
-                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addcrawl">Add</button>
-                        @Html.EditorFor(z=>z.InputCrawls)
+                        <button class="btn btn-outline-secondary" type="submit" name="command" value="clearevents">Clear</button>
+                        @Html.EditorFor(z=>z.InputPaths)
                     </div>
                 </div>
             </div>
-            <div class="form-row">
-                <div class="card border border-primary rounded-sm px-3">
-                    <div class="card-body">
-                        <h2 class="card-title">Elastic Ingest Nodes</h2>
-                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addelasticindex">Add</button>
-                        @Html.EditorFor(z=>z.ElasticIndexURI)
-                    </div>
-                </div>
-                <div class="card border border-primary rounded-sm px-3">
-                    <div class="card-body">
-                        <h2 class="card-title">Elastic Discovery Nodes</h2>
-                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addelasticdiscovery">Add</button>
-                        @Html.EditorFor(z=>z.ElasticDiscoveryURI)
-                    </div>
-                </div>
+            <div class="form-group">
+                <label asp-for="PathForCrawling" class="control-label"></label>
+                <input asp-for="PathForCrawling" class="form-control" />
+                <span asp-validation-for="PathForCrawling" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PathForCrawlingContent" class="control-label"></label>
+                <input asp-for="PathForCrawlingContent" class="form-control" />
+                <span asp-validation-for="PathForCrawlingContent" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label asp-for="PublishedPath" class="control-label"></label>
+                <input asp-for="PublishedPath" class="form-control" />
+                <span asp-validation-for="PublishedPath" class="text-danger"></span>
             </div>
             <div class="form-group">
                 <label asp-for="PathInclusionRegex" class="control-label"></label>
@@ -94,6 +87,23 @@
                 <span asp-validation-for="PipeCategorizationRegex" class="text-danger"></span>
             </div>
             <div class="form-row">
+                <div class="card border border-primary rounded-sm px-3">
+                    <div class="card-body">
+                        <h2 class="card-title">Elastic Ingest Nodes</h2>
+                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addelasticindex">Add</button>
+                        @Html.EditorFor(z=>z.ElasticIndexURI)
+                    </div>
+                </div>
+                <div class="card border border-primary rounded-sm px-3">
+                    <div class="card-body">
+                        <h2 class="card-title">Elastic Discovery Nodes</h2>
+                        <button class="btn btn-outline-secondary" type="submit" name="command" value="addelasticdiscovery">Add</button>
+                        @Html.EditorFor(z=>z.ElasticDiscoveryURI)
+                    </div>
+                </div>
+            </div>
+     
+            <div class="form-row">
                 <div class="form-group">
                     <label asp-for="CrawlThreads" class="control-label"></label>
                     <input asp-for="CrawlThreads" class="form-control" />
@@ -116,38 +126,12 @@
                     <input asp-for="CPUCoreThreadMultiplier" class="form-control" />
                     <span asp-validation-for="CPUCoreThreadMultiplier" class="text-danger"></span>
                 </div>
-            </div>
-            <div class="form-group form-check">
-                <label class="form-check-label">
-                    <input class="form-check-input" asp-for="RunningInteractively" /> @Html.DisplayNameFor(model => model.RunningInteractively)
-                </label>
-            </div>
-            <div class="form-group">
-                <label asp-for="InputPathLocation" class="control-label"></label>
-                <input asp-for="InputPathLocation" class="form-control" />
-                <span asp-validation-for="InputPathLocation" class="text-danger"></span>
-            </div>
+            </div>           
             <div class="form-group">
                 <label asp-for="JsonQueryString" class="control-label"></label>
                 <input asp-for="JsonQueryString" class="form-control" />
                 <span asp-validation-for="JsonQueryString" class="text-danger"></span>
             </div>
-            <div class="form-group">
-                <label asp-for="PathForCrawling" class="control-label"></label>
-                <input asp-for="PathForCrawling" class="form-control" />
-                <span asp-validation-for="PathForCrawling" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="PathForCrawlingContent" class="control-label"></label>
-                <input asp-for="PathForCrawlingContent" class="form-control" />
-                <span asp-validation-for="PathForCrawlingContent" class="text-danger"></span>
-            </div>
-            <div class="form-group">
-                <label asp-for="PublishedPath" class="control-label"></label>
-                <input asp-for="PublishedPath" class="form-control" />
-                <span asp-validation-for="PublishedPath" class="text-danger"></span>
-            </div>
-
             <div class="form-group">
                 <label asp-for="ExceptionsPerTenMinuteIntervalLimit" class="control-label"></label>
                 <input asp-for="ExceptionsPerTenMinuteIntervalLimit" class="form-control" />

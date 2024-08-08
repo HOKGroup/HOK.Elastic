@@ -14,6 +14,9 @@ namespace HOK.Elastic.FileSystemCrawler.Models
         public bool RunningInteractively { get; set; } = true;
         public string JobNotes { get; set; } = "None Provided";
         public virtual string JobName { get; set; } = "Default";
+        /// <summary>
+        /// Directory where persist file is written to.
+        /// </summary>
         public string InputPathLocation { get; set; }
         public string JsonQueryString { get; set; }
     }
