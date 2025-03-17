@@ -142,6 +142,7 @@ public class FileSystemCrawlerFixture : IDisposable
     public void Dispose()
     {
         // called once after all tests
+        // TODO: Cleanup tempPath and indices
         //File.Delete(tempPath);
     }
 
@@ -156,9 +157,9 @@ public class FileSystemCrawlerFixture : IDisposable
     public WorkerCrawler worker { get; private set; }
 }
 
-public class FilesystemCrawlTest: IClassFixture<FileSystemCrawlerFixture> {
+public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture> {
     public FileSystemCrawlerFixture fixture;
-    public FilesystemCrawlTest(FileSystemCrawlerFixture fixture)
+    public FileSystemCrawlTests(FileSystemCrawlerFixture fixture)
     {
         this.fixture = fixture;
     }
