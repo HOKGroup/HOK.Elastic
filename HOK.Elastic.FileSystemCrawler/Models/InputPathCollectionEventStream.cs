@@ -31,7 +31,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
                 }
             }
         }
-        public new void Add(InputPathEventStream newItem)
+        public void Add(InputPathEventStream newItem)
         {
             if (newItem == null) return;
 

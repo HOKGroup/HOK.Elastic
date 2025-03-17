@@ -20,8 +20,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
-using HOK.Elastic.Logger;
-using System.Collections.Generic;
 
 namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
 {

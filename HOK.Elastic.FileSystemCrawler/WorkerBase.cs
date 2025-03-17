@@ -66,7 +66,7 @@ namespace HOK.Elastic.FileSystemCrawler
         public abstract CompletionInfo Run(ISettingsJobArgs args, CancellationToken ct = default);
         public abstract Task<CompletionInfo> RunAsync(ISettingsJobArgs args, CancellationToken ct = default);
 
-        internal List<FSOdirectory> GetDirectoriesFromInputPaths(List<InputPathBase> setofPaths, ISettingsJobArgs args)///TODO why not just use args.inputpaths?
+        public List<FSOdirectory> GetDirectoriesFromInputPaths(List<InputPathBase> setofPaths, ISettingsJobArgs args)///TODO why not just use args.inputpaths?
         {
              var inputs = new List<FSOdirectory>();
             foreach (var item in setofPaths)

@@ -65,7 +65,6 @@ namespace HOK.Elastic.DAL
 
             int pageSize = 1000;
             int docCount = 0;
-            var lastCheck = 0;
             var parallelOptions = new ParallelOptions { MaxDegreeOfParallelism = 50 };
             bool exit = false;
             bool firstTimePITUsed = true;
@@ -614,7 +613,6 @@ namespace HOK.Elastic.DAL
         /// <returns></returns>
         public IEnumerable<T> GetIFSOdocumentsLackingContentV2<T>(string directoryPublishedPath, int failureCountFilter, DateTime? minimumDate = null) where T : class, IFSOdocument
         {
-            int counter = 0;
             long docCount = 0;
             PointInTimeDescriptor pointInTime = null;
             string pitID = null;
