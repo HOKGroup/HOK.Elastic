@@ -39,6 +39,7 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
         //Main Entry Point
         static async Task<int> Main(string[] args)
         {
+
             ///not sure if this is actually needed here or in the msgreader library but it's all working currently...
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             int exitcode = 1;

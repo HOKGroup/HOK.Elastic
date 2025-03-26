@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Nest;
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace HOK.Elastic.DAL
 {
@@ -174,7 +175,8 @@ namespace HOK.Elastic.DAL
         /// example "^\\\\\\\\contoso\\\\projects\\\\.*?\\\\[a-z]\\s?\\-\\s?(?<category>.*?)\\\\",
         /// </summary>
         private PutPipelineResponse PutPipeCategoryProject()
-        {   
+        {
+           
             PutPipelineResponse response = client.Ingest
             .PutPipeline(PipeLineNameHelper.PIPECategorizationProject, p => p
                 .Description("Pipeline to assign Category based on filepath.")
@@ -182,7 +184,8 @@ namespace HOK.Elastic.DAL
                         .Grok<FSO>(g=> g
                             .Field(f=>f.Id)
                             .PatternDefinitions(pd => pd.Add("CATEGORYPATTERN", PipeLineNameHelper.PIPECategorizationProjectExtractRgx))
-                            .Patterns("%{CATEGORYPATTERN:category}")
+                             //.Patterns("%{CATEGORYPATTERN:category}")
+                              .Patterns("%{CATEGORYPATTERN}")
                             .IgnoreFailure(true)
                             .IgnoreMissing(true)
                             )

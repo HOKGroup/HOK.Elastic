@@ -52,6 +52,11 @@ namespace HOK.Elastic.FileSystemCrawler
         /// <returns></returns>
         public override async Task<CompletionInfo> RunAsync(ISettingsJobArgs args, CancellationToken ct)
         {
+            _deleted = 0;
+            _filesmatched = 0;
+            _filesskipped = 0;
+            _filesnotfound = 0;
+            _dircount = 0;
             _ct = ct;
             _args = args;
             int boundedCapacity;

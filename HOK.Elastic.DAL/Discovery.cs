@@ -131,6 +131,7 @@ namespace HOK.Elastic.DAL
                 catch (Exception ex)
                 {
                     if (ilerror) _il.LogErr($"Unexpected Error in {nameof(FindRootAndChildren)} because {ex.Message}", "",null,ex );
+                    exit = true;
                 }
             }
             return directoryContents;
