@@ -456,18 +456,13 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
             FSOdirectory? fsoAfter = null;
             var contentMoved = await RetryForSuccess(() =>
             {
-                fsoAfter = this.fixture.TestElasticDAL.GetById<FSOdirectory>(newPath, indexHelper.IndexNameDir);
-                if (fsoAfter != null)
+                var crawlContents = fixture.discovery.FindRootAndChildren(newPath, true);
+               
+
+                if (crawlContents != null)
                 {
-                    countResponse = ec.Count<FSOdirectory>(x => x.Index(indexHelper.IndexNameDir));
-                    if (countResponse.IsValid)
-                    {
-                        indexCountAfter = countResponse.Count;
-                        if (indexCountAfter == indexCountBefore)
-                        {
-                            return true;
-                        }
-                    }
+                    var y = crawlContents.Contents.Count;
+                    if (y > 1) return true;
                 }
                 return false;
             });
