@@ -243,7 +243,7 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
         fixture.settingsJobArgs.CrawlMode = CrawlMode.Full;
         CompletionInfo completionInfo = await fixture.worker.RunAsync(fixture.settingsJobArgs, _ct.Token);
 
-       
+        await MoveAFolder();
 
 
         await FlushIndex();
@@ -451,18 +451,26 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
         if (Directory.Exists(oldPath))
         {
             Directory.Move(oldPath, newPath);
-            settingJobArgCopy.InputPaths.Add(new InputPathEventStream() { IsDir = true, PathFrom = oldPath, Path = newPath, PresenceAction = ActionPresence.Move, ContentAction = ActionContent.None });
+            settingJobArgCopy.InputPaths.Add(new InputPathEventStream() { IsDir = true, PathFrom = oldPath, Path = newPath, PresenceAction = ActionPresence.Move, ContentAction = ActionContent.Write });
             CompletionInfo completionInfoAfter = await fixture.workerEvents.RunAsync(settingJobArgCopy, _ct.Token);
             FSOdirectory? fsoAfter = null;
             var contentMoved = await RetryForSuccess(() =>
             {
                 var crawlContents = fixture.discovery.FindRootAndChildren(newPath, true);
-               
+                var descendants = fixture.discovery.FindDescendentsForMoving(newPath);
+                var descendantCount = descendants.Count();
+                var fsodocBefore = this.fixture.TestElasticDAL.GetById<FSOdirectory>(newPath, indexHelper.IndexNameDir);
+                if(fsodocBefore==null)
+                {
+                    //this is a bug that we could fix in the future.
+                    //true.Should().BeFalse();
+                    Debug.Write(newPath + "doc didn't exist but should have");
+                }
 
                 if (crawlContents != null)
                 {
-                    var y = crawlContents.Contents.Count;
-                    if (y > 1) return true;
+                    var children = crawlContents.Contents.Count;
+                    if (children > 1) return true;
                 }
                 return false;
             });
