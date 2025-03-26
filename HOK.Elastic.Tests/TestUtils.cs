@@ -21,13 +21,15 @@ public class TestUtils
         //{
         //    File.Copy(newPath, newPath.Replace(sourcePath, targetPath), true);
         //}
+        if (sourcePath.EndsWith("\\")) sourcePath = sourcePath.Substring(0, sourcePath.Length - 1);
+        if (targetPath.EndsWith("\\")) targetPath = targetPath.Substring(0, targetPath.Length - 1);
         ProcessStartInfo processStartInfo = new ProcessStartInfo()
         {
             UseShellExecute = true,
             CreateNoWindow = false,
 
             FileName = "cmd.exe",
-            Arguments = $"/k robocopy.exe \"{System.IO.Path.GetDirectoryName(sourcePath)}\" \"{System.IO.Path.GetDirectoryName(targetPath)}\" *.* /e /mir /sec /secfix /r:3 /w:3"
+            Arguments = $"/k robocopy.exe \"{sourcePath}\" \"{targetPath}\" *.* /e /mir /sec /secfix /r:3 /w:3"
         };
 
         var p =Process.Start(processStartInfo);

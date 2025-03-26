@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Security.AccessControl;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Principal;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks.Dataflow;
 using Elasticsearch.Net.Specification.TextStructureApi;
 using FluentAssertions;
@@ -152,6 +153,14 @@ public class FileSystemCrawlerFixture : IDisposable
             _loggerFactory.CreateLogger($"{workerargs.JobName}.WorkerCrawler")
         );
 
+        workerEvents = new WorkerEventStream(
+           index,
+           discovery,
+           securityHelper,
+           documentHelper,
+           _loggerFactory.CreateLogger($"{workerargs.JobName}.WorkerEvents")
+       );
+
         PipeLineNameHelper pipeLineHelper = new PipeLineNameHelper(workerargs.IndexNamePrefix);
 
         using (var initializationPipeline = new InitializationPipeline(pipeLineNameHelper, indexNameHelper, workerargs.ElasticIndexURI.First(), _loggerFactory.CreateLogger($"{workerargs.JobName}.Setup")))
@@ -195,6 +204,7 @@ public class FileSystemCrawlerFixture : IDisposable
     private SecurityHelper securityHelper { get; set; }
     private DocumentHelper documentHelper { get; set; }
     public WorkerCrawler worker { get; private set; }
+    public WorkerEventStream workerEvents { get; private set; }
     public TestElasticDAL TestElasticDAL { get; set; }
 }
 
@@ -232,6 +242,10 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
         //**Full crawl**
         fixture.settingsJobArgs.CrawlMode = CrawlMode.Full;
         CompletionInfo completionInfo = await fixture.worker.RunAsync(fixture.settingsJobArgs, _ct.Token);
+
+       
+
+
         await FlushIndex();
         var path = fixture.worker.GetDirectoriesFromInputPaths(new List<InputPathBase> { fixture.settingsJobArgs.InputPaths.First() }, fixture.settingsJobArgs).First();
         //var path = fixture.settingsJobArgs.InputPaths.First();
@@ -264,7 +278,8 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
         //Delete a file
         await DeleteAFile();
         await MoveAFolder();
-        
+
+
         //**Incremental crawl**
         //-Check doc count, broken down by index
         //-Check doc count as different user with less permissions???
@@ -304,7 +319,7 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
         }
 
         //Delete a file (make a change)
-        FileInfo fi = new FileInfo(Path.Combine(fixture.WorkingPathUNC, "Standard\\F-Specifications\\F7-Other\\!ARCHIVE IN ZIP FILES ONLY.txt").ToLowerInvariant());
+        FileInfo fi = new FileInfo(Path.Combine(fixture.WorkingPathUNC, "F-Specifications\\F7-Other\\!ARCHIVE IN ZIP FILES ONLY.txt").ToLowerInvariant());
         if (fi.Exists)
         {
             fi.Delete();
@@ -351,7 +366,7 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
 
 
         //Change a file (make a change)
-        FileInfo fi = new FileInfo(Path.Combine(fixture.WorkingPathUNC, "Standard\\E-Design\\E6-Models\\_Archive\\!ARCHIVE IN ZIP FILES ONLY.txt").ToLowerInvariant());
+        FileInfo fi = new FileInfo(Path.Combine(fixture.WorkingPathUNC, "E-Design\\E6-Models\\_Archive\\!ARCHIVE IN ZIP FILES ONLY.txt").ToLowerInvariant());
         if (fi.Exists)
         {
             var path = PathHelper.GetPublishedPath(fi.FullName);
@@ -404,7 +419,64 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
     {
         //someday, we can move a folder and incrementalcrawl
         //then move a folder and simulate event crawl and ensure the children all get moved (without requiring incremental crawl to discover new files)
-        true.Should().BeTrue(); 
+        true.Should().BeTrue();
+
+        CancellationTokenSource _ct = fixture.CancellationTokenSource;
+        long indexCountBefore = 0, indexCountAfter = 0;
+
+        await FlushIndex();
+        //**Incremental crawl**
+        fixture.settingsJobArgs.CrawlMode = CrawlMode.Incremental;
+        CompletionInfo completionInfo = await fixture.worker.RunAsync(fixture.settingsJobArgs, _ct.Token);
+
+        await FlushIndex();
+
+        //Index Count Before:
+        var countResponse = ec.Count<FSOdocument>(x => x.Index(indexHelper.IndexNameFsoDoc));
+        if (countResponse.IsValid)
+        {
+            indexCountBefore = countResponse.Count;
+        }
+        //make a copy
+        var json = System.Text.Json.JsonSerializer.Serialize<SettingsJobArgs>(this.fixture.settingsJobArgs);
+        var settingJobArgCopy = System.Text.Json.JsonSerializer.Deserialize<SettingsJobArgs>(json);
+        settingJobArgCopy.InputPaths = new InputPathCollectionEventStream();
+        settingJobArgCopy.InputPaths.PathForCrawling = this.fixture.settingsJobArgs.InputPaths.PathForCrawling;
+        settingJobArgCopy.InputPaths.PathForCrawlingContent = this.fixture.settingsJobArgs.InputPaths.PathForCrawlingContent;
+        settingJobArgCopy.InputPaths.PublishedPath = this.fixture.settingsJobArgs.InputPaths.PublishedPath;
+        settingJobArgCopy.CrawlMode = CrawlMode.EventBased;
+        var newPath = (Path.Combine(fixture.WorkingPathUNC, "G-Engineering2").ToLowerInvariant());
+        var oldPath = (Path.Combine(fixture.WorkingPathUNC, "G-Engineering").ToLowerInvariant());
+        //var newpath = @"C:\developer\VS-Projects\HOK.ElasticRoot\testoffice\projects\2025\25.12345.00 Crawl Test Project\Standard\G-Engineering2";
+        if (Directory.Exists(oldPath))
+        {
+            Directory.Move(oldPath, newPath);
+            settingJobArgCopy.InputPaths.Add(new InputPathEventStream() { IsDir = true, PathFrom = oldPath, Path = newPath, PresenceAction = ActionPresence.Move, ContentAction = ActionContent.None });
+            CompletionInfo completionInfoAfter = await fixture.workerEvents.RunAsync(settingJobArgCopy, _ct.Token);
+            FSOdirectory? fsoAfter = null;
+            var contentMoved = await RetryForSuccess(() =>
+            {
+                fsoAfter = this.fixture.TestElasticDAL.GetById<FSOdirectory>(newPath, indexHelper.IndexNameDir);
+                if (fsoAfter != null)
+                {
+                    countResponse = ec.Count<FSOdirectory>(x => x.Index(indexHelper.IndexNameDir));
+                    if (countResponse.IsValid)
+                    {
+                        indexCountAfter = countResponse.Count;
+                        if (indexCountAfter == indexCountBefore)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                return false;
+            });
+            contentMoved.Should().BeTrue();
+        }
+        else
+        {
+            false.Should().BeTrue("Source directory to move didn't exist?");
+        }
     }
 
 
@@ -430,13 +502,13 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
 
 
         //Delete a file (make a change)
-        FileInfo fi = new FileInfo(Path.Combine(fixture.WorkingPathUNC, "Standard\\E-Design\\E6-Models\\_Archive\\!ARCHIVE IN ZIP FILES ONLY.txt").ToLowerInvariant());
+        FileInfo fi = new FileInfo(Path.Combine(fixture.WorkingPathUNC, "E-Design\\E6-Models\\_Archive\\!ARCHIVE IN ZIP FILES ONLY.txt").ToLowerInvariant());
         if (fi.Exists)
         {
             var path = PathHelper.GetPublishedPath(fi.FullName);
             //this.fixture.TestElasticDAL.
             var fsodocBefore = this.fixture.TestElasticDAL.GetById<FSOdocument>(path, indexHelper.IndexNameFsoDoc);
-            var newPath = Path.Combine(fixture.WorkingPathUNC, "Standard\\F-Specifications\\F7-Other\\!ARCHIVE IN ZIP FILES ONLY.txt").ToLowerInvariant();
+            var newPath = Path.Combine(fixture.WorkingPathUNC, "F-Specifications\\F7-Other\\!ARCHIVE IN ZIP FILES ONLY.txt").ToLowerInvariant();
             if (!File.Exists(newPath))
             {
                 fi.MoveTo(newPath);
