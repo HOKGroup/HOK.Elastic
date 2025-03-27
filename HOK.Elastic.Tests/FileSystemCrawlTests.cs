@@ -53,7 +53,6 @@ public class FileSystemCrawlerFixture : IDisposable
             uri = "https://hok-395vs:9200";
         }
 
-
         var workingPath = $@"{workingPathBase}\{office}\projects\2025\25.12345.00 Crawl Test Project\";
         TestUtils.CopyFilesRecursively(inputPath, workingPath);
         workingPath = $@"{workingPathUnc}\{office}\projects\2025\25.12345.00 Crawl Test Project\";
@@ -85,7 +84,6 @@ public class FileSystemCrawlerFixture : IDisposable
             //FileNameExclusionRegex = jobSettings.FileNameExclusionRegex ?? AppSettings.FileNameExclusionRegex,
             //CrawlMode = jobSettings.CrawlMode, (will do in the test itself)
             //InputPathLocation = jobDirectoryInfo.FullName,
-
             ExceptionsPerTenMinuteIntervalLimit = 100
         };
         DateTime date = DateTime.Now;
@@ -242,10 +240,7 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
         //**Full crawl**
         fixture.settingsJobArgs.CrawlMode = CrawlMode.Full;
         CompletionInfo completionInfo = await fixture.worker.RunAsync(fixture.settingsJobArgs, _ct.Token);
-
         await MoveAFolder();
-
-
         await FlushIndex();
         var path = fixture.worker.GetDirectoriesFromInputPaths(new List<InputPathBase> { fixture.settingsJobArgs.InputPaths.First() }, fixture.settingsJobArgs).First();
         //var path = fixture.settingsJobArgs.InputPaths.First();
@@ -255,17 +250,20 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
         }
 
         // TODO: This path doesn't match what's in Elastic
-        var crawlContents = fixture.discovery.FindRootAndChildren(path.PublishedPath, true);
-        if (crawlContents == null)
-        {
-            await Task.Delay(30000).ConfigureAwait(false);
+        DirectoryContents? crawlContents=null;
+        var oneDeletedTest = await RetryForSuccess(() => {
             crawlContents = fixture.discovery.FindRootAndChildren(path.PublishedPath, true);
-        }
+            if (crawlContents != null)
+            {
+                return true;
+            }
+            return false;
+        });
 
         crawlContents.Should().NotBe(null);
         //-Check doc count, broken down by index
-        var totalDocCount = crawlContents.Contents.Count();
-        var dirCount = crawlContents.Contents.Count(
+        var totalDocCount = crawlContents?.Contents.Count();
+        var dirCount = crawlContents?.Contents.Count(
             x => x.Item2 == $"{fixture.settingsJobArgs.IndexNamePrefix}dir"
         );
 
@@ -296,6 +294,10 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
         if (response.IsValid)
         {
             Debug.Write($"Flushed '{response.Shards.Successful}' shards and failed on '{response.Shards.Failures}'");
+        }
+        else
+        {
+            Debug.Write($"Failed to Flush");
         }
     }
 
@@ -460,13 +462,13 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
                 var descendants = fixture.discovery.FindDescendentsForMoving(newPath);
                 var descendantCount = descendants.Count();
                 var fsodocBefore = this.fixture.TestElasticDAL.GetById<FSOdirectory>(newPath, indexHelper.IndexNameDir);
+                //
                 if(fsodocBefore==null)
                 {
-                    //this is a bug that we could fix in the future.
+                    //This case is a bug (root directory doesn't seem to get moved...it doesn't cause a problem in search as we are generally only interested in files)
                     //true.Should().BeFalse();
                     Debug.Write(newPath + "doc didn't exist but should have");
                 }
-
                 if (crawlContents != null)
                 {
                     var children = crawlContents.Contents.Count;
@@ -575,7 +577,7 @@ public class FileSystemCrawlTests : IClassFixture<FileSystemCrawlerFixture>
             }
             else
             {
-                await Task.Delay(10000);
+                await Task.Delay(10000);//retry again in 10 seconds.
             }
         }
         return false;
