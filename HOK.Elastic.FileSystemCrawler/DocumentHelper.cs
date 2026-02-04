@@ -203,7 +203,7 @@ namespace HOK.Elastic.FileSystemCrawler
                             fsoEmail.To = recipientsList;
                             recipientsList.AddRange(recipientsCc.Split(';').Where(x => !string.IsNullOrEmpty(x)).Select(x => x.Trim().ToLowerInvariant()));
                             fsoEmail.AllRecipients = recipientsList.Distinct().ToList();
-                            fsoEmail.SentUTC = eml.SentOn;
+                            fsoEmail.SentUTC = eml.SentOn?.UtcDateTime;
                             fsoEmail.ConversationIndex = eml.ConversationIndex;
                             fsoEmail.AttachmentNames = eml.GetAttachmentNames();
                             string content;
@@ -223,7 +223,7 @@ namespace HOK.Elastic.FileSystemCrawler
                                 ContentType = "application/vnd.ms-outlook",
                                 Language = "en",//TODO see if we can detect language
                                 Author = eml.Sender.DisplayName,//maybe extract from eml.sender.email 
-                                Date = eml.SentOn,
+                                Date = eml.SentOn?.UtcDateTime,
                                 //Name = eml.SubjectNormalized,//Name is not used by default in the Elastic Tika ingestion engine.
                                 Title = eml.SubjectNormalized,//Elastic Ingest Plugin populates this field by default...we should use the same for compatibility.
                             };
@@ -231,7 +231,7 @@ namespace HOK.Elastic.FileSystemCrawler
                     }
                     catch (Exception ex)
                     {
-                        if (ex is OpenMcdf.CFException)
+                        if (ex is OpenMcdf.FileFormatException)
                         {
                             //these are expected exceptions and so we can just warn
                             if (ilwarn) _il.LogWarn("Error reading email", fsoEmail.PathForCrawlingContent, ex.Message);

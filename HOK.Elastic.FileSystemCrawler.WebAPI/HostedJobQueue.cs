@@ -446,9 +446,10 @@ namespace HOK.Elastic.FileSystemCrawler.WebAPI
             {
                 Name = jobName,
                 FileName = logPath,
-                FileNameKind = NLog.Targets.FilePathKind.Absolute,
+                ArchiveSuffixFormat = "_{1:yyyyMMdd}_{0:00}",
+                //FileNameKind = NLog.Targets.FilePathKind.Absolute,
                 ArchiveAboveSize = 15728640,
-                ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Sequence,
+                //ArchiveNumbering = NLog.Targets.ArchiveNumberingMode.Sequence,
                 Layout = @"${date::universalTime=true:format=yyyy-MM-ddTHH\\:mm\\:ss.fffZ}|${uppercase:${level}}|${logger}|${message} ${exception:format=tostring}"
             };          
             

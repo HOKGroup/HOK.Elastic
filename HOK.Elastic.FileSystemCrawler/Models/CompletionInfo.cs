@@ -2,6 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace HOK.Elastic.FileSystemCrawler.Models
 {
@@ -64,7 +65,7 @@ namespace HOK.Elastic.FileSystemCrawler.Models
                 return TimespanDuration.TotalSeconds;
             }
         }
-
+        [JsonIgnore]
         public Exception LastException { get; internal set; }
 
         public enum ExitCode
