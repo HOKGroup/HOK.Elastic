@@ -20,7 +20,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
-using HOK.Elastic.Logger;
 using System.Collections.Generic;
 
 namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
@@ -29,7 +28,9 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
     partial class Program
     {
         
-
+        /// <summary>
+        /// 
+        /// </summary>
         static ILogger _il;
         static Microsoft.Extensions.Logging.ILoggerFactory _loggerFactory;
 
@@ -60,7 +61,11 @@ namespace HOK.Elastic.FileSystemCrawler.ConsoleProgram
                     var jobDirectoryInfo = new DirectoryInfo(args.First());
                     var builder = new ConfigurationBuilder()
                        .SetBasePath(System.IO.Directory.GetCurrentDirectory())
-                       .AddJsonFile("appsettings.json", optional: false)
+#if DEBUG
+                       .AddJsonFile("appsettingsdev.json", optional: false)
+#else
+                        .AddJsonFile("appsettings.json", optional: false)
+#endif
                        .AddJsonFile(Path.Combine(jobDirectoryInfo.FullName, "jobSettings.json"));
                     ;
                     IConfigurationRoot configuration = builder.Build();
