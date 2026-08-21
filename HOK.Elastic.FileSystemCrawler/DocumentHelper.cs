@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Nest;
 using System;
 using System.Buffers.Text;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -170,7 +171,7 @@ namespace HOK.Elastic.FileSystemCrawler
                 {
                     if (fsoEmail.LengthKB > _readLimitKBEmail)
                     {
-                        fsoEmail.FailureCount = 4;
+                        fsoEmail.FailureCount = 4;//skip ahead to max fail count so we don't try it again.
                         fsoEmail.FailureReason = "Content too large";
                         return fsoEmail;
                     }
@@ -193,40 +194,73 @@ namespace HOK.Elastic.FileSystemCrawler
                         //////Recipients
                         //////justin.bob@example.com; alice.doe@hok.com; dan.siroky@example.com; james.blackader@example.com
                         //////Content body
-                        string filename = fsoEmail.PathForCrawlingContent;
-                        using (MsgReader.Outlook.Storage.Message eml = new MsgReader.Outlook.Storage.Message(filename))
-                        {
-                            fsoEmail.From = eml.GetEmailSender(false, false).ToLowerInvariant();
-                            var recipientsTo = eml.GetEmailRecipients(MsgReader.Outlook.RecipientType.To, false, false);
-                            var recipientsCc = eml.GetEmailRecipients(MsgReader.Outlook.RecipientType.Cc, false, false);
-                            var recipientsList = recipientsTo.Split(';').Select(x => x.Trim().ToLowerInvariant()).ToList();
-                            fsoEmail.To = recipientsList;
-                            recipientsList.AddRange(recipientsCc.Split(';').Where(x => !string.IsNullOrEmpty(x)).Select(x => x.Trim().ToLowerInvariant()));
-                            fsoEmail.AllRecipients = recipientsList.Distinct().ToList();
-                            fsoEmail.SentUTC = eml.SentOn?.UtcDateTime;
-                            fsoEmail.ConversationIndex = eml.ConversationIndex;
-                            fsoEmail.AttachmentNames = eml.GetAttachmentNames();
-                            string content;
-                            if (!string.IsNullOrEmpty(eml.BodyText))
-                            {
-                                content = eml.BodyText;
-                            }
-                            else
-                            {
-                                content = string.Empty;
-                            }
+                        //string filename = fsoEmail.PathForCrawlingContent;
 
-                            fsoEmail.Attachment = new Attachment()
+                        var fileInfo = new FileInfo(fsoEmail.PathForCrawlingContent);
+                        List<string> recipientsTo = new List<string>();
+                        List<string> recipientsCc = new List<string>();
+                        string content = string.Empty;
+                        if(fileInfo.Extension.Equals(".msg"))
+                        {
+                            using (MsgReader.Outlook.Storage.Message eml = new MsgReader.Outlook.Storage.Message(fileInfo.FullName))
                             {
-                                Content = content,
-                                ContentLength = content.Length,
-                                ContentType = "application/vnd.ms-outlook",
-                                Language = "en",//TODO see if we can detect language
-                                Author = eml.Sender.DisplayName,//maybe extract from eml.sender.email 
-                                Date = eml.SentOn?.UtcDateTime,
-                                //Name = eml.SubjectNormalized,//Name is not used by default in the Elastic Tika ingestion engine.
-                                Title = eml.SubjectNormalized,//Elastic Ingest Plugin populates this field by default...we should use the same for compatibility.
-                            };
+                                fsoEmail.From = eml.GetEmailSender(false, false).ToLowerInvariant();
+                                recipientsTo =  eml.GetEmailRecipients(MsgReader.Outlook.RecipientType.To, false, false).Split(";").Distinct().Where(x=> !string.IsNullOrEmpty(x)).ToList();
+                                recipientsCc = eml.GetEmailRecipients(MsgReader.Outlook.RecipientType.Cc, false, false).Split(";").Distinct().Where(x => !string.IsNullOrEmpty(x)).ToList();
+                                fsoEmail.To = recipientsTo;
+                                fsoEmail.AllRecipients = recipientsCc.Where(x => !string.IsNullOrEmpty(x)).Concat(fsoEmail.To).Distinct().ToList();
+                                fsoEmail.SentUTC = eml.SentOn?.UtcDateTime;
+                                fsoEmail.ConversationIndex = eml.ConversationIndex;
+                                fsoEmail.AttachmentNames = eml.GetAttachmentNames();
+                                if (!string.IsNullOrEmpty(eml.BodyText))
+                                {
+                                    content = eml.BodyText;
+                                }
+
+                                fsoEmail.Attachment = new Attachment()
+                                {
+                                    Content = content,
+                                    ContentLength = content.Length,
+                                    ContentType = "application/vnd.ms-outlook",
+                                    Language = "en",//TODO see if we can detect language
+                                    Author = eml.Sender?.DisplayName,//maybe extract from eml.sender.email 
+                                    Date = eml.SentOn?.UtcDateTime,
+                                    //Name = eml.SubjectNormalized,//Name is not used by default in the Elastic Tika ingestion engine.
+                                    Title = eml.SubjectNormalized,//Elastic Ingest Plugin populates this field by default...we should use the same for compatibility.
+                                };
+                            }
+                        }
+                        else
+                        {
+                            var eml = MsgReader.Mime.Message.Load(fileInfo,false,true);
+                            if (eml.Headers != null)
+                            {
+                                recipientsTo.AddRange(eml.Headers.To?.Select(x => x.Raw));
+                                recipientsCc.AddRange(eml.Headers.Cc?.Select(x => x.Raw));
+                                fsoEmail.To = recipientsTo.Where(x=>!string.IsNullOrEmpty(x)).Distinct().ToList();
+                                fsoEmail.AllRecipients = recipientsCc.Where(x => !string.IsNullOrEmpty(x)).Concat(fsoEmail.To).Distinct().ToList();
+                                fsoEmail.From = eml.Headers.From?.Raw;
+                                fsoEmail.Name = eml.Headers.Subject;
+                                fsoEmail.SentUTC = eml.Headers.DateSent.LocalDateTime.ToUniversalTime();
+                                fsoEmail.AttachmentNames = string.Join(",", eml.Attachments?.Select(x => x.FileName).Distinct());
+                                fsoEmail.ConversationIndex = eml.Headers.RawHeaders.Get("Thread-Index")??eml.Headers.MessageId ?? eml.Headers.InReplyTo.First() ?? eml.Headers.References.First();
+                                if (eml.TextBody != null)//looks like html messages also have alternate textbody which is all that we are actually interested in anyways.
+                                {
+                                    var encoding = eml.TextBody.BodyEncoding;
+                                    content = encoding.GetString(eml.TextBody.Body);                                    
+                                }
+                                fsoEmail.Attachment = new Attachment()
+                                {
+                                    Content = content,
+                                    ContentLength = content.Length,
+                                    ContentType = "application/vnd.ms-outlook",
+                                    Language = "en",//TODO see if we can detect language
+                                    Author = eml.Headers.From?.DisplayName,//maybe extract from eml.sender.email 
+                                    Date = fsoEmail.SentUTC,
+                                    //Name = eml.SubjectNormalized,//Name is not used by default in the Elastic Tika ingestion engine.
+                                    Title = eml.Headers.Subject,// eml.SubjectNormalized,//Elastic Ingest Plugin populates this field by default...we should use the same for compatibility.
+                                };
+                            }
                         }
                     }
                     catch (Exception ex)
